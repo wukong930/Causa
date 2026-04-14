@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(corepack --version)",
+      "Bash(npm -v)",
+      "Bash(corepack enable:*)",
+      "Bash(pnpm -v)",
+      "Bash(corepack pnpm:*)",
+      "Read(//Users/ninoo/**)",
+      "Read(//Users/ninoo/.local/**)",
+      "Bash(git init:*)",
+      "Bash(git remote:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
