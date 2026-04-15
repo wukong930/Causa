@@ -6,6 +6,9 @@ import { mockPositionSnapshot } from "@/lib/mockData";
 
 interface StrategyDetailProps {
   strategy: StrategyPoolItem;
+  onStatusChange?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  refresh?: () => void;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -22,7 +25,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function StrategyDetail({ strategy }: StrategyDetailProps) {
+export function StrategyDetail({
+  strategy,
+  onStatusChange,
+  onDelete,
+  refresh,
+}: StrategyDetailProps) {
   const router = useRouter();
   const h = strategy.hypothesis;
   const v = strategy.validation;
@@ -31,6 +39,8 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
   const hasPositions = mockPositionSnapshot.positions.some(
     (p) => p.strategyId === strategy.id
   );
+
+  const isActive = strategy.status === "active" || strategy.status === "approaching_trigger";
 
   return (
     <div className="p-5">
@@ -311,7 +321,7 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
       </Section>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+      <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
         <button
           onClick={() => router.push("/positions")}
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
@@ -342,6 +352,53 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
         >
           查看推荐
         </button>
+
+        {/* Status toggle */}
+        {onStatusChange && (
+          <button
+            onClick={() => onStatusChange(strategy.id)}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
+            style={{
+              background: isActive ? "var(--negative-muted)" : "var(--positive-muted)",
+              color: isActive ? "var(--negative)" : "var(--positive)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {isActive ? (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                </svg>
+                暂停策略
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                启用策略
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Delete */}
+        {onDelete && (
+          <button
+            onClick={() => onDelete(strategy.id)}
+            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded ml-auto transition-colors"
+            style={{
+              background: "transparent",
+              color: "var(--negative)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+            删除
+          </button>
+        )}
       </div>
     </div>
   );

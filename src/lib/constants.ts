@@ -6,6 +6,7 @@ import type {
   StrategyStatus,
   RecommendationStatus,
   RecommendedAction,
+  SpreadModel,
 } from "@/types/domain";
 
 // ─── Alert labels / colors ────────────────────────────────────────────────────
@@ -90,6 +91,16 @@ export const STRATEGY_STATUS_BG: Record<StrategyStatus, string> = {
   paused: "bg-[var(--surface-raised)]",
   watch_only: "bg-[var(--surface-raised)]",
   retired: "bg-[var(--surface-raised)]",
+};
+
+export const SPREAD_MODEL_LABEL: Record<SpreadModel, string> = {
+  calendar_spread: "跨期套利",
+  cross_commodity: "跨品种套利",
+  basis_trade: "基差交易",
+  inter_market: "跨市场套利",
+  triangular: "三角套利",
+  event_driven: "事件驱动",
+  structural: "结构化套利",
 };
 
 // ─── Recommendation labels / colors ──────────────────────────────────────────
