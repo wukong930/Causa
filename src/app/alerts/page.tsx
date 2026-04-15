@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import type { Alert, AlertSeverity, AlertCategory } from "@/types/domain";
-import { getAlerts } from "@/lib/api-client";
+import type { Alert, AlertSeverity, AlertCategory, AlertType } from "@/types/domain";
+import { getAlerts, triggerAlerts } from "@/lib/api-client";
 import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
 import { Drawer } from "@/components/shared/Drawer";
 import { AlertDetail } from "@/components/alerts/AlertDetail";
@@ -116,6 +116,8 @@ export default function AlertsPage() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [triggerDialogOpen, setTriggerDialogOpen] = useState(false);
+  const [triggering, setTriggering] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -124,6 +126,11 @@ export default function AlertsPage() {
       setLoading(false);
     });
   }, []);
+
+  async function refreshAlerts() {
+    const data = await getAlerts();
+    setAlerts(data);
+  }
 
   const filtered = useMemo(() => {
     return alerts
@@ -166,6 +173,30 @@ export default function AlertsPage() {
     setDrawerOpen(true);
   }
 
+  async function handleTrigger(symbol1: string, symbol2: string, category: AlertCategory) {
+    setTriggering(true);
+    try {
+      const result = await triggerAlerts({
+        symbol1,
+        symbol2: symbol2 || undefined,
+        category,
+        window: 20,
+      });
+      if (result) {
+        await refreshAlerts();
+        setTriggerDialogOpen(false);
+        alert(`触发成功：生成 ${result.alerts.length} 条预警，${result.recommendations.length} 条推荐`);
+      } else {
+        alert("触发失败，请检查市场数据");
+      }
+    } catch (err) {
+      console.error("Trigger error:", err);
+      alert("触发失败");
+    } finally {
+      setTriggering(false);
+    }
+  }
+
   // Counts per severity for the stats bar
   const counts = useMemo(() => {
     return ALL_SEVERITIES.reduce(
@@ -192,30 +223,42 @@ export default function AlertsPage() {
             </p>
           </div>
 
-          {/* Stats badges */}
-          <div className="flex items-center gap-2">
-            {ALL_SEVERITIES.map((s) => (
-              counts[s] > 0 ? (
-                <span
-                  key={s}
-                  className="text-xs px-2 py-0.5 rounded font-medium"
-                  style={{
-                    background:
-                      s === "critical" ? "var(--alert-critical-muted)" :
-                      s === "high" ? "var(--alert-high-muted)" :
-                      s === "medium" ? "var(--alert-medium-muted)" :
-                      "var(--alert-low-muted)",
-                    color:
-                      s === "critical" ? "var(--alert-critical)" :
-                      s === "high" ? "var(--alert-high)" :
-                      s === "medium" ? "var(--alert-medium)" :
-                      "var(--alert-low)",
-                  }}
-                >
-                  {counts[s]} {SEVERITY_LABEL[s]}
-                </span>
-              ) : null
-            ))}
+          {/* Trigger button + Stats badges */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setTriggerDialogOpen(true)}
+              className="text-xs px-3 py-1.5 rounded font-medium transition-colors"
+              style={{
+                background: "var(--accent-blue)",
+                color: "#fff",
+              }}
+            >
+              手动触发
+            </button>
+            <div className="flex items-center gap-2">
+              {ALL_SEVERITIES.map((s) => (
+                counts[s] > 0 ? (
+                  <span
+                    key={s}
+                    className="text-xs px-2 py-0.5 rounded font-medium"
+                    style={{
+                      background:
+                        s === "critical" ? "var(--alert-critical-muted)" :
+                        s === "high" ? "var(--alert-high-muted)" :
+                        s === "medium" ? "var(--alert-medium-muted)" :
+                        "var(--alert-low-muted)",
+                      color:
+                        s === "critical" ? "var(--alert-critical)" :
+                        s === "high" ? "var(--alert-high)" :
+                        s === "medium" ? "var(--alert-medium)" :
+                        "var(--alert-low)",
+                    }}
+                  >
+                    {counts[s]} {SEVERITY_LABEL[s]}
+                  </span>
+                ) : null
+              ))}
+            </div>
           </div>
         </div>
 
@@ -357,6 +400,139 @@ export default function AlertsPage() {
           />
         )}
       </Drawer>
+
+      {/* ── Trigger dialog ── */}
+      {triggerDialogOpen && (
+        <TriggerDialog
+          open={triggerDialogOpen}
+          onClose={() => setTriggerDialogOpen(false)}
+          onTrigger={handleTrigger}
+          triggering={triggering}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Trigger Dialog ──────────────────────────────────────────────────────────
+
+function TriggerDialog({
+  open,
+  onClose,
+  onTrigger,
+  triggering,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onTrigger: (symbol1: string, symbol2: string, category: AlertCategory) => void;
+  triggering: boolean;
+}) {
+  const [symbol1, setSymbol1] = useState("RB2506");
+  const [symbol2, setSymbol2] = useState("HC2506");
+  const [category, setCategory] = useState<AlertCategory>("ferrous");
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-lg p-6 w-[480px]"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-base font-semibold mb-4" style={{ color: "var(--foreground)" }}>
+          手动触发预警
+        </h2>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs mb-1.5 block" style={{ color: "var(--foreground-subtle)" }}>
+              合约 1（必填）
+            </label>
+            <input
+              type="text"
+              value={symbol1}
+              onChange={(e) => setSymbol1(e.target.value)}
+              placeholder="例如：RB2506"
+              className="w-full px-3 py-2 rounded text-sm outline-none"
+              style={{
+                background: "var(--surface-overlay)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs mb-1.5 block" style={{ color: "var(--foreground-subtle)" }}>
+              合约 2（可选，用于价差检测）
+            </label>
+            <input
+              type="text"
+              value={symbol2}
+              onChange={(e) => setSymbol2(e.target.value)}
+              placeholder="例如：HC2506"
+              className="w-full px-3 py-2 rounded text-sm outline-none"
+              style={{
+                background: "var(--surface-overlay)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs mb-1.5 block" style={{ color: "var(--foreground-subtle)" }}>
+              品类
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as AlertCategory)}
+              className="w-full px-3 py-2 rounded text-sm outline-none"
+              style={{
+                background: "var(--surface-overlay)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
+            >
+              <option value="ferrous">黑色</option>
+              <option value="nonferrous">有色</option>
+              <option value="energy">能化</option>
+              <option value="agriculture">农产品</option>
+              <option value="overseas">海外</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 mt-6">
+          <button
+            onClick={() => onTrigger(symbol1, symbol2, category)}
+            disabled={!symbol1 || triggering}
+            className="flex-1 px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50"
+            style={{
+              background: "var(--accent-blue)",
+              color: "#fff",
+            }}
+          >
+            {triggering ? "触发中..." : "触发"}
+          </button>
+          <button
+            onClick={onClose}
+            disabled={triggering}
+            className="px-4 py-2 rounded text-sm font-medium transition-colors"
+            style={{
+              background: "var(--surface-overlay)",
+              color: "var(--foreground-muted)",
+            }}
+          >
+            取消
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
