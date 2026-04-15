@@ -16,6 +16,8 @@ import type {
   ExecutionDraft,
   CandidateRequest,
   AccountSnapshot,
+  AlertType,
+  AlertCategory,
 } from "@/types/domain";
 import type { ApiResult } from "@/types/api";
 import { mockAlerts } from "@/mocks/alerts";
@@ -168,6 +170,66 @@ export async function updateAlert(
   const result = await fetchApi<Alert>(`/api/alerts/${id}`, {
     method: "PATCH",
     body: JSON.stringify(data),
+  });
+  if (!result.success) return null;
+  return (result as { data: Alert; success: true }).data;
+}
+
+// ─── Alert Trigger ─────────────────────────────────────────────────────────────
+
+export async function triggerAlerts(params: {
+  symbol1: string;
+  symbol2?: string;
+  alertTypes?: AlertType[];
+  window?: number;
+  category?: AlertCategory;
+}): Promise<{ alerts: Alert[]; recommendations: Recommendation[] } | null> {
+  if (USE_MOCK_DATA) return null;
+
+  const result = await fetchApi<{ alerts: Alert[]; recommendations: Recommendation[] }>(
+    "/api/alerts/trigger",
+    {
+      method: "POST",
+      body: JSON.stringify(params),
+    }
+  );
+  if (!result.success) return null;
+  return (result as { data: { alerts: Alert[]; recommendations: Recommendation[] }; success: true }).data;
+}
+
+export async function createAlert(data: Partial<Alert>): Promise<Alert | null> {
+  if (USE_MOCK_DATA) return null;
+
+  const result = await fetchApi<Alert>("/api/alerts", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!result.success) return null;
+  return (result as { data: Alert; success: true }).data;
+}
+
+export async function expireAlerts(): Promise<{ count: number } | null> {
+  if (USE_MOCK_DATA) return null;
+
+  const result = await fetchApi<{ count: number }>("/api/alerts/expire", {
+    method: "PATCH",
+  });
+  if (!result.success) return null;
+  return (result as { data: { count: number }; success: true }).data;
+}
+
+export async function invalidateAlert(
+  id: string,
+  reason: string
+): Promise<Alert | null> {
+  if (USE_MOCK_DATA) return null;
+
+  const result = await fetchApi<Alert>(`/api/alerts/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status: "archived",
+      invalidationReason: reason,
+    }),
   });
   if (!result.success) return null;
   return (result as { data: Alert; success: true }).data;
