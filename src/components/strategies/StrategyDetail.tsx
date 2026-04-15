@@ -1,6 +1,8 @@
 import type { StrategyPoolItem } from "@/types/domain";
 import { STRATEGY_STATUS_LABEL } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { mockPositionSnapshot } from "@/mocks/positions";
 
 interface StrategyDetailProps {
   strategy: StrategyPoolItem;
@@ -21,8 +23,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function StrategyDetail({ strategy }: StrategyDetailProps) {
+  const router = useRouter();
   const h = strategy.hypothesis;
   const v = strategy.validation;
+
+  // Check if this strategy has active positions
+  const hasPositions = mockPositionSnapshot.positions.some(
+    (p) => p.strategyId === strategy.id
+  );
 
   return (
     <div className="p-5">
@@ -301,6 +309,40 @@ export function StrategyDetail({ strategy }: StrategyDetailProps) {
           )}
         </div>
       </Section>
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+        <button
+          onClick={() => router.push("/positions")}
+          className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
+          style={{
+            background: hasPositions ? "var(--accent-blue)" : "var(--surface-overlay)",
+            color: hasPositions ? "#fff" : "var(--foreground-muted)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          查看持仓
+          {hasPositions && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded-full ml-1"
+              style={{ background: "rgba(255,255,255,0.2)" }}
+            >
+              {mockPositionSnapshot.positions.filter((p) => p.strategyId === strategy.id).length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => router.push("/recommendations")}
+          className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
+          style={{
+            background: "var(--surface-overlay)",
+            color: "var(--foreground-muted)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          查看推荐
+        </button>
+      </div>
     </div>
   );
 }

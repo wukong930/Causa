@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { mockRecommendations } from "@/mocks/recommendations";
+import { mockRecommendations as initialRecommendations } from "@/mocks/recommendations";
 import type { Recommendation, RecommendationStatus } from "@/types/domain";
 import {
   RECOMMENDATION_STATUS_LABEL,
@@ -38,9 +38,13 @@ function FilterPill({
 function RecommendationCard({
   rec,
   onClick,
+  onConfirm,
+  onDefer,
 }: {
   rec: Recommendation;
   onClick: () => void;
+  onConfirm: (id: string) => void;
+  onDefer: (id: string) => void;
 }) {
   return (
     <button
@@ -100,14 +104,14 @@ function RecommendationCard({
           <button
             className="flex-1 text-sm py-2 rounded-lg font-medium"
             style={{ background: "var(--positive)", color: "#fff" }}
-            onClick={(e) => { e.stopPropagation(); /* TODO */ }}
+            onClick={(e) => { e.stopPropagation(); onConfirm(rec.id); }}
           >
             确认执行
           </button>
           <button
             className="text-sm px-3 py-2 rounded-lg"
             style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}
-            onClick={(e) => { e.stopPropagation(); /* TODO */ }}
+            onClick={(e) => { e.stopPropagation(); onDefer(rec.id); }}
           >
             延后
           </button>
@@ -119,8 +123,12 @@ function RecommendationCard({
 
 function RecommendationDetail({
   rec,
+  onConfirm,
+  onDefer,
 }: {
   rec: Recommendation;
+  onConfirm?: (id: string) => void;
+  onDefer?: (id: string) => void;
 }) {
   return (
     <div className="p-5">
@@ -265,6 +273,33 @@ function RecommendationDetail({
           </>
         )}
       </div>
+
+      {/* Actions */}
+      {rec.status === "pending" && (
+        <div className="flex gap-2 pt-4 mt-4 border-t" style={{ borderColor: "var(--border)" }}>
+          <button
+            onClick={() => { onConfirm?.(rec.id); }}
+            className="flex-1 text-sm py-2.5 rounded-lg font-medium"
+            style={{ background: "var(--positive)", color: "#fff" }}
+          >
+            确认执行
+          </button>
+          <button
+            onClick={() => { onDefer?.(rec.id); }}
+            className="text-sm px-4 py-2.5 rounded-lg"
+            style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}
+          >
+            延后
+          </button>
+          <button
+            onClick={() => {}}
+            className="text-sm px-4 py-2.5 rounded-lg"
+            style={{ background: "transparent", color: "var(--foreground-subtle)", border: "1px solid var(--border)" }}
+          >
+            忽略
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -279,19 +314,32 @@ const ALL_STATUSES: RecommendationStatus[] = [
 ];
 
 export default function RecommendationsPage() {
+  const [recommendations, setRecommendations] = useState(initialRecommendations);
   const [statusFilter, setStatusFilter] = useState<RecommendationStatus[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  function handleConfirm(id: string) {
+    setRecommendations((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "confirmed" as RecommendationStatus } : r))
+    );
+  }
+
+  function handleDefer(id: string) {
+    setRecommendations((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "deferred" as RecommendationStatus } : r))
+    );
+  }
+
   const filtered = useMemo(() => {
-    return mockRecommendations.filter((r) => {
+    return recommendations.filter((r) => {
       if (statusFilter.length > 0 && !statusFilter.includes(r.status)) return false;
       return true;
     });
-  }, [statusFilter]);
+  }, [recommendations, statusFilter]);
 
   const selectedRec = selectedId
-    ? mockRecommendations.find((r) => r.id === selectedId)
+    ? recommendations.find((r) => r.id === selectedId)
     : null;
 
   function toggleStatus(s: RecommendationStatus) {
@@ -309,11 +357,11 @@ export default function RecommendationsPage() {
     return ALL_STATUSES.reduce(
       (acc, s) => ({
         ...acc,
-        [s]: mockRecommendations.filter((x) => x.status === s).length,
+        [s]: recommendations.filter((x) => x.status === s).length,
       }),
       {} as Record<RecommendationStatus, number>
     );
-  }, []);
+  }, [recommendations]);
 
   return (
     <div className="flex flex-col h-full">
@@ -386,6 +434,8 @@ export default function RecommendationsPage() {
                 key={rec.id}
                 rec={rec}
                 onClick={() => openRec(rec.id)}
+                onConfirm={handleConfirm}
+                onDefer={handleDefer}
               />
             ))}
           </div>
@@ -398,7 +448,13 @@ export default function RecommendationsPage() {
         title="推荐详情"
         width="560px"
       >
-        {selectedRec && <RecommendationDetail rec={selectedRec} />}
+        {selectedRec && (
+          <RecommendationDetail
+            rec={selectedRec}
+            onConfirm={handleConfirm}
+            onDefer={handleDefer}
+          />
+        )}
       </Drawer>
     </div>
   );

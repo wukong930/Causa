@@ -1,7 +1,12 @@
+"use client";
+
 import type { Alert } from "@/types/domain";
 import { ALERT_STATUS_LABEL, ALERT_TYPE_LABEL } from "@/lib/constants";
 import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { mockStrategies } from "@/mocks/strategies";
+import { mockRecommendations } from "@/mocks/recommendations";
 
 interface AlertDetailProps {
   alert: Alert;
@@ -68,7 +73,30 @@ export function AlertDetail({
   onEscalate,
   onInvalidate,
 }: AlertDetailProps) {
+  const router = useRouter();
   const si = alert.spreadInfo;
+
+  function handleEscalate() {
+    // Navigate to recommendations page — user can fill in details
+    router.push("/recommendations");
+    onEscalate?.();
+  }
+
+  function handleMoveToStrategy() {
+    // Navigate to strategies page
+    router.push("/strategies");
+    onMoveToStrategy?.();
+  }
+
+  function handleAddToWatch() {
+    // Navigate to research page for now
+    router.push("/research");
+    onAddToWatch?.();
+  }
+
+  function handleInvalidate() {
+    onInvalidate?.();
+  }
 
   return (
     <div className="p-5">
@@ -274,11 +302,11 @@ export function AlertDetail({
       <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
         {alert.status === "active" && (
           <button
-            onClick={onEscalate}
+            onClick={handleEscalate}
             className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
             style={{
-              background: "var(--accent-blue-muted)",
-              color: "var(--accent-blue)",
+              background: "var(--accent-blue)",
+              color: "#fff",
               border: "1px solid var(--accent-blue)",
             }}
           >
@@ -286,7 +314,7 @@ export function AlertDetail({
           </button>
         )}
         <button
-          onClick={onMoveToStrategy}
+          onClick={handleMoveToStrategy}
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
           style={{
             background: "var(--surface-overlay)",
@@ -297,7 +325,7 @@ export function AlertDetail({
           加入策略池
         </button>
         <button
-          onClick={onAddToWatch}
+          onClick={handleAddToWatch}
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
           style={{
             background: "var(--surface-overlay)",
@@ -308,7 +336,7 @@ export function AlertDetail({
           加入关注
         </button>
         <button
-          onClick={onInvalidate}
+          onClick={handleInvalidate}
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded ml-auto transition-colors"
           style={{
             background: "transparent",
