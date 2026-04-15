@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { mockRecommendations as initialRecommendations } from "@/mocks/recommendations";
+import { mockRecommendations as initialRecommendations } from "@/lib/mockData";
 import type { Recommendation, RecommendationStatus } from "@/types/domain";
 import {
   RECOMMENDATION_STATUS_LABEL,

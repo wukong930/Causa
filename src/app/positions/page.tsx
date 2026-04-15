@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { mockPositionSnapshot } from "@/mocks/positions";
-import { mockStrategies } from "@/mocks/strategies";
+import { mockPositionSnapshot, mockStrategies } from "@/lib/mockData";
 import { formatRelativeTime, formatNumber, clsx } from "@/lib/utils";
 import { Drawer } from "@/components/shared/Drawer";
 

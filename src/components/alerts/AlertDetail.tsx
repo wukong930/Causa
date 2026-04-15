@@ -5,8 +5,8 @@ import { ALERT_STATUS_LABEL, ALERT_TYPE_LABEL } from "@/lib/constants";
 import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { mockStrategies } from "@/mocks/strategies";
-import { mockRecommendations } from "@/mocks/recommendations";
+import { mockStrategies, mockRecommendations } from "@/lib/mockData";
+import { getNotificationService } from "@/lib/notifications";
 
 interface AlertDetailProps {
   alert: Alert;
@@ -77,6 +77,17 @@ export function AlertDetail({
   const si = alert.spreadInfo;
 
   function handleEscalate() {
+    // Send Feishu notification
+    try {
+      const notificationService = getNotificationService();
+      notificationService.notifyRecommendationCreated(
+        alert.title,
+        `rec-${Date.now()}`
+      );
+    } catch (error) {
+      console.error("Failed to send notification:", error);
+    }
+
     // Navigate to recommendations page — user can fill in details
     router.push("/recommendations");
     onEscalate?.();

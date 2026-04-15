@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { mockReports, mockHypotheses } from "@/mocks/research";
+import { mockReports, mockHypotheses } from "@/lib/mockData";
 import type { ResearchReport, Hypothesis } from "@/types/domain";
 import { formatRelativeTime } from "@/lib/utils";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { mockStrategies } from "@/mocks/strategies";
+import { mockStrategies } from "@/lib/mockData";
 import type { StrategyPoolItem, StrategyStatus } from "@/types/domain";
 import {
   STRATEGY_STATUS_LABEL,

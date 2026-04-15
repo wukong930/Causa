@@ -1,6 +1,6 @@
 "use client";
 
-import { mockAlerts } from "@/mocks/alerts";
+import { mockAlerts } from "@/lib/mockData";
 
 export function TopBar() {
   const activeAlerts = mockAlerts.filter((a) => a.status === "active");

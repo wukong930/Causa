@@ -2,7 +2,7 @@ import type { StrategyPoolItem } from "@/types/domain";
 import { STRATEGY_STATUS_LABEL } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { mockPositionSnapshot } from "@/mocks/positions";
+import { mockPositionSnapshot } from "@/lib/mockData";
 
 interface StrategyDetailProps {
   strategy: StrategyPoolItem;

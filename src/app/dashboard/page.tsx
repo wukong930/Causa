@@ -1,6 +1,4 @@
-import { mockAlerts } from "@/mocks/alerts";
-import { mockStrategies } from "@/mocks/strategies";
-import { mockRecommendations } from "@/mocks/recommendations";
+import { mockAlerts, mockStrategies, mockRecommendations } from "@/lib/mockData";
 import {
   SEVERITY_LABEL,
   SEVERITY_BG,

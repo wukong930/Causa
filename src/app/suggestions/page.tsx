@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { mockSuggestions } from "@/mocks/suggestions";
+import { mockSuggestions } from "@/lib/mockData";
 import type { Suggestion, SuggestionStatus } from "@/types/domain";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 

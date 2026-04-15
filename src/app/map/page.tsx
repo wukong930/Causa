@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { mockNodes, mockEdges } from "@/mocks/graph";
+import { mockNodes, mockEdges } from "@/lib/mockData";
 import type { CommodityNode, RelationshipEdge, CommodityCluster, RelationshipType } from "@/types/domain";
 import { CATEGORY_LABEL } from "@/lib/constants";
 import { useRouter } from "next/navigation";

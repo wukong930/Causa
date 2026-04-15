@@ -3,7 +3,7 @@ import "./globals.css";
 import { SideNav } from "@/components/shared/SideNav";
 import { MobileNav } from "@/components/shared/MobileNav";
 import { TopBar } from "@/components/shared/TopBar";
-import { mockAlerts } from "@/mocks/alerts";
+import { mockAlerts } from "@/lib/mockData";
 
 export const metadata: Metadata = {
   title: "Causa — 大宗商品智能监控与套利系统",

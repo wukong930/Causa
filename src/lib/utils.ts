@@ -37,3 +37,23 @@ export function severityOrder(severity: AlertSeverity): number {
 export function clsx(...classes: (string | undefined | false | null)[]): string {
   return classes.filter(Boolean).join(" ");
 }
+
+export function formatCurrency(value: number): string {
+  return "¥" + formatNumber(value);
+}
+
+export type DataFreshness = "fresh" | "stale" | "expired";
+
+export function getDataFreshness(lastUpdated: string): DataFreshness {
+  const diff = Date.now() - new Date(lastUpdated).getTime();
+  const minutes = diff / 60000;
+  if (minutes < 30) return "fresh";
+  if (minutes < 120) return "stale";
+  return "expired";
+}
+
+export const DATA_FRESHNESS_LABEL: Record<DataFreshness, string> = {
+  fresh: "数据新鲜",
+  stale: "数据偏旧",
+  expired: "数据过期",
+};

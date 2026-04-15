@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { mockAlerts } from "@/mocks/alerts";
+import { mockAlerts } from "@/lib/mockData";
 import type { Alert, AlertSeverity, AlertCategory } from "@/types/domain";
 import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
 import { Drawer } from "@/components/shared/Drawer";
