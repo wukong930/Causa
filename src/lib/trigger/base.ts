@@ -8,6 +8,8 @@ import type {
   TriggerStep,
 } from "@/types/domain";
 
+export type { SpreadStatistics } from "@/types/domain";
+
 /**
  * Context passed to trigger evaluators
  */

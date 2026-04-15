@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { Alert, AlertSeverity, AlertCategory, AlertType } from "@/types/domain";
 import { getAlerts, triggerAlerts } from "@/lib/api-client";
 import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
@@ -8,6 +8,7 @@ import { Drawer } from "@/components/shared/Drawer";
 import { AlertDetail } from "@/components/alerts/AlertDetail";
 import { formatRelativeTime, formatConfidence, clsx } from "@/lib/utils";
 import { SEVERITY_LABEL, CATEGORY_LABEL } from "@/lib/constants";
+import { useAlertStream } from "@/hooks/use-alert-stream";
 
 // ─── Filter pill ─────────────────────────────────────────────────────────────
 
@@ -118,6 +119,9 @@ export default function AlertsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [triggerDialogOpen, setTriggerDialogOpen] = useState(false);
   const [triggering, setTriggering] = useState(false);
+  const [streamConnected, setStreamConnected] = useState(false);
+  const [newAlertCount, setNewAlertCount] = useState(0);
+  const [lastStreamedAt, setLastStreamedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -126,6 +130,26 @@ export default function AlertsPage() {
       setLoading(false);
     });
   }, []);
+
+  // Handle new alerts from SSE stream
+  const handleNewAlerts = useCallback((newAlerts: Alert[]) => {
+    setAlerts((prev) => {
+      const existingIds = new Set(prev.map((a) => a.id));
+      const unique = newAlerts.filter((a) => !existingIds.has(a.id));
+      if (unique.length === 0) return prev;
+      return [...unique, ...prev];
+    });
+    setNewAlertCount((c) => c + newAlerts.length);
+    setLastStreamedAt(new Date());
+  }, []);
+
+  // Subscribe to real-time alert stream
+  useAlertStream({
+    onAlerts: handleNewAlerts,
+    onConnect: () => setStreamConnected(true),
+    onDisconnect: () => setStreamConnected(false),
+    enabled: !loading,
+  });
 
   async function refreshAlerts() {
     const data = await getAlerts();
@@ -223,8 +247,32 @@ export default function AlertsPage() {
             </p>
           </div>
 
-          {/* Trigger button + Stats badges */}
+          {/* Stream status + Trigger button + Stats badges */}
           <div className="flex items-center gap-3">
+            {/* New alerts banner */}
+            {newAlertCount > 0 && (
+              <button
+                onClick={() => setNewAlertCount(0)}
+                className="text-xs px-3 py-1.5 rounded font-medium animate-pulse"
+                style={{
+                  background: "var(--accent-green)",
+                  color: "#fff",
+                }}
+                title="点击消除"
+              >
+                +{newAlertCount} 新预警
+              </button>
+            )}
+            {/* Stream status dot */}
+            <div className="flex items-center gap-1.5" title={streamConnected ? "实时推送已连接" : "实时推送未连接"}>
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{
+                  background: streamConnected ? "#22c55e" : "var(--foreground-subtle)",
+                  boxShadow: streamConnected ? "0 0 6px #22c55e" : "none",
+                }}
+              />
+            </div>
             <button
               onClick={() => setTriggerDialogOpen(true)}
               className="text-xs px-3 py-1.5 rounded font-medium transition-colors"
