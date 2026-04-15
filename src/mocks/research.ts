@@ -17,7 +17,7 @@ export const mockReports: ResearchReport[] = [
 
 **海外**：美元指数小幅走强，有色承压；CBOT 大豆持稳，国内豆系暂无显著传导。`,
     hypotheses: [],
-    relatedSetupIds: ["setup-001", "setup-002", "setup-005"],
+    relatedStrategyIds: ["strat-003", "strat-002", "strat-001"],
     relatedAlertIds: ["alert-001", "alert-002", "alert-003", "alert-004", "alert-005"],
     publishedAt: "2026-04-14T07:00:00Z",
   },
@@ -40,7 +40,7 @@ export const mockReports: ResearchReport[] = [
 
 **失效模式**：本周 4 条预警失效，主因：政策窗口期扰动（2条）、流动性不足无法执行（1条）、信号时间过早（1条）。`,
     hypotheses: [],
-    relatedSetupIds: ["setup-001", "setup-002", "setup-003", "setup-004", "setup-005"],
+    relatedStrategyIds: ["strat-001", "strat-002", "strat-003", "strat-004", "strat-005"],
     relatedAlertIds: ["alert-001", "alert-002"],
     publishedAt: "2026-04-13T18:00:00Z",
   },

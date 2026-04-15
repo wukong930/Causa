@@ -130,7 +130,7 @@ function ReportViewer({ report }: { report: ResearchReport }) {
           关联预警 {report.relatedAlertIds.length} 条
         </span>
         <span>
-          关联策略 {report.relatedSetupIds.length} 个
+          关联策略 {report.relatedStrategyIds.length} 个
         </span>
         <span className="ml-auto">
           发布于 {formatRelativeTime(report.publishedAt)}

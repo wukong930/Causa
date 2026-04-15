@@ -1,15 +1,58 @@
-// ─── Alert ─────────────────────────────────────────────────────────────────
+// ─── Shared primitives ───────────────────────────────────────────────────────
+
+export type Direction = "long" | "short";
+export type SpreadModel =
+  | "calendar_spread"
+  | "cross_commodity"
+  | "basis_trade"
+  | "inter_market"
+  | "triangular"
+  | "event_driven"
+  | "structural";
+
+// ─── Alert ───────────────────────────────────────────────────────────────────
 
 export type AlertSeverity = "critical" | "high" | "medium" | "low";
-export type AlertCategory = "ferrous" | "nonferrous" | "energy" | "agriculture" | "overseas";
-export type AlertStatus = "active" | "acknowledged" | "resolved" | "expired";
+export type AlertCategory =
+  | "ferrous"
+  | "nonferrous"
+  | "energy"
+  | "agriculture"
+  | "overseas";
+export type AlertStatus =
+  | "active"
+  | "acknowledged"
+  | "escalated"
+  | "expired"
+  | "archived";
 export type AlertType =
-  | "spread_deviation"
-  | "event_impact"
+  | "spread_anomaly"
+  | "basis_shift"
+  | "momentum"
+  | "event_driven"
   | "inventory_shock"
-  | "price_dislocation"
-  | "basis_abnormal"
   | "regime_shift";
+
+export interface SpreadInfo {
+  leg1: string;
+  leg2: string;
+  currentSpread: number;
+  historicalMean: number;
+  sigma1Upper: number;
+  sigma1Lower: number;
+  zScore: number;
+  halfLife: number; // days
+  adfPValue: number;
+  unit: string;
+}
+
+export interface TriggerStep {
+  step: number;
+  label: string;
+  description: string;
+  timestamp: string; // ISO 8601
+  confidence: number; // 0–1
+}
 
 export interface Alert {
   id: string;
@@ -21,88 +64,212 @@ export interface Alert {
   status: AlertStatus;
   triggeredAt: string; // ISO 8601
   updatedAt: string;
+  expiresAt?: string;
   confidence: number; // 0–1
   relatedAssets: string[];
   spreadInfo?: SpreadInfo;
   triggerChain: TriggerStep[];
-  suggestion?: string;
-  invalidationCondition: string;
-  historicalSimilarIds?: string[];
   riskItems: string[];
   manualCheckItems: string[];
+  // lifecycle linkage
+  relatedStrategyId?: string;
+  relatedRecommendationId?: string;
+  relatedResearchId?: string;
+  invalidationReason?: string;
 }
 
-export interface SpreadInfo {
-  leg1: string;
-  leg2: string;
-  currentSpread: number;
-  historicalMean: number;
-  zScore: number;
-  unit: string;
+// ─── SpreadHypothesis ────────────────────────────────────────────────────────
+
+export interface HypothesisLeg {
+  asset: string;       // e.g. "RB2501"
+  direction: Direction;
+  ratio: number;       // position sizing ratio, e.g. 1
+  exchange: string;    // e.g. "SHFE"
 }
 
-export interface TriggerStep {
-  step: number;
-  description: string;
-  evidence?: string;
+export interface SpreadHypothesis {
+  id: string;
+  spreadModel: SpreadModel;
+  legs: HypothesisLeg[];
+  entryThreshold: number;   // z-score threshold to enter
+  exitThreshold: number;    // z-score threshold to exit
+  stopLossThreshold: number;
+  currentZScore: number;
+  halfLife: number;          // days
+  adfPValue: number;
+  hurstExponent?: number;
+  causalConfidence?: number; // 0–1, from DoWhy
+  lastUpdated: string;
 }
 
-// ─── Setup (Candidate Strategy) ────────────────────────────────────────────
+// ─── StrategyPoolItem ────────────────────────────────────────────────────────
 
-export type SetupFamily =
-  | "calendar_spread"
-  | "cross_commodity"
-  | "basis_trade"
-  | "inter_market"
-  | "event_driven"
-  | "structural";
-
-export type SetupStatus =
-  | "watching"
+export type StrategyStatus =
+  | "draft"
+  | "active"
   | "approaching_trigger"
-  | "triggered"
-  | "invalid"
-  | "completed";
+  | "paused"
+  | "watch_only"
+  | "retired";
 
-export interface Setup {
+export interface ValidationMetrics {
+  hitRate: number;         // 0–1
+  sampleCount: number;
+  avgHoldingDays: number;
+  costSpreadRatio: number; // fee / expected spread, lower is better
+  stressLoss: number;      // max drawdown in currency
+  sharpeRatio?: number;
+}
+
+export interface StrategyPoolItem {
   id: string;
   name: string;
-  family: SetupFamily;
-  hypothesisType: string;
-  assets: string[];
-  status: SetupStatus;
-  confidence: number; // 0–1
-  tradability: number; // 0–1
   description: string;
-  entryCondition: string;
-  exitCondition: string;
-  invalidationCondition: string;
-  riskItems: string[];
+  status: StrategyStatus;
+  hypothesis: SpreadHypothesis;
+  validation: ValidationMetrics;
+  // linkages
   relatedAlertIds: string[];
+  recommendationHistory: string[]; // Recommendation ids
+  executionFeedbackIds: string[];
+  // metadata
+  createdAt: string;
+  updatedAt: string;
+  lastActivatedAt?: string;
+  notes?: string;
+}
+
+// ─── Recommendation ──────────────────────────────────────────────────────────
+
+export type RecommendedAction =
+  | "new_open"
+  | "add"
+  | "reduce"
+  | "close"
+  | "hedge"
+  | "replace"
+  | "watchlist_only";
+
+export type RecommendationStatus =
+  | "pending"
+  | "confirmed"
+  | "deferred"
+  | "ignored"
+  | "backfilled"
+  | "expired";
+
+export interface RecommendationLeg {
+  asset: string;
+  direction: Direction;
+  suggestedSize: number;
+  unit: string;
+  entryPriceRef?: number;
+}
+
+export interface Recommendation {
+  id: string;
+  strategyId?: string;
+  alertId?: string;
+  status: RecommendationStatus;
+  recommendedAction: RecommendedAction;
+  legs: RecommendationLeg[];
+  priorityScore: number;         // 0–100
+  portfolioFitScore: number;     // 0–100
+  marginEfficiencyScore: number; // 0–100
+  marginRequired: number;        // currency
+  reasoning: string;             // LangGraph natural language summary
+  riskItems: string[];
+  expiresAt: string;             // ISO 8601
+  createdAt: string;
+  updatedAt: string;
+  deferredUntil?: string;
+  ignoredReason?: string;
+  executionFeedbackId?: string;
+}
+
+// ─── ExecutionFeedback ───────────────────────────────────────────────────────
+
+export type FeedbackLegType = "open" | "close" | "reduce" | "add";
+
+export interface ExecutionFeedbackLeg {
+  asset: string;
+  direction: Direction;
+  type: FeedbackLegType;
+  filledSize: number;
+  filledPrice: number;
+  filledAt: string; // ISO 8601
+  unit: string;
+  commission: number;
+}
+
+export interface ExecutionFeedback {
+  id: string;
+  recommendationId?: string;
+  strategyId?: string;
+  legs: ExecutionFeedbackLeg[];
+  totalMarginUsed: number;
+  totalCommission: number;
+  slippageNote?: string;
+  liquidityNote?: string;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// ─── Suggestion (Semi-auto trade) ──────────────────────────────────────────
+// ─── PositionSnapshot ────────────────────────────────────────────────────────
+
+export interface PositionLeg {
+  asset: string;
+  direction: Direction;
+  size: number;
+  unit: string;
+  entryPrice: number;
+  currentPrice: number;
+  unrealizedPnl: number;
+  marginUsed: number;
+}
+
+export interface PositionGroup {
+  id: string;
+  strategyId?: string;
+  strategyName?: string;
+  recommendationId?: string;
+  legs: PositionLeg[];
+  openedAt: string;
+  entrySpread: number;
+  currentSpread: number;
+  spreadUnit: string;
+  unrealizedPnl: number;
+  totalMarginUsed: number;
+  exitCondition: string;   // human-readable
+  targetZScore: number;    // exit when zScore drops below this
+  currentZScore: number;
+  halfLifeDays: number;
+  daysHeld: number;
+  status: "open" | "closed" | "partially_closed";
+  closedAt?: string;
+  realizedPnl?: number;
+}
+
+export interface AccountSnapshot {
+  netValue: number;
+  availableMargin: number;
+  marginUtilizationRate: number; // 0–1
+  totalUnrealizedPnl: number;
+  todayRealizedPnl: number;
+  snapshotAt: string;
+}
+
+export interface PositionSnapshot {
+  id: string;
+  account: AccountSnapshot;
+  positions: PositionGroup[];
+  updatedAt: string;
+}
+
+// ─── Suggestion (legacy) ───────────────────────────────────────────────────────
 
 export type SuggestionStatus = "pending" | "confirmed" | "deferred" | "dismissed";
-
-export interface Suggestion {
-  id: string;
-  setupId: string;
-  alertId?: string;
-  expression: string; // e.g. "Long RB2505 / Short HC2505"
-  leg1: SuggestionLeg;
-  leg2?: SuggestionLeg;
-  confidence: number;
-  liquidityScore: number; // 0–1
-  executionWindow: string;
-  keyRisks: string[];
-  confirmationChecklist: string[];
-  status: SuggestionStatus;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export interface SuggestionLeg {
   asset: string;
@@ -112,21 +279,26 @@ export interface SuggestionLeg {
   unit?: string;
 }
 
-// ─── Research ───────────────────────────────────────────────────────────────
+export interface Suggestion {
+  id: string;
+  setupId: string;
+  alertId?: string;
+  expression: string;
+  leg1: SuggestionLeg;
+  leg2?: SuggestionLeg;
+  confidence: number;
+  liquidityScore: number;
+  executionWindow: string;
+  keyRisks: string[];
+  confirmationChecklist: string[];
+  status: SuggestionStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Research (demoted auxiliary) ────────────────────────────────────────────
 
 export type ReportType = "daily" | "weekly" | "hypothesis" | "postmortem";
-
-export interface ResearchReport {
-  id: string;
-  type: ReportType;
-  title: string;
-  summary: string;
-  body: string;
-  hypotheses: Hypothesis[];
-  relatedSetupIds: string[];
-  relatedAlertIds: string[];
-  publishedAt: string;
-}
 
 export interface Hypothesis {
   id: string;
@@ -137,9 +309,26 @@ export interface Hypothesis {
   createdAt: string;
 }
 
-// ─── Commodity Graph ────────────────────────────────────────────────────────
+export interface ResearchReport {
+  id: string;
+  type: ReportType;
+  title: string;
+  summary: string;
+  body: string;
+  hypotheses: Hypothesis[];
+  relatedStrategyIds: string[];
+  relatedAlertIds: string[];
+  publishedAt: string;
+}
 
-export type CommodityCluster = "ferrous" | "nonferrous" | "energy" | "agriculture" | "overseas";
+// ─── Commodity Graph (auxiliary) ─────────────────────────────────────────────
+
+export type CommodityCluster =
+  | "ferrous"
+  | "nonferrous"
+  | "energy"
+  | "agriculture"
+  | "overseas";
 export type NodeStatus = "normal" | "warning" | "alert" | "unknown";
 export type RelationshipType =
   | "upstream_downstream"
@@ -162,20 +351,10 @@ export interface CommodityNode {
 
 export interface RelationshipEdge {
   id: string;
-  source: string; // node id
-  target: string; // node id
+  source: string;
+  target: string;
   type: RelationshipType;
   strength: number; // 0–1
   label?: string;
   activeAlertCount: number;
-}
-
-// ─── Watchlist ───────────────────────────────────────────────────────────────
-
-export interface WatchItem {
-  id: string;
-  type: "commodity" | "spread" | "event_type";
-  label: string;
-  description?: string;
-  addedAt: string;
 }

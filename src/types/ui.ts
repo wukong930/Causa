@@ -1,22 +1,21 @@
-import type { AlertSeverity, SetupStatus, AlertCategory } from "./domain";
+import type { AlertSeverity, AlertCategory, StrategyStatus, AlertStatus, RecommendationStatus } from "./domain";
 
 // ─── Navigation ─────────────────────────────────────────────────────────────
 
 export type NavSection =
   | "dashboard"
   | "alerts"
-  | "setups"
+  | "strategies"
+  | "recommendations"
+  | "positions"
   | "research"
-  | "map"
-  | "suggestions"
   | "settings";
 
 export interface NavItem {
   id: NavSection;
   label: string;
-  labelEn: string;
   href: string;
-  icon: string; // icon name
+  icon: string;
   badgeCount?: number;
 }
 
@@ -25,15 +24,20 @@ export interface NavItem {
 export interface AlertFilters {
   severity?: AlertSeverity[];
   category?: AlertCategory[];
-  status?: string[];
+  status?: AlertStatus[];
   search?: string;
 }
 
-export interface SetupFilters {
-  status?: SetupStatus[];
-  family?: string[];
+export interface StrategyFilters {
+  status?: StrategyStatus[];
+  spreadModel?: string[];
   category?: AlertCategory[];
-  minConfidence?: number;
+  search?: string;
+}
+
+export interface RecommendationFilters {
+  status?: RecommendationStatus[];
+  action?: string[];
   search?: string;
 }
 
@@ -50,3 +54,10 @@ export interface HeatmapCell {
 // ─── Time window ─────────────────────────────────────────────────────────────
 
 export type TimeWindow = "1h" | "4h" | "1d" | "3d" | "1w";
+
+// ─── Drawer / Panel state ────────────────────────────────────────────────────
+
+export interface DrawerState<T = string> {
+  open: boolean;
+  selectedId: T | null;
+}

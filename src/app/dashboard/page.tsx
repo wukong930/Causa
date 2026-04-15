@@ -1,22 +1,21 @@
 import { mockAlerts } from "@/mocks/alerts";
-import { mockSetups } from "@/mocks/setups";
-import { mockSuggestions } from "@/mocks/suggestions";
+import { mockStrategies } from "@/mocks/strategies";
+import { mockRecommendations } from "@/mocks/recommendations";
 import {
   SEVERITY_LABEL,
-  SEVERITY_COLOR,
   SEVERITY_BG,
-  SEVERITY_BORDER,
   CATEGORY_LABEL,
-  SETUP_STATUS_LABEL,
-  SETUP_STATUS_COLOR,
+  STRATEGY_STATUS_LABEL,
+  STRATEGY_STATUS_COLOR,
+  RECOMMENDED_ACTION_LABEL,
 } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence, clsx } from "@/lib/utils";
-import type { Alert, Setup, Suggestion } from "@/types/domain";
+import type { StrategyPoolItem, Recommendation } from "@/types/domain";
 import Link from "next/link";
 
 // ─── Alert Card ──────────────────────────────────────────────────────────────
 
-function AlertCard({ alert }: { alert: Alert }) {
+function AlertCard({ alert }: { alert: (typeof mockAlerts)[number] }) {
   return (
     <Link
       href={`/alerts/${alert.id}`}
@@ -35,11 +34,19 @@ function AlertCard({ alert }: { alert: Alert }) {
         borderLeftWidth: "3px",
       }}
     >
-      {/* Header */}
       <div className="flex items-start gap-2 mb-2">
         <span
           className={clsx("text-xs font-semibold px-1.5 py-0.5 rounded shrink-0", SEVERITY_BG[alert.severity])}
-          style={{ color: alert.severity === "critical" ? "var(--alert-critical)" : alert.severity === "high" ? "var(--alert-high)" : alert.severity === "medium" ? "var(--alert-medium)" : "var(--alert-low)" }}
+          style={{
+            color:
+              alert.severity === "critical"
+                ? "var(--alert-critical)"
+                : alert.severity === "high"
+                ? "var(--alert-high)"
+                : alert.severity === "medium"
+                ? "var(--alert-medium)"
+                : "var(--alert-low)",
+          }}
         >
           {SEVERITY_LABEL[alert.severity]}
         </span>
@@ -53,18 +60,12 @@ function AlertCard({ alert }: { alert: Alert }) {
           {formatRelativeTime(alert.triggeredAt)}
         </span>
       </div>
-
-      {/* Title */}
       <div className="text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
         {alert.title}
       </div>
-
-      {/* Summary */}
       <div className="text-xs leading-relaxed" style={{ color: "var(--foreground-muted)" }}>
         {alert.summary}
       </div>
-
-      {/* Footer */}
       <div className="flex items-center gap-3 mt-3">
         <div className="flex gap-1.5">
           {alert.relatedAssets.slice(0, 3).map((a) => (
@@ -85,44 +86,47 @@ function AlertCard({ alert }: { alert: Alert }) {
   );
 }
 
-// ─── Setup Card (compact) ────────────────────────────────────────────────────
+// ─── Strategy Row (compact) ──────────────────────────────────────────────────
 
-function SetupRow({ setup }: { setup: Setup }) {
+function StrategyRow({ strategy }: { strategy: StrategyPoolItem }) {
+  const legs = strategy.hypothesis.legs;
+  const assets = legs.map((l) => l.asset);
   return (
     <Link
-      href={`/setups/${setup.id}`}
+      href={`/strategies/${strategy.id}`}
       className="flex items-center gap-3 py-3 border-b last:border-b-0 hover:brightness-110"
       style={{ borderColor: "var(--border-subtle)" }}
     >
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
-          {setup.name}
+          {strategy.name}
         </div>
         <div className="text-xs mt-0.5 flex items-center gap-2">
-          <span style={{ color: "var(--foreground-subtle)" }}>{setup.hypothesisType}</span>
+          <span style={{ color: "var(--foreground-subtle)" }}>{strategy.hypothesis.spreadModel.replace(/_/g, " ")}</span>
           <span>·</span>
           <span className="flex gap-1">
-            {setup.assets.map((a) => (
+            {assets.map((a) => (
               <span key={a} className="font-mono" style={{ color: "var(--accent-blue)" }}>{a}</span>
             ))}
           </span>
         </div>
       </div>
       <div className="text-right shrink-0">
-        <div className={clsx("text-xs font-medium", SETUP_STATUS_COLOR[setup.status])}>
-          {SETUP_STATUS_LABEL[setup.status]}
+        <div className={clsx("text-xs font-medium", STRATEGY_STATUS_COLOR[strategy.status])}>
+          {STRATEGY_STATUS_LABEL[strategy.status]}
         </div>
         <div className="text-xs mt-0.5" style={{ color: "var(--foreground-subtle)" }}>
-          {formatConfidence(setup.confidence)}
+          Z={strategy.hypothesis.currentZScore > 0 ? "+" : ""}{strategy.hypothesis.currentZScore.toFixed(2)}σ
         </div>
       </div>
     </Link>
   );
 }
 
-// ─── Suggestion Card (compact) ───────────────────────────────────────────────
+// ─── Recommendation Row (compact) ────────────────────────────────────────────
 
-function SuggestionRow({ suggestion }: { suggestion: Suggestion }) {
+function RecommendationRow({ rec }: { rec: Recommendation }) {
+  const assets = rec.legs.map((l) => l.asset).join(" / ");
   return (
     <div
       className="flex items-center gap-3 py-3 border-b last:border-b-0"
@@ -130,10 +134,10 @@ function SuggestionRow({ suggestion }: { suggestion: Suggestion }) {
     >
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium font-mono" style={{ color: "var(--foreground)" }}>
-          {suggestion.expression}
+          {assets}
         </div>
         <div className="text-xs mt-0.5" style={{ color: "var(--foreground-muted)" }}>
-          {suggestion.executionWindow}
+          {RECOMMENDED_ACTION_LABEL[rec.recommendedAction]} · 优先级 {rec.priorityScore}
         </div>
       </div>
       <div className="flex gap-2 shrink-0">
@@ -208,15 +212,15 @@ export default function DashboardPage() {
   const activeAlerts = mockAlerts
     .filter((a) => a.status === "active")
     .sort((a, b) => {
-      const order = { critical: 0, high: 1, medium: 2, low: 3 };
-      return order[a.severity] - order[b.severity];
+      const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+      return (order[a.severity] ?? 9) - (order[b.severity] ?? 9);
     });
 
-  const topSetups = mockSetups
-    .filter((s) => s.status === "triggered" || s.status === "approaching_trigger")
+  const approachingStrategies = mockStrategies
+    .filter((s) => s.status === "approaching_trigger" || s.status === "active")
     .slice(0, 5);
 
-  const pendingSuggestions = mockSuggestions.filter((s) => s.status === "pending");
+  const pendingRecommendations = mockRecommendations.filter((r) => r.status === "pending");
 
   return (
     <div className="flex h-full" style={{ minHeight: 0 }}>
@@ -255,11 +259,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
               实时预警流
             </h2>
-            <Link
-              href="/alerts"
-              className="text-xs"
-              style={{ color: "var(--accent-blue)" }}
-            >
+            <Link href="/alerts" className="text-xs" style={{ color: "var(--accent-blue)" }}>
               查看全部 →
             </Link>
           </div>
@@ -312,9 +312,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Right sidebar ─────────────────────────────────────────── */}
-      <div
-        className="hidden lg:flex flex-col w-[360px] shrink-0 overflow-y-auto p-5 gap-5"
-      >
+      <div className="hidden lg:flex flex-col w-[360px] shrink-0 overflow-y-auto p-5 gap-5">
         {/* Cluster heatmap */}
         <section>
           <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>
@@ -323,14 +321,14 @@ export default function DashboardPage() {
           <ClusterHeatmap />
         </section>
 
-        {/* Pending suggestions */}
-        {pendingSuggestions.length > 0 && (
+        {/* Pending recommendations */}
+        {pendingRecommendations.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                待确认建议
+                待确认推荐
               </h2>
-              <Link href="/suggestions" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+              <Link href="/recommendations" className="text-xs" style={{ color: "var(--accent-blue)" }}>
                 查看全部 →
               </Link>
             </div>
@@ -338,8 +336,8 @@ export default function DashboardPage() {
               className="rounded-lg px-4"
               style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
             >
-              {pendingSuggestions.map((s) => (
-                <SuggestionRow key={s.id} suggestion={s} />
+              {pendingRecommendations.map((r) => (
+                <RecommendationRow key={r.id} rec={r} />
               ))}
             </div>
           </section>
@@ -351,7 +349,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
               机会队列
             </h2>
-            <Link href="/setups" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+            <Link href="/strategies" className="text-xs" style={{ color: "var(--accent-blue)" }}>
               策略池 →
             </Link>
           </div>
@@ -359,8 +357,8 @@ export default function DashboardPage() {
             className="rounded-lg px-4"
             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
           >
-            {topSetups.length > 0 ? (
-              topSetups.map((s) => <SetupRow key={s.id} setup={s} />)
+            {approachingStrategies.length > 0 ? (
+              approachingStrategies.map((s) => <StrategyRow key={s.id} strategy={s} />)
             ) : (
               <p className="text-sm py-4 text-center" style={{ color: "var(--foreground-subtle)" }}>
                 暂无接近触发的策略
