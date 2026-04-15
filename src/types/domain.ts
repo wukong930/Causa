@@ -358,3 +358,79 @@ export interface RelationshipEdge {
   label?: string;
   activeAlertCount: number;
 }
+
+// ─── Market Data Ingestion ────────────────────────────────────────────────────
+
+export interface MarketDataPoint {
+  market: string;        // "SHFE" | "DCE" | "INE" | "CZCE" | "CBOT" | "COMEX" | "NYMEX"
+  exchange: string;
+  commodity: string;     // 品种名
+  symbol: string;        // 合约代码
+  contractMonth: string; // 交割月
+  timestamp: string;     // ISO 8601
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  settle: number;        // 结算价
+  volume: number;
+  openInterest: number;
+  currency: string;      // "CNY" | "USD"
+  timezone: string;
+}
+
+export interface SpreadStatistics {
+  symbol1: string;
+  symbol2: string;
+  window: number;
+  spreadMean: number;
+  spreadStdDev: number;
+  currentZScore: number;
+  halfLife: number;      // days, simple EWM estimate
+  adfPValue: number;     // simplified ADF test p-value
+  sampleCount: number;
+}
+
+// ─── Execution Draft ─────────────────────────────────────────────────────────
+
+export type ExecutionDraftStatus = "draft" | "submitted" | "executed" | "cancelled";
+
+export interface ExecutionDraftLeg {
+  asset: string;
+  direction: Direction;
+  type: "open" | "close" | "reduce" | "add";
+  requestedSize: number;
+  requestedPrice?: number;
+  filledSize?: number;
+  filledPrice?: number;
+  unit: string;
+}
+
+export interface ExecutionDraft {
+  id: string;
+  recommendationId: string;
+  status: ExecutionDraftStatus;
+  legs: ExecutionDraftLeg[];
+  totalMarginUsed: number;
+  totalCommission: number;
+  slippageNote?: string;
+  liquidityNote?: string;
+  notes?: string;
+  createdAt: string;
+  submittedAt?: string;
+  updatedAt: string;
+}
+
+// ─── Candidate Generation ─────────────────────────────────────────────────────
+
+export type CandidateRequestStatus = "pending" | "generated" | "failed";
+
+export interface CandidateRequest {
+  id: string;
+  alertId?: string;
+  strategyId?: string;
+  requestedAt: string;
+  status: CandidateRequestStatus;
+  generatedRecommendationId?: string;
+  failureReason?: string;
+}

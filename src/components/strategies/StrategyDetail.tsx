@@ -2,7 +2,8 @@ import type { StrategyPoolItem } from "@/types/domain";
 import { STRATEGY_STATUS_LABEL } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { mockPositionSnapshot } from "@/lib/mockData";
+import { getPositions } from "@/lib/api-client";
+import { useState, useEffect } from "react";
 
 interface StrategyDetailProps {
   strategy: StrategyPoolItem;
@@ -34,11 +35,15 @@ export function StrategyDetail({
   const router = useRouter();
   const h = strategy.hypothesis;
   const v = strategy.validation;
+  const [strategyPositionCount, setStrategyPositionCount] = useState(0);
 
-  // Check if this strategy has active positions
-  const hasPositions = mockPositionSnapshot.positions.some(
-    (p) => p.strategyId === strategy.id
-  );
+  useEffect(() => {
+    getPositions({ status: "open" }).then((positions) => {
+      setStrategyPositionCount(positions.filter((p) => p.strategyId === strategy.id).length);
+    });
+  }, [strategy.id]);
+
+  const hasPositions = strategyPositionCount > 0;
 
   const isActive = strategy.status === "active" || strategy.status === "approaching_trigger";
 
@@ -337,7 +342,7 @@ export function StrategyDetail({
               className="text-xs px-1.5 py-0.5 rounded-full ml-1"
               style={{ background: "rgba(255,255,255,0.2)" }}
             >
-              {mockPositionSnapshot.positions.filter((p) => p.strategyId === strategy.id).length}
+              {strategyPositionCount}
             </span>
           )}
         </button>

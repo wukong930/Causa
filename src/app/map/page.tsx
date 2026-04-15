@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { mockNodes, mockEdges } from "@/lib/mockData";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import type { CommodityNode, RelationshipEdge, CommodityCluster, RelationshipType } from "@/types/domain";
+import { getCommodityNodes, getRelationshipEdges } from "@/lib/api-client";
 import { CATEGORY_LABEL } from "@/lib/constants";
 import { useRouter } from "next/navigation";
 
@@ -488,28 +488,39 @@ function Legend({
 
 export default function MapPage() {
   const router = useRouter();
+  const [nodes, setNodes] = useState<CommodityNode[]>([]);
+  const [edges, setEdges] = useState<RelationshipEdge[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCluster, setSelectedCluster] = useState<CommodityCluster | null>(null);
   const [selectedNode, setSelectedNode] = useState<CommodityNode | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
+  useEffect(() => {
+    Promise.all([getCommodityNodes(), getRelationshipEdges()]).then(([n, e]) => {
+      setNodes(n);
+      setEdges(e);
+      setLoading(false);
+    });
+  }, []);
+
   const visibleNodes = useMemo(() => {
-    if (selectedCluster === null) return mockNodes;
-    return getClusterNodes(selectedCluster, mockNodes);
-  }, [selectedCluster]);
+    if (selectedCluster === null) return nodes;
+    return getClusterNodes(selectedCluster, nodes);
+  }, [selectedCluster, nodes]);
 
   const visibleEdges = useMemo(() => {
     const nodeIds = new Set(visibleNodes.map((n) => n.id));
-    return mockEdges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
-  }, [visibleNodes]);
+    return edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+  }, [visibleNodes, edges]);
 
   // Compute node positions
   const nodePositions = useMemo(() => {
     const positions: Record<string, { x: number; y: number }> = {};
     CLUSTER_ORDER.forEach((cluster) => {
       const clusterConfig = CLUSTER_CONFIGS[cluster];
-      const nodes = getClusterNodes(cluster, visibleNodes);
-      nodes.forEach((node) => {
-        positions[node.id] = getNodePosition(node, nodes, clusterConfig.cx, clusterConfig.cy);
+      const clusterNodes = getClusterNodes(cluster, visibleNodes);
+      clusterNodes.forEach((node) => {
+        positions[node.id] = getNodePosition(node, clusterNodes, clusterConfig.cx, clusterConfig.cy);
       });
     });
     return positions;
@@ -524,12 +535,12 @@ export default function MapPage() {
   }, [router]);
 
   const stats = useMemo(() => ({
-    totalNodes: mockNodes.length,
-    totalEdges: mockEdges.length,
-    alertNodes: mockNodes.filter((n) => n.status === "alert").length,
-    warningNodes: mockNodes.filter((n) => n.status === "warning").length,
-    totalAlerts: mockNodes.reduce((sum, n) => sum + n.activeAlertCount, 0),
-  }), []);
+    totalNodes: nodes.length,
+    totalEdges: edges.length,
+    alertNodes: nodes.filter((n) => n.status === "alert").length,
+    warningNodes: nodes.filter((n) => n.status === "warning").length,
+    totalAlerts: nodes.reduce((sum, n) => sum + n.activeAlertCount, 0),
+  }), [nodes, edges]);
 
   return (
     <div className="flex flex-col h-full">
@@ -559,7 +570,7 @@ export default function MapPage() {
           {/* Cluster quick stats */}
           <div className="flex items-center gap-2">
             {CLUSTER_ORDER.map((c) => {
-              const count = mockNodes.filter((n) => n.cluster === c).length;
+              const count = nodes.filter((n) => n.cluster === c).length;
               return (
                 <div key={c} className="flex items-center gap-1.5">
                   <div
@@ -578,6 +589,17 @@ export default function MapPage() {
 
       {/* Map canvas */}
       <div className="flex-1 relative overflow-hidden">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center z-20" style={{ background: "var(--surface)" }}>
+            <div className="flex flex-col items-center gap-3">
+              <div
+                className="w-8 h-8 rounded-full border-2"
+                style={{ borderColor: "var(--border)", borderTopColor: "var(--accent-blue)", animation: "spin 0.8s linear infinite" }}
+              />
+              <span className="text-sm" style={{ color: "var(--foreground-muted)" }}>加载市场图谱...</span>
+            </div>
+          </div>
+        )}
         <svg
           width="100%"
           height="100%"
@@ -635,8 +657,8 @@ export default function MapPage() {
 
           {/* Edges */}
           {visibleEdges.map((edge) => {
-            const sourceNode = getNodeById(edge.source, mockNodes);
-            const targetNode = getNodeById(edge.target, mockNodes);
+            const sourceNode = getNodeById(edge.source, nodes);
+            const targetNode = getNodeById(edge.target, nodes);
             if (!sourceNode || !targetNode) return null;
             const sourcePos = nodePositions[edge.source];
             const targetPos = nodePositions[edge.target];
@@ -678,8 +700,8 @@ export default function MapPage() {
         {selectedNode && (
           <NodeDetailPanel
             node={selectedNode}
-            edges={mockEdges}
-            allNodes={mockNodes}
+            edges={edges}
+            allNodes={nodes}
             onClose={() => setSelectedNode(null)}
             onNavigate={handleNavigate}
           />

@@ -1,7 +1,15 @@
 "use client";
 
-import { mockAlerts, mockStrategies, mockRecommendations, mockPositionSnapshot } from "@/lib/mockData";
-import { mockNodes } from "@/mocks/graph";
+import { useState, useEffect } from "react";
+import {
+  getAlerts,
+  getStrategies,
+  getRecommendations,
+  getPositions,
+  getCommodityNodes,
+  getAccountSnapshot,
+} from "@/lib/api-client";
+import type { Alert, StrategyPoolItem, Recommendation, PositionGroup, CommodityNode, AccountSnapshot } from "@/types/domain";
 import {
   SEVERITY_LABEL,
   SEVERITY_BG,
@@ -11,7 +19,6 @@ import {
   RECOMMENDED_ACTION_LABEL,
 } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence, clsx, formatNumber } from "@/lib/utils";
-import type { StrategyPoolItem, Recommendation } from "@/types/domain";
 import Link from "next/link";
 
 // ─── Mock historical data ─────────────────────────────────────────────────────
@@ -242,15 +249,21 @@ const CLUSTER_LABEL: Record<string, string> = {
 };
 
 function CommodityHeatmap() {
+  const [nodes, setNodes] = useState<CommodityNode[]>([]);
+
+  useEffect(() => {
+    getCommodityNodes().then(setNodes);
+  }, []);
+
   const byCluster = CLUSTER_ORDER.reduce(
     (acc, c) => ({
       ...acc,
-      [c]: mockNodes.filter((n) => n.cluster === c),
+      [c]: nodes.filter((n) => n.cluster === c),
     }),
-    {} as Record<string, typeof mockNodes>
+    {} as Record<string, CommodityNode[]>
   );
 
-  const totalAlerts = mockNodes.reduce((sum, n) => sum + n.activeAlertCount, 0);
+  const totalAlerts = nodes.reduce((sum, n) => sum + n.activeAlertCount, 0);
 
   return (
     <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -351,7 +364,7 @@ function CommodityHeatmap() {
 
 // ─── Alert Card ──────────────────────────────────────────────────────────────
 
-function AlertCard({ alert }: { alert: (typeof mockAlerts)[number] }) {
+function AlertCard({ alert }: { alert: Alert }) {
   return (
     <Link
       href={`/alerts/${alert.id}`}
@@ -497,21 +510,45 @@ function RecommendationRow({ rec }: { rec: Recommendation }) {
 // ─── Dashboard Page ──────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const activeAlerts = mockAlerts
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [strategies, setStrategies] = useState<StrategyPoolItem[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [positions, setPositions] = useState<PositionGroup[]>([]);
+  const [accountSnapshot, setAccountSnapshot] = useState<AccountSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      getAlerts(),
+      getStrategies(),
+      getRecommendations(),
+      getPositions(),
+      getAccountSnapshot(),
+    ]).then(([a, s, r, p, acct]) => {
+      setAlerts(a);
+      setStrategies(s);
+      setRecommendations(r);
+      setPositions(p);
+      setAccountSnapshot(acct);
+      setLoading(false);
+    });
+  }, []);
+
+  const activeAlerts = alerts
     .filter((a) => a.status === "active")
     .sort((a, b) => {
       const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
       return (order[a.severity] ?? 9) - (order[b.severity] ?? 9);
     });
 
-  const approachingStrategies = mockStrategies
+  const approachingStrategies = strategies
     .filter((s) => s.status === "approaching_trigger" || s.status === "active")
     .slice(0, 5);
 
-  const pendingRecommendations = mockRecommendations.filter((r) => r.status === "pending");
+  const pendingRecommendations = recommendations.filter((r) => r.status === "pending");
 
-  const account = mockPositionSnapshot.account;
-  const marginPct = Math.round(account.marginUtilizationRate * 100);
+  const account = accountSnapshot;
+  const marginPct = account ? Math.round(account.marginUtilizationRate * 100) : 0;
 
   return (
     <div className="flex h-full" style={{ minHeight: 0 }}>
@@ -619,73 +656,86 @@ export default function DashboardPage() {
         <CommodityHeatmap />
 
         {/* Account status quick look */}
-        <section>
-          <div
-            className="rounded-lg p-4"
-            style={{
-              background: "var(--surface)",
-              border: `1px solid ${
-                account.marginUtilizationRate >= 0.7
-                  ? "var(--alert-critical)"
-                  : account.marginUtilizationRate >= 0.5
-                  ? "var(--alert-high)"
-                  : "var(--border)"
-              }`,
-            }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                账户状态
-              </h3>
-              <Link href="/positions" className="text-xs" style={{ color: "var(--accent-blue)" }}>
-                持仓 →
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>浮动盈亏</div>
+        {account ? (
+          <section>
+            <div
+              className="rounded-lg p-4"
+              style={{
+                background: "var(--surface)",
+                border: `1px solid ${
+                  account.marginUtilizationRate >= 0.7
+                    ? "var(--alert-critical)"
+                    : account.marginUtilizationRate >= 0.5
+                    ? "var(--alert-high)"
+                    : "var(--border)"
+                }`,
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                  账户状态
+                </h3>
+                <Link href="/positions" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+                  持仓 →
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>浮动盈亏</div>
+                  <div
+                    className="text-sm font-semibold font-mono"
+                    style={{ color: account.totalUnrealizedPnl >= 0 ? "var(--positive)" : "var(--negative)" }}
+                  >
+                    {account.totalUnrealizedPnl >= 0 ? "+" : ""}¥{formatNumber(account.totalUnrealizedPnl)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>保证金占用</div>
+                  <div className="text-sm font-semibold font-mono" style={{ color: "var(--foreground)" }}>
+                    {marginPct}%
+                    {marginPct >= 50 && (
+                      <span className="text-xs ml-1" style={{ color: marginPct >= 70 ? "var(--alert-critical)" : "var(--alert-high)" }}>
+                        ⚠
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {/* Margin bar */}
+              <div className="mt-3">
+                <div className="flex justify-between text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>
+                  <span>保证金</span>
+                </div>
                 <div
-                  className="text-sm font-semibold font-mono"
-                  style={{ color: account.totalUnrealizedPnl >= 0 ? "var(--positive)" : "var(--negative)" }}
+                  className="h-2 rounded-full overflow-hidden"
+                  style={{ background: "var(--surface-overlay)" }}
                 >
-                  {account.totalUnrealizedPnl >= 0 ? "+" : ""}¥{formatNumber(account.totalUnrealizedPnl)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>保证金占用</div>
-                <div className="text-sm font-semibold font-mono" style={{ color: "var(--foreground)" }}>
-                  {marginPct}%
-                  {marginPct >= 50 && (
-                    <span className="text-xs ml-1" style={{ color: marginPct >= 70 ? "var(--alert-critical)" : "var(--alert-high)" }}>
-                      ⚠
-                    </span>
-                  )}
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${marginPct}%`,
+                      background:
+                        marginPct >= 70 ? "var(--alert-critical)" :
+                        marginPct >= 50 ? "var(--alert-high)" :
+                        "var(--accent-blue)",
+                    }}
+                  />
                 </div>
               </div>
             </div>
-            {/* Margin bar */}
-            <div className="mt-3">
-              <div className="flex justify-between text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>
-                <span>保证金</span>
-              </div>
-              <div
-                className="h-2 rounded-full overflow-hidden"
-                style={{ background: "var(--surface-overlay)" }}
-              >
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${marginPct}%`,
-                    background:
-                      marginPct >= 70 ? "var(--alert-critical)" :
-                      marginPct >= 50 ? "var(--alert-high)" :
-                      "var(--accent-blue)",
-                  }}
-                />
+          </section>
+        ) : (
+          <section>
+            <div
+              className="rounded-lg p-4 text-center"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+            >
+              <div className="text-sm" style={{ color: "var(--foreground-subtle)" }}>
+                连接账户数据…
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Pending recommendations */}
         {pendingRecommendations.length > 0 && (

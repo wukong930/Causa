@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import { MOBILE_NAV_ITEMS } from "@/lib/constants";
 import { clsx } from "@/lib/utils";
+import { getAlerts } from "@/lib/api-client";
 
 const icons: Record<string, React.ReactNode> = {
   home: (
@@ -46,8 +48,15 @@ const icons: Record<string, React.ReactNode> = {
   ),
 };
 
-export function MobileNav({ alertCount = 0 }: { alertCount?: number }) {
+export function MobileNav() {
   const pathname = usePathname();
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => {
+    getAlerts().then((alerts) => {
+      setAlertCount(alerts.filter((a) => a.status === "active").length);
+    });
+  }, []);
 
   return (
     <nav

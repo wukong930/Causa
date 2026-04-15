@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { mockAlerts } from "@/lib/mockData";
+import { useState, useMemo, useEffect } from "react";
 import type { Alert, AlertSeverity, AlertCategory } from "@/types/domain";
+import { getAlerts } from "@/lib/api-client";
 import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
 import { Drawer } from "@/components/shared/Drawer";
 import { AlertDetail } from "@/components/alerts/AlertDetail";
@@ -109,14 +109,24 @@ const ALL_SEVERITIES: AlertSeverity[] = ["critical", "high", "medium", "low"];
 const ALL_CATEGORIES: AlertCategory[] = ["ferrous", "nonferrous", "energy", "agriculture", "overseas"];
 
 export default function AlertsPage() {
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
   const [severityFilter, setSeverityFilter] = useState<AlertSeverity[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<AlertCategory[]>([]);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  useEffect(() => {
+    setLoading(true);
+    getAlerts().then((data) => {
+      setAlerts(data);
+      setLoading(false);
+    });
+  }, []);
+
   const filtered = useMemo(() => {
-    return mockAlerts
+    return alerts
       .filter((a) => {
         if (severityFilter.length > 0 && !severityFilter.includes(a.severity)) return false;
         if (categoryFilter.length > 0 && !categoryFilter.includes(a.category)) return false;
@@ -135,9 +145,9 @@ export default function AlertsPage() {
         const order: Record<AlertSeverity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
         return order[a.severity] - order[b.severity];
       });
-  }, [severityFilter, categoryFilter, search]);
+  }, [alerts, severityFilter, categoryFilter, search]);
 
-  const selectedAlert = selectedId ? mockAlerts.find((a) => a.id === selectedId) : null;
+  const selectedAlert = selectedId ? alerts.find((a) => a.id === selectedId) : null;
 
   function toggleSeverity(s: AlertSeverity) {
     setSeverityFilter((prev) =>
@@ -159,10 +169,10 @@ export default function AlertsPage() {
   // Counts per severity for the stats bar
   const counts = useMemo(() => {
     return ALL_SEVERITIES.reduce(
-      (acc, s) => ({ ...acc, [s]: mockAlerts.filter((a) => a.severity === s && a.status === "active").length }),
+      (acc, s) => ({ ...acc, [s]: alerts.filter((a) => a.severity === s && a.status === "active").length }),
       {} as Record<AlertSeverity, number>
     );
-  }, []);
+  }, [alerts]);
 
   return (
     <div className="flex flex-col h-full">
@@ -293,7 +303,23 @@ export default function AlertsPage() {
 
       {/* ── Alert list ── */}
       <div className="flex-1 overflow-y-auto pb-16 md:pb-0">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="space-y-0">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="border-b" style={{ borderColor: "var(--border-subtle)" }}>
+                <div className="px-5 py-4 animate-pulse">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-5 w-16 rounded" style={{ background: "var(--surface-overlay)" }} />
+                    <div className="h-5 w-20 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  </div>
+                  <div className="h-4 w-2/3 rounded mb-1" style={{ background: "var(--surface-overlay)" }} />
+                  <div className="h-3 w-full rounded mb-2" style={{ background: "var(--surface-overlay)" }} />
+                  <div className="h-3 w-3/4 rounded" style={{ background: "var(--surface-overlay)" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--foreground-subtle)" }}>
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>

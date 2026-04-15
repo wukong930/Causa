@@ -1,13 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import {
-  mockPositionSnapshot,
-  mockExecutionFeedbacks,
-} from "@/lib/mockData";
+import { useState, useEffect } from "react";
+import { getPositions, getExecutionFeedbacks, getAccountSnapshot } from "@/lib/api-client";
 import { formatRelativeTime, formatNumber } from "@/lib/utils";
 import { Drawer } from "@/components/shared/Drawer";
-import type { ExecutionFeedback } from "@/types/domain";
+import type { PositionGroup, ExecutionFeedback, AccountSnapshot } from "@/types/domain";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -68,8 +65,23 @@ function MarginBar({ rate }: { rate: number }) {
 // ─── Account Summary ─────────────────────────────────────────────────────────
 
 function AccountSummary() {
-  const acc = mockPositionSnapshot.account;
-  const marginUsed = acc.netValue * acc.marginUtilizationRate;
+  const [account, setAccount] = useState<AccountSnapshot | null>(null);
+
+  useEffect(() => {
+    getAccountSnapshot().then(setAccount);
+  }, []);
+
+  if (!account) {
+    return (
+      <div className="mb-6 rounded-lg p-5 animate-pulse" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div className="h-6 w-32 rounded mb-3" style={{ background: "var(--surface-overlay)" }} />
+        <div className="h-8 w-48 rounded mb-4" style={{ background: "var(--surface-overlay)" }} />
+        <div className="h-2 w-full rounded-full" style={{ background: "var(--surface-overlay)" }} />
+      </div>
+    );
+  }
+
+  const marginUsed = account.netValue * account.marginUtilizationRate;
 
   return (
     <div className="mb-6">
@@ -78,9 +90,9 @@ function AccountSummary() {
         style={{
           background: "var(--surface)",
           border: `1px solid ${
-            acc.marginUtilizationRate >= 0.7
+            account.marginUtilizationRate >= 0.7
               ? "var(--alert-critical)"
-              : acc.marginUtilizationRate >= 0.5
+              : account.marginUtilizationRate >= 0.5
               ? "var(--alert-high)"
               : "var(--border)"
           }`,
@@ -92,18 +104,18 @@ function AccountSummary() {
               账户净值
             </div>
             <div className="text-2xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
-              ¥{formatNumber(acc.netValue)}
+              ¥{formatNumber(account.netValue)}
             </div>
           </div>
           <div className="text-right">
             <div className="flex items-center gap-3">
               <div>
                 <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>今日损益</div>
-                <PnlBadge value={acc.todayRealizedPnl} />
+                <PnlBadge value={account.todayRealizedPnl} />
               </div>
               <div className="border-l pl-3" style={{ borderColor: "var(--border)" }}>
                 <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>浮动盈亏</div>
-                <PnlBadge value={acc.totalUnrealizedPnl} />
+                <PnlBadge value={account.totalUnrealizedPnl} />
               </div>
             </div>
           </div>
@@ -112,26 +124,26 @@ function AccountSummary() {
         <div className="mb-4">
           <div className="flex justify-between text-xs mb-1.5" style={{ color: "var(--foreground-subtle)" }}>
             <span>保证金占用</span>
-            <span>¥{formatNumber(marginUsed)} / ¥{formatNumber(acc.availableMargin + marginUsed)}</span>
+            <span>¥{formatNumber(marginUsed)} / ¥{formatNumber(account.availableMargin + marginUsed)}</span>
           </div>
-          <MarginBar rate={acc.marginUtilizationRate} />
+          <MarginBar rate={account.marginUtilizationRate} />
         </div>
 
         {/* Warning banner */}
-        {acc.marginUtilizationRate >= 0.5 && (
+        {account.marginUtilizationRate >= 0.5 && (
           <div
             className="flex items-start gap-2 rounded-lg px-3 py-2.5 mb-4"
             style={{
-              background: acc.marginUtilizationRate >= 0.7
+              background: account.marginUtilizationRate >= 0.7
                 ? "var(--alert-critical-muted)"
                 : "var(--alert-high-muted)",
             }}
           >
-            <span style={{ color: acc.marginUtilizationRate >= 0.7 ? "var(--alert-critical)" : "var(--alert-high)" }}>
+            <span style={{ color: account.marginUtilizationRate >= 0.7 ? "var(--alert-critical)" : "var(--alert-high)" }}>
               ⚠
             </span>
-            <p className="text-xs" style={{ color: acc.marginUtilizationRate >= 0.7 ? "var(--alert-critical)" : "var(--alert-high)" }}>
-              {acc.marginUtilizationRate >= 0.7
+            <p className="text-xs" style={{ color: account.marginUtilizationRate >= 0.7 ? "var(--alert-critical)" : "var(--alert-high)" }}>
+              {account.marginUtilizationRate >= 0.7
                 ? "保证金占用率已超 70%，接近强平风险，请及时减仓或追加保证金。"
                 : "保证金占用率已超 50%，建议关注仓位集中度。"}
             </p>
@@ -154,13 +166,13 @@ function AccountSummary() {
           >
             <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>可用保证金</div>
             <div className="text-sm font-mono font-medium" style={{ color: "var(--positive)" }}>
-              ¥{formatNumber(acc.availableMargin)}
+              ¥{formatNumber(account.availableMargin)}
             </div>
           </div>
         </div>
 
         <div className="text-xs mt-3" style={{ color: "var(--foreground-subtle)" }}>
-          快照时间 {formatRelativeTime(acc.snapshotAt)}
+          快照时间 {formatRelativeTime(account.snapshotAt)}
         </div>
       </div>
     </div>
@@ -173,7 +185,7 @@ function PositionRow({
   position,
   onClick,
 }: {
-  position: (typeof mockPositionSnapshot.positions)[number];
+  position: PositionGroup;
   onClick: () => void;
 }) {
   return (
@@ -239,7 +251,7 @@ function PositionRow({
 function PositionDetail({
   position,
 }: {
-  position: (typeof mockPositionSnapshot.positions)[number];
+  position: PositionGroup;
 }) {
   return (
     <div className="p-5">
@@ -444,12 +456,26 @@ export default function PositionsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"open" | "history" | "feedback">("open");
+  const [positions, setPositions] = useState<PositionGroup[]>([]);
+  const [feedbacks, setFeedbacks] = useState<ExecutionFeedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState<string>(new Date().toISOString());
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([getPositions(), getExecutionFeedbacks()]).then(([pos, fb]) => {
+      setPositions(pos);
+      setFeedbacks(fb);
+      setUpdatedAt(new Date().toISOString());
+      setLoading(false);
+    });
+  }, []);
 
   const selectedPosition = selectedId
-    ? mockPositionSnapshot.positions.find((p) => p.id === selectedId)
+    ? positions.find((p) => p.id === selectedId)
     : null;
 
-  const openPositions = mockPositionSnapshot.positions.filter((p) => p.status === "open");
+  const openPositions = positions.filter((p) => p.status === "open");
 
   function openPosition(id: string) {
     setSelectedId(id);
@@ -468,8 +494,7 @@ export default function PositionsPage() {
               持仓
             </h1>
             <p className="text-xs mt-0.5" style={{ color: "var(--foreground-muted)" }}>
-              {openPositions.length} 个活跃组合 · 更新于{" "}
-              {formatRelativeTime(mockPositionSnapshot.updatedAt)}
+              {loading ? "加载中…" : `${openPositions.length} 个活跃组合 · 更新于 ${formatRelativeTime(updatedAt)}`}
             </p>
           </div>
 
@@ -481,7 +506,7 @@ export default function PositionsPage() {
             {[
               { key: "open", label: "持仓中", count: openPositions.length },
               { key: "history", label: "历史" },
-              { key: "feedback", label: "执行反馈", count: mockExecutionFeedbacks.length },
+              { key: "feedback", label: "执行反馈", count: feedbacks.length },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -513,41 +538,68 @@ export default function PositionsPage() {
           <>
             <AccountSummary />
 
-            <div
-              className="rounded-lg overflow-hidden"
-              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-            >
-              <table className="w-full">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
-                      策略
-                    </th>
-                    <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
-                      浮动盈亏
-                    </th>
-                    <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
-                      Z-Score
-                    </th>
-                    <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
-                      持仓天数
-                    </th>
-                    <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
-                      状态
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {openPositions.map((pos) => (
-                    <PositionRow
-                      key={pos.id}
-                      position={pos}
-                      onClick={() => openPosition(pos.id)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {loading ? (
+              <div
+                className="rounded-lg overflow-hidden animate-pulse"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              >
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 px-4 py-4 border-b last:border-b-0" style={{ borderColor: "var(--border-subtle)" }}>
+                    <div className="flex-1">
+                      <div className="h-4 w-2/3 rounded mb-1" style={{ background: "var(--surface-overlay)" }} />
+                      <div className="h-3 w-1/3 rounded" style={{ background: "var(--surface-overlay)" }} />
+                    </div>
+                    <div className="h-4 w-16 rounded" style={{ background: "var(--surface-overlay)" }} />
+                    <div className="h-4 w-16 rounded" style={{ background: "var(--surface-overlay)" }} />
+                    <div className="h-4 w-12 rounded" style={{ background: "var(--surface-overlay)" }} />
+                    <div className="h-5 w-14 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div
+                className="rounded-lg overflow-hidden"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              >
+                <table className="w-full">
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
+                        策略
+                      </th>
+                      <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
+                        浮动盈亏
+                      </th>
+                      <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
+                        Z-Score
+                      </th>
+                      <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
+                        持仓天数
+                      </th>
+                      <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
+                        状态
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openPositions.map((pos) => (
+                      <PositionRow
+                        key={pos.id}
+                        position={pos}
+                        onClick={() => openPosition(pos.id)}
+                      />
+                    ))}
+                    {!loading && openPositions.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-sm" style={{ color: "var(--foreground-subtle)" }}>
+                          暂无活跃持仓
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
 
@@ -571,7 +623,27 @@ export default function PositionsPage() {
 
         {activeTab === "feedback" && (
           <div className="flex flex-col gap-4">
-            {mockExecutionFeedbacks.length === 0 ? (
+            {loading ? (
+              Array.from({ length: 2 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg p-4 animate-pulse"
+                  style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="h-4 w-24 rounded mb-1" style={{ background: "var(--surface-overlay)" }} />
+                      <div className="h-3 w-32 rounded" style={{ background: "var(--surface-overlay)" }} />
+                    </div>
+                    <div className="h-3 w-16 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="h-3 w-full rounded" style={{ background: "var(--surface-overlay)" }} />
+                    <div className="h-3 w-2/3 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  </div>
+                </div>
+              ))
+            ) : feedbacks.length === 0 ? (
               <div
                 className="rounded-lg p-5 text-center"
                 style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
@@ -581,7 +653,7 @@ export default function PositionsPage() {
                 </p>
               </div>
             ) : (
-              mockExecutionFeedbacks.map((fb) => (
+              feedbacks.map((fb) => (
                 <ExecutionFeedbackCard key={fb.id} fb={fb} />
               ))
             )}

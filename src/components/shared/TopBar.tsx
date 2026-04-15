@@ -1,10 +1,19 @@
 "use client";
 
-import { mockAlerts } from "@/lib/mockData";
+import { useState, useEffect } from "react";
+import { getAlerts } from "@/lib/api-client";
 
 export function TopBar() {
-  const activeAlerts = mockAlerts.filter((a) => a.status === "active");
-  const criticalCount = activeAlerts.filter((a) => a.severity === "critical").length;
+  const [activeCount, setActiveCount] = useState(0);
+  const [criticalCount, setCriticalCount] = useState(0);
+
+  useEffect(() => {
+    getAlerts().then((alerts) => {
+      const active = alerts.filter((a) => a.status === "active");
+      setActiveCount(active.length);
+      setCriticalCount(active.filter((a) => a.severity === "critical").length);
+    });
+  }, []);
 
   return (
     <header
@@ -87,7 +96,7 @@ export function TopBar() {
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          {activeAlerts.length > 0 && (
+          {activeCount > 0 && (
             <span
               className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full"
               style={{ background: "var(--alert-critical)" }}

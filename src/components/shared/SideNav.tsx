@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import { NAV_ITEMS } from "@/lib/constants";
 import { clsx } from "@/lib/utils";
+import { getAlerts } from "@/lib/api-client";
 
 // Simple inline SVG icons
 const icons: Record<string, React.ReactNode> = {
@@ -56,8 +58,15 @@ const icons: Record<string, React.ReactNode> = {
   ),
 };
 
-export function SideNav({ alertCount = 0 }: { alertCount?: number }) {
+export function SideNav() {
   const pathname = usePathname();
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => {
+    getAlerts().then((alerts) => {
+      setAlertCount(alerts.filter((a) => a.status === "active").length);
+    });
+  }, []);
 
   return (
     <nav

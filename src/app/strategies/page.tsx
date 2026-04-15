@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { mockStrategies as _mockStrategies } from "@/lib/mockData";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import type {
   StrategyPoolItem,
   StrategyStatus,
@@ -10,34 +9,18 @@ import type {
   HypothesisLeg,
 } from "@/types/domain";
 import {
+  getStrategies,
+  createStrategy,
+  updateStrategy,
+  deleteStrategy,
+} from "@/lib/api-client";
+import {
   STRATEGY_STATUS_LABEL,
   SPREAD_MODEL_LABEL,
 } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { Drawer } from "@/components/shared/Drawer";
 import { StrategyDetail } from "@/components/strategies/StrategyDetail";
-
-// ─── Local mutable state ─────────────────────────────────────────────────────
-
-let _strategies: StrategyPoolItem[] = [..._mockStrategies];
-
-function getStrategies(): StrategyPoolItem[] {
-  return _strategies;
-}
-
-function updateStrategy(id: string, patch: Partial<StrategyPoolItem>) {
-  _strategies = _strategies.map((s) =>
-    s.id === id ? { ...s, ...patch, updatedAt: new Date().toISOString() } : s
-  );
-}
-
-function removeStrategy(id: string) {
-  _strategies = _strategies.filter((s) => s.id !== id);
-}
-
-function addStrategy(s: StrategyPoolItem) {
-  _strategies = [s, ..._strategies];
-}
 
 // ─── Create form types ───────────────────────────────────────────────────────
 
@@ -623,7 +606,8 @@ const ALL_STATUSES: StrategyStatus[] = [
 ];
 
 export default function StrategiesPage() {
-  const [strategies, setStrategies] = useState<StrategyPoolItem[]>(getStrategies());
+  const [strategies, setStrategies] = useState<StrategyPoolItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StrategyStatus[]>([]);
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
   const [search, setSearch] = useState("");
@@ -632,7 +616,16 @@ export default function StrategiesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const refresh = useCallback(() => setStrategies([...getStrategies()]), []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const data = await getStrategies();
+    setStrategies(data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const refresh = useCallback(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
     return strategies
@@ -679,21 +672,23 @@ export default function StrategiesPage() {
     if (!s) return;
     const next: StrategyStatus =
       s.status === "active" || s.status === "approaching_trigger" ? "paused" : "active";
+    // Optimistic update
+    setStrategies((prev) =>
+      prev.map((x) =>
+        x.id === id ? { ...x, status: next, updatedAt: new Date().toISOString() } : x
+      )
+    );
     updateStrategy(id, { status: next });
-    refresh();
   }
 
-  function handleCreate(form: NewStrategyForm) {
-    const id = `strat-${Date.now()}`;
-    const now = new Date().toISOString();
+  async function handleCreate(form: NewStrategyForm) {
     const legs: HypothesisLeg[] = form.legs.map((l) => ({
       asset: l.asset.toUpperCase(),
       direction: l.direction,
       ratio: l.ratio,
       exchange: l.exchange,
     }));
-    const newStrategy: StrategyPoolItem = {
-      id,
+    const created = await createStrategy({
       name: form.name.trim(),
       description: form.description.trim(),
       status: "draft",
@@ -707,7 +702,7 @@ export default function StrategiesPage() {
         currentZScore: 0,
         halfLife: 0,
         adfPValue: 0,
-        lastUpdated: now,
+        lastUpdated: new Date().toISOString(),
       },
       validation: {
         hitRate: 0,
@@ -719,17 +714,14 @@ export default function StrategiesPage() {
       relatedAlertIds: [],
       recommendationHistory: [],
       executionFeedbackIds: [],
-      createdAt: now,
-      updatedAt: now,
-    };
-    addStrategy(newStrategy);
-    refresh();
+    });
+    setStrategies((prev) => [created, ...prev]);
     setShowCreate(false);
   }
 
-  function handleDelete(id: string) {
-    removeStrategy(id);
-    refresh();
+  async function handleDelete(id: string) {
+    await deleteStrategy(id);
+    setStrategies((prev) => prev.filter((s) => s.id !== id));
     setDeleteId(null);
     if (selectedId === id) {
       setDrawerOpen(false);
@@ -871,7 +863,26 @@ export default function StrategiesPage() {
 
       {/* ── Strategy list ── */}
       <div className="flex-1 overflow-y-auto pb-16 md:pb-0">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-lg border p-4 animate-pulse"
+                style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+              >
+                <div className="h-4 w-3/4 rounded mb-2" style={{ background: "var(--surface-overlay)" }} />
+                <div className="h-3 w-1/2 rounded mb-4" style={{ background: "var(--surface-overlay)" }} />
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  <div className="h-14 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  <div className="h-14 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  <div className="h-14 rounded" style={{ background: "var(--surface-overlay)" }} />
+                </div>
+                <div className="h-1.5 rounded-full" style={{ background: "var(--surface-overlay)" }} />
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--foreground-subtle)" }}>
               <polygon points="12 2 2 7 12 12 22 7 12 2"/>

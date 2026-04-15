@@ -3,7 +3,6 @@ import "./globals.css";
 import { SideNav } from "@/components/shared/SideNav";
 import { MobileNav } from "@/components/shared/MobileNav";
 import { TopBar } from "@/components/shared/TopBar";
-import { mockAlerts } from "@/lib/mockData";
 
 export const metadata: Metadata = {
   title: "Causa — 大宗商品智能监控与套利系统",
@@ -15,8 +14,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const activeAlertCount = mockAlerts.filter((a) => a.status === "active").length;
-
   return (
     <html lang="zh-CN" className="h-full">
       <body
@@ -24,7 +21,7 @@ export default function RootLayout({
         style={{ background: "var(--background)", color: "var(--foreground)" }}
       >
         {/* Desktop sidebar */}
-        <SideNav alertCount={activeAlertCount} />
+        <SideNav />
 
         {/* Main area */}
         <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
@@ -43,7 +40,7 @@ export default function RootLayout({
         </div>
 
         {/* Mobile bottom nav */}
-        <MobileNav alertCount={activeAlertCount} />
+        <MobileNav />
       </body>
     </html>
   );

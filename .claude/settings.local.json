@@ -13,7 +13,31 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(textutil:*)",
+      "Bash(python3:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(kill %1)",
+      "Bash(grep -r \"^export\" src/mocks/*.ts)",
+      "Bash(grep -l \"路线\\\\|roadmap\\\\|后端\\\\|Phase\" /Users/ninoo/.claude/projects/-Users-ninoo-causa/*.jsonl)",
+      "Bash(ls /Users/ninoo/.claude/projects/-Users-ninoo-causa/*.jsonl)",
+      "Bash(ls /Users/ninoo/causa/*.md)",
+      "Bash(ls /Users/ninoo/causa/plan*)",
+      "Bash(ls -la /Users/ninoo/causa/.env*)",
+      "Bash(pnpm add:*)",
+      "Bash(npm install:*)",
+      "Bash(npm cache:*)",
+      "Bash(npx pnpm:*)",
+      "Bash(pdftotext \"/Users/ninoo/Downloads/Causa-架构设计-v2.0.pdf\" -)",
+      "Bash(pip3 install:*)",
+      "Bash(pnpm build:*)",
+      "Bash(unzip -o \"/Users/ninoo/Desktop/v3.1.pages\" -d /tmp/v3.1_extracted)",
+      "Bash(grep -v '^[[:space:]]*$')",
+      "Bash(grep -E '[\\\\u4e00-\\\\u9fff]|[A-Za-z]{3,}')",
+      "Bash(grep -E '[一-龥A-Za-z]{3,}')"
     ]
   }
 }

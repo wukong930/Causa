@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { mockSuggestions } from "@/lib/mockData";
+import { useState, useEffect } from "react";
 import type { Suggestion, SuggestionStatus } from "@/types/domain";
+import { getSuggestions, updateSuggestion } from "@/lib/api-client";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 
 // ─── Liquidity Bar ────────────────────────────────────────────────────────────
@@ -265,12 +265,23 @@ function SuggestionCard({ suggestion, onAction }: {
 // ─── Suggestions Page ─────────────────────────────────────────────────────────
 
 export default function SuggestionsPage() {
-  const [suggestions, setSuggestions] = useState(mockSuggestions);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getSuggestions().then((data) => {
+      setSuggestions(data);
+      setLoading(false);
+    });
+  }, []);
 
   function handleAction(id: string, action: SuggestionStatus) {
+    // Optimistic update
     setSuggestions((prev) =>
       prev.map((s) => (s.id === id ? { ...s, status: action } : s))
     );
+    // Fire API call
+    updateSuggestion(id, { status: action });
   }
 
   const pending = suggestions.filter((s) => s.status === "pending");
@@ -308,8 +319,30 @@ export default function SuggestionsPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto pb-16 md:pb-0">
         <div className="p-5 max-w-3xl mx-auto">
-          {/* Pending suggestions */}
-          {pending.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col gap-5">
+              {[1, 2].map((i) => (
+                <div key={i} className="rounded-xl border overflow-hidden" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                  <div className="px-5 py-4 border-b" style={{ borderColor: "var(--border)", background: "var(--surface-raised)" }}>
+                    <div className="h-5 w-32 rounded mb-1" style={{ background: "var(--surface-overlay)" }} />
+                    <div className="h-3 w-24 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  </div>
+                  <div className="p-5">
+                    <div className="grid grid-cols-2 gap-3 mb-5">
+                      <div className="h-24 rounded-lg" style={{ background: "var(--surface-overlay)" }} />
+                      <div className="h-24 rounded-lg" style={{ background: "var(--surface-overlay)" }} />
+                    </div>
+                    <div className="h-20 rounded-lg mb-5" style={{ background: "var(--surface-overlay)" }} />
+                    <div className="flex gap-2">
+                      <div className="h-10 flex-1 rounded-lg" style={{ background: "var(--surface-overlay)" }} />
+                      <div className="h-10 w-16 rounded-lg" style={{ background: "var(--surface-overlay)" }} />
+                      <div className="h-10 w-16 rounded-lg" style={{ background: "var(--surface-overlay)" }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : pending.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 gap-2">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--foreground-subtle)" }}>
                 <polyline points="20 6 9 17 4 12"/>

@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { mockRecommendations as initialRecommendations } from "@/lib/mockData";
+import { useState, useMemo, useEffect } from "react";
 import type { Recommendation, RecommendationStatus } from "@/types/domain";
+import {
+  getRecommendations,
+  updateRecommendation,
+} from "@/lib/api-client";
 import {
   RECOMMENDATION_STATUS_LABEL,
   RECOMMENDED_ACTION_LABEL,
@@ -314,21 +317,34 @@ const ALL_STATUSES: RecommendationStatus[] = [
 ];
 
 export default function RecommendationsPage() {
-  const [recommendations, setRecommendations] = useState(initialRecommendations);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<RecommendationStatus[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  useEffect(() => {
+    setLoading(true);
+    getRecommendations().then((data) => {
+      setRecommendations(data);
+      setLoading(false);
+    });
+  }, []);
+
   function handleConfirm(id: string) {
+    // Optimistic update
     setRecommendations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "confirmed" as RecommendationStatus } : r))
     );
+    updateRecommendation(id, { status: "confirmed" });
   }
 
   function handleDefer(id: string) {
+    // Optimistic update
     setRecommendations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "deferred" as RecommendationStatus } : r))
     );
+    updateRecommendation(id, { status: "deferred" });
   }
 
   const filtered = useMemo(() => {
@@ -418,7 +434,32 @@ export default function RecommendationsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto pb-16 md:pb-0">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl mx-auto">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-lg border p-4 animate-pulse"
+                style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+              >
+                <div className="flex items-start gap-2 mb-3">
+                  <div className="flex-1">
+                    <div className="h-4 w-1/2 rounded mb-1" style={{ background: "var(--surface-overlay)" }} />
+                    <div className="h-3 w-1/3 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  </div>
+                  <div className="h-5 w-16 rounded" style={{ background: "var(--surface-overlay)" }} />
+                </div>
+                <div className="h-3 w-full rounded mb-3" style={{ background: "var(--surface-overlay)" }} />
+                <div className="h-3 w-2/3 rounded mb-3" style={{ background: "var(--surface-overlay)" }} />
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="h-10 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  <div className="h-10 rounded" style={{ background: "var(--surface-overlay)" }} />
+                  <div className="h-10 rounded" style={{ background: "var(--surface-overlay)" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-2">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--foreground-subtle)" }}>
               <polyline points="20 6 9 17 4 12"/>

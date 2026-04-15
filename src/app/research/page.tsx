@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { mockReports, mockHypotheses } from "@/lib/mockData";
+import { useState, useMemo, useEffect } from "react";
 import type { ResearchReport, Hypothesis } from "@/types/domain";
+import { getResearchReports, getHypotheses, updateHypothesis } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/utils";
 
 // ─── Hypothesis status config ─────────────────────────────────────────────────
@@ -148,14 +148,26 @@ const REPORT_TYPE_LABEL: Record<string, string> = {
 };
 
 export default function ResearchPage() {
-  const [activeReportId, setActiveReportId] = useState(mockReports[0]?.id ?? null);
+  const [reports, setReports] = useState<ResearchReport[]>([]);
+  const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
+  const [activeReportId, setActiveReportId] = useState<string | null>(null);
   const [hypFilter, setHypFilter] = useState<Hypothesis["status"] | "all">("all");
+  const [loading, setLoading] = useState(true);
 
-  const activeReport = mockReports.find((r) => r.id === activeReportId) ?? null;
+  useEffect(() => {
+    Promise.all([getResearchReports(), getHypotheses()]).then(([r, h]) => {
+      setReports(r);
+      setHypotheses(h);
+      setActiveReportId(r[0]?.id ?? null);
+      setLoading(false);
+    });
+  }, []);
+
+  const activeReport = reports.find((r) => r.id === activeReportId) ?? null;
 
   const filteredHypotheses = hypFilter === "all"
-    ? mockHypotheses
-    : mockHypotheses.filter((h) => h.status === hypFilter);
+    ? hypotheses
+    : hypotheses.filter((h) => h.status === hypFilter);
 
   const HYP_FILTERS: Array<{ value: Hypothesis["status"] | "all"; label: string }> = [
     { value: "all",         label: "全部" },
@@ -182,7 +194,24 @@ export default function ResearchPage() {
 
       {/* Content — two-column on lg */}
       <div className="flex-1 overflow-y-auto pb-16 md:pb-0">
-        <div className="p-5 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 max-w-7xl">
+        {loading ? (
+          <div className="p-5 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 max-w-7xl">
+            <div>
+              <div className="h-6 w-48 rounded mb-3" style={{ background: "var(--surface-overlay)" }} />
+              <div className="h-4 w-full rounded mb-2" style={{ background: "var(--surface-overlay)" }} />
+              <div className="h-4 w-4/5 rounded mb-2" style={{ background: "var(--surface-overlay)" }} />
+              <div className="h-4 w-3/5 rounded mb-6" style={{ background: "var(--surface-overlay)" }} />
+              <div className="h-32 rounded-lg" style={{ background: "var(--surface-overlay)" }} />
+            </div>
+            <div>
+              <div className="h-5 w-32 rounded mb-3" style={{ background: "var(--surface-overlay)" }} />
+              <div className="h-20 rounded-lg mb-3" style={{ background: "var(--surface-overlay)" }} />
+              <div className="h-20 rounded-lg mb-3" style={{ background: "var(--surface-overlay)" }} />
+              <div className="h-20 rounded-lg" style={{ background: "var(--surface-overlay)" }} />
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 max-w-7xl">
 
           {/* Left — Reports */}
           <div>
@@ -191,7 +220,7 @@ export default function ResearchPage() {
               className="flex gap-1 mb-4 p-1 rounded-lg"
               style={{ background: "var(--surface-overlay)", width: "fit-content" }}
             >
-              {mockReports.map((r) => (
+              {reports.map((r) => (
                 <button
                   key={r.id}
                   onClick={() => setActiveReportId(r.id)}
@@ -259,6 +288,7 @@ export default function ResearchPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,6 @@ import { ALERT_STATUS_LABEL, ALERT_TYPE_LABEL } from "@/lib/constants";
 import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { mockStrategies, mockRecommendations } from "@/lib/mockData";
 import { getNotificationService } from "@/lib/notifications";
 
 interface AlertDetailProps {
