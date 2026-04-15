@@ -1,4 +1,7 @@
-import { mockAlerts, mockStrategies, mockRecommendations } from "@/lib/mockData";
+"use client";
+
+import { mockAlerts, mockStrategies, mockRecommendations, mockPositionSnapshot } from "@/lib/mockData";
+import { mockNodes } from "@/mocks/graph";
 import {
   SEVERITY_LABEL,
   SEVERITY_BG,
@@ -7,9 +10,344 @@ import {
   STRATEGY_STATUS_COLOR,
   RECOMMENDED_ACTION_LABEL,
 } from "@/lib/constants";
-import { formatRelativeTime, formatConfidence, clsx } from "@/lib/utils";
+import { formatRelativeTime, formatConfidence, clsx, formatNumber } from "@/lib/utils";
 import type { StrategyPoolItem, Recommendation } from "@/types/domain";
 import Link from "next/link";
+
+// ─── Mock historical data ─────────────────────────────────────────────────────
+
+// 14-day net value history (mock)
+const NET_VALUE_HISTORY = [
+  1180000, 1192000, 1205000, 1198000, 1210000, 1223000,
+  1218000, 1235000, 1230000, 1245000, 1242000, 1258000,
+  1248000, 1240000,
+].map((v, i, arr) => {
+  const date = new Date();
+  date.setDate(date.getDate() - (arr.length - 1 - i));
+  return { date: date.toISOString().slice(0, 10), value: v };
+});
+
+// 7-day alert count history (mock)
+const ALERT_TREND = Array.from({ length: 7 }, (_, i) => {
+  const date = new Date();
+  date.setDate(date.getDate() - (6 - i));
+  const label = date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+  const count = [2, 1, 3, 2, 1, 4, 3][i];
+  return { label, count };
+});
+
+// ─── Net Value Chart (SVG) ───────────────────────────────────────────────────
+
+function NetValueChart() {
+  const W = 560, H = 100, PAD = 4;
+  const values = NET_VALUE_HISTORY.map((d) => d.value);
+  const min = Math.min(...values) * 0.998;
+  const max = Math.max(...values) * 1.002;
+  const range = max - min || 1;
+
+  function x(i: number) { return PAD + (i / (values.length - 1)) * (W - PAD * 2); }
+  function y(v: number) { return H - PAD - ((v - min) / range) * (H - PAD * 2); }
+
+  const pts = values.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const fillPts = `${PAD},${H - PAD} ${pts} ${x(values.length - 1)},${H - PAD}`;
+
+  const current = values[values.length - 1];
+  const prev = values[values.length - 2];
+  const change = current - prev;
+  const changePct = ((change / prev) * 100).toFixed(2);
+  const isUp = change >= 0;
+
+  // Generate area gradient path
+  const areaPath = `M${x(0)},${H - PAD} ${values.map((v, i) => `L${x(i)},${y(v)}`).join(" ")} L${x(values.length - 1)},${H - PAD} Z`;
+
+  return (
+    <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>账户净值</div>
+          <div className="text-xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
+            ¥{formatNumber(current)}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>日涨跌</div>
+          <div
+            className="text-sm font-semibold font-mono"
+            style={{ color: isUp ? "var(--positive)" : "var(--negative)" }}
+          >
+            {isUp ? "+" : ""}¥{formatNumber(change)} ({isUp ? "+" : ""}{changePct}%)
+          </div>
+        </div>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        style={{ display: "block", overflow: "visible" }}
+      >
+        <defs>
+          <linearGradient id="netValueGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent-blue)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--accent-blue)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Horizontal grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((t) => (
+          <line
+            key={t}
+            x1={PAD}
+            y1={PAD + t * (H - PAD * 2)}
+            x2={W - PAD}
+            y2={PAD + t * (H - PAD * 2)}
+            stroke="var(--border)"
+            strokeWidth="0.5"
+            strokeDasharray="3,3"
+          />
+        ))}
+
+        {/* Area fill */}
+        <path d={areaPath} fill="url(#netValueGrad)" />
+
+        {/* Line */}
+        <polyline
+          points={pts}
+          fill="none"
+          stroke="var(--accent-blue)"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {/* Current point dot */}
+        <circle
+          cx={x(values.length - 1)}
+          cy={y(values[values.length - 1])}
+          r="3"
+          fill="var(--accent-blue)"
+        />
+
+        {/* Date labels */}
+        {[0, 6, 13].map((i) => (
+          <text
+            key={i}
+            x={x(i)}
+            y={H - 1}
+            textAnchor="middle"
+            fontSize="9"
+            fill="var(--foreground-subtle)"
+          >
+            {NET_VALUE_HISTORY[i].date.slice(5)}
+          </text>
+        ))}
+      </svg>
+
+      <div className="flex justify-between text-xs mt-1" style={{ color: "var(--foreground-subtle)" }}>
+        <span>¥{formatNumber(min)}</span>
+        <span>¥{formatNumber(max)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Alert Trend Chart (SVG) ─────────────────────────────────────────────────
+
+function AlertTrendChart() {
+  const W = 560, H = 80, PAD = 4;
+  const counts = ALERT_TREND.map((d) => d.count);
+  const max = Math.max(...counts, 1);
+
+  function barX(i: number) {
+    const bw = (W - PAD * 2) / counts.length;
+    return PAD + i * bw + bw * 0.15;
+  }
+  function barW() {
+    return ((W - PAD * 2) / counts.length) * 0.7;
+  }
+  function barH(c: number) {
+    return (c / max) * (H - PAD * 2);
+  }
+  function barY(c: number) {
+    return H - PAD - barH(c);
+  }
+
+  const today = ALERT_TREND[ALERT_TREND.length - 1].label;
+
+  return (
+    <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+          预警趋势
+        </h3>
+        <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
+          近 7 天
+        </span>
+      </div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        style={{ display: "block", overflow: "visible" }}
+      >
+        {ALERT_TREND.map((d, i) => {
+          const bh = barH(d.count);
+          const isToday = d.label === today;
+          return (
+            <g key={d.label}>
+              <rect
+                x={barX(i)}
+                y={barY(d.count)}
+                width={barW()}
+                height={bh}
+                rx="2"
+                fill={isToday ? "var(--alert-high)" : "var(--surface-overlay)"}
+                stroke={isToday ? "var(--alert-high)" : "var(--border)"}
+                strokeWidth="0.5"
+              />
+              <text
+                x={barX(i) + barW() / 2}
+                y={H - 1}
+                textAnchor="middle"
+                fontSize="8"
+                fill={isToday ? "var(--alert-high)" : "var(--foreground-subtle)"}
+              >
+                {d.label}
+              </text>
+              <text
+                x={barX(i) + barW() / 2}
+                y={barY(d.count) - 3}
+                textAnchor="middle"
+                fontSize="9"
+                fontWeight="600"
+                fill={isToday ? "var(--alert-high)" : "var(--foreground-muted)"}
+              >
+                {d.count}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+// ─── Commodity Heatmap ───────────────────────────────────────────────────────
+
+const CLUSTER_ORDER = ["ferrous", "nonferrous", "energy", "agriculture", "overseas"] as const;
+const CLUSTER_LABEL: Record<string, string> = {
+  ferrous: "黑色",
+  nonferrous: "有色",
+  energy: "能化",
+  agriculture: "农产品",
+  overseas: "海外",
+};
+
+function CommodityHeatmap() {
+  const byCluster = CLUSTER_ORDER.reduce(
+    (acc, c) => ({
+      ...acc,
+      [c]: mockNodes.filter((n) => n.cluster === c),
+    }),
+    {} as Record<string, typeof mockNodes>
+  );
+
+  const totalAlerts = mockNodes.reduce((sum, n) => sum + n.activeAlertCount, 0);
+
+  return (
+    <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+          品种热力图
+        </h3>
+        <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
+          {totalAlerts > 0 && (
+            <span style={{ color: "var(--alert-high)" }}>{totalAlerts} 个品种有预警</span>
+          )}
+          {totalAlerts === 0 && "无活跃预警"}
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {CLUSTER_ORDER.map((cluster) => {
+          const nodes = byCluster[cluster];
+          if (!nodes || nodes.length === 0) return null;
+
+          return (
+            <div key={cluster}>
+              <div className="text-xs mb-1.5" style={{ color: "var(--foreground-subtle)" }}>
+                {CLUSTER_LABEL[cluster]}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {nodes.map((node) => {
+                  const pct = node.priceChange24h ?? 0;
+                  const isUp = pct >= 0;
+                  const intensity = Math.min(Math.abs(pct) / 3, 1);
+                  const hasAlert = node.activeAlertCount > 0;
+
+                  return (
+                    <div
+                      key={node.id}
+                      className="flex items-center gap-1 px-2 py-1 rounded cursor-default transition-opacity hover:opacity-80"
+                      style={{
+                        background: isUp
+                          ? `rgba(63, 185, 80, ${0.12 + intensity * 0.25})`
+                          : `rgba(248, 81, 73, ${0.12 + intensity * 0.25})`,
+                        border: hasAlert
+                          ? "1px solid var(--alert-high)"
+                          : `1px solid ${isUp ? "rgba(63,185,80,0.25)" : "rgba(248,81,73,0.25)"}`,
+                      }}
+                      title={`${node.name} (${node.exchange}) · ${node.regime} · 预警: ${node.activeAlertCount}`}
+                    >
+                      <span
+                        className="text-xs font-mono font-medium"
+                        style={{ color: "var(--foreground)" }}
+                      >
+                        {node.symbol}
+                      </span>
+                      <span
+                        className="text-xs font-mono"
+                        style={{ color: isUp ? "var(--positive)" : "var(--negative)" }}
+                      >
+                        {pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
+                      </span>
+                      {hasAlert && (
+                        <span
+                          className="text-xs px-1 rounded-full"
+                          style={{
+                            background: "var(--alert-high)",
+                            color: "#fff",
+                            fontSize: "8px",
+                          }}
+                        >
+                          {node.activeAlertCount}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-sm" style={{ background: "rgba(63,185,80,0.3)" }} />
+          <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>上涨</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-sm" style={{ background: "rgba(248,81,73,0.3)" }} />
+          <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>下跌</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-sm border" style={{ borderColor: "var(--alert-high)" }} />
+          <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>有预警</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Alert Card ──────────────────────────────────────────────────────────────
 
@@ -20,6 +358,8 @@ function AlertCard({ alert }: { alert: (typeof mockAlerts)[number] }) {
       className="block rounded-lg border-l-2 p-4 transition-colors hover:brightness-110"
       style={{
         background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderLeftWidth: "3px",
         borderLeftColor:
           alert.severity === "critical"
             ? "var(--alert-critical)"
@@ -28,8 +368,6 @@ function AlertCard({ alert }: { alert: (typeof mockAlerts)[number] }) {
             : alert.severity === "medium"
             ? "var(--alert-medium)"
             : "var(--alert-low)",
-        border: "1px solid var(--border)",
-        borderLeftWidth: "3px",
       }}
     >
       <div className="flex items-start gap-2 mb-2">
@@ -156,54 +494,6 @@ function RecommendationRow({ rec }: { rec: Recommendation }) {
   );
 }
 
-// ─── Cluster Heatmap ─────────────────────────────────────────────────────────
-
-const clusters = [
-  { id: "ferrous", label: "黑色", count: 2, change: -0.8 },
-  { id: "nonferrous", label: "有色", count: 1, change: 0.4 },
-  { id: "energy", label: "能化", count: 1, change: -2.1 },
-  { id: "agriculture", label: "农产品", count: 1, change: 1.8 },
-  { id: "overseas", label: "海外", count: 0, change: -0.3 },
-];
-
-function ClusterHeatmap() {
-  return (
-    <div className="grid grid-cols-5 gap-2">
-      {clusters.map((c) => {
-        const isUp = c.change > 0;
-        const intensity = Math.min(Math.abs(c.change) / 3, 1);
-        return (
-          <div
-            key={c.id}
-            className="rounded-lg p-3 text-center cursor-pointer transition-opacity hover:opacity-80"
-            style={{
-              background: isUp
-                ? `rgba(63, 185, 80, ${0.15 + intensity * 0.3})`
-                : `rgba(248, 81, 73, ${0.15 + intensity * 0.3})`,
-              border: `1px solid ${isUp ? "rgba(63,185,80,0.3)" : "rgba(248,81,73,0.3)"}`,
-            }}
-          >
-            <div className="text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>
-              {c.label}
-            </div>
-            <div
-              className="text-sm font-semibold"
-              style={{ color: isUp ? "var(--positive)" : "var(--negative)" }}
-            >
-              {isUp ? "+" : ""}{c.change.toFixed(1)}%
-            </div>
-            {c.count > 0 && (
-              <div className="text-xs mt-1" style={{ color: "var(--alert-critical)" }}>
-                {c.count} 预警
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ─── Dashboard Page ──────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -220,6 +510,9 @@ export default function DashboardPage() {
 
   const pendingRecommendations = mockRecommendations.filter((r) => r.status === "pending");
 
+  const account = mockPositionSnapshot.account;
+  const marginPct = Math.round(account.marginUtilizationRate * 100);
+
   return (
     <div className="flex h-full" style={{ minHeight: 0 }}>
       {/* ── Left main column ─────────────────────────────────────── */}
@@ -232,7 +525,12 @@ export default function DashboardPage() {
           <div>
             <h1 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>总览</h1>
             <p className="text-xs mt-0.5" style={{ color: "var(--foreground-muted)" }}>
-              {new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
+              {new Date().toLocaleDateString("zh-CN", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                weekday: "long",
+              })}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -249,6 +547,12 @@ export default function DashboardPage() {
               {activeAlerts.filter((a) => a.severity === "high").length} 高
             </span>
           </div>
+        </div>
+
+        {/* Net value + alert trend charts */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
+          <NetValueChart />
+          <AlertTrendChart />
         </div>
 
         {/* Alert feed */}
@@ -311,12 +615,76 @@ export default function DashboardPage() {
 
       {/* ── Right sidebar ─────────────────────────────────────────── */}
       <div className="hidden lg:flex flex-col w-[360px] shrink-0 overflow-y-auto p-5 gap-5">
-        {/* Cluster heatmap */}
+        {/* Commodity heatmap */}
+        <CommodityHeatmap />
+
+        {/* Account status quick look */}
         <section>
-          <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>
-            市场热力概览
-          </h2>
-          <ClusterHeatmap />
+          <div
+            className="rounded-lg p-4"
+            style={{
+              background: "var(--surface)",
+              border: `1px solid ${
+                account.marginUtilizationRate >= 0.7
+                  ? "var(--alert-critical)"
+                  : account.marginUtilizationRate >= 0.5
+                  ? "var(--alert-high)"
+                  : "var(--border)"
+              }`,
+            }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                账户状态
+              </h3>
+              <Link href="/positions" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+                持仓 →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>浮动盈亏</div>
+                <div
+                  className="text-sm font-semibold font-mono"
+                  style={{ color: account.totalUnrealizedPnl >= 0 ? "var(--positive)" : "var(--negative)" }}
+                >
+                  {account.totalUnrealizedPnl >= 0 ? "+" : ""}¥{formatNumber(account.totalUnrealizedPnl)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>保证金占用</div>
+                <div className="text-sm font-semibold font-mono" style={{ color: "var(--foreground)" }}>
+                  {marginPct}%
+                  {marginPct >= 50 && (
+                    <span className="text-xs ml-1" style={{ color: marginPct >= 70 ? "var(--alert-critical)" : "var(--alert-high)" }}>
+                      ⚠
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Margin bar */}
+            <div className="mt-3">
+              <div className="flex justify-between text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>
+                <span>保证金</span>
+              </div>
+              <div
+                className="h-2 rounded-full overflow-hidden"
+                style={{ background: "var(--surface-overlay)" }}
+              >
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${marginPct}%`,
+                    background:
+                      marginPct >= 70 ? "var(--alert-critical)" :
+                      marginPct >= 50 ? "var(--alert-high)" :
+                      "var(--accent-blue)",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Pending recommendations */}
