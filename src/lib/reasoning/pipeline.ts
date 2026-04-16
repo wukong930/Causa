@@ -41,10 +41,10 @@ export async function runEvolutionCycle(
       existingPositions: context.existingPositions ?? "",
     });
 
-    // 2. Validate each hypothesis
-    for (const h of hypotheses) {
-      const validation = validateHypothesis(h);
-      allCandidates.push({ hypothesis: h, validation });
+    // 2. Validate hypotheses in parallel
+    const validations = await Promise.all(hypotheses.map((h) => validateHypothesis(h)));
+    for (let i = 0; i < hypotheses.length; i++) {
+      allCandidates.push({ hypothesis: hypotheses[i], validation: validations[i] });
     }
   }
 

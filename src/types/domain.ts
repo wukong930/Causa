@@ -449,6 +449,9 @@ export interface SpreadStatistics {
   halfLife: number;      // days, simple EWM estimate
   adfPValue: number;     // simplified ADF test p-value
   sampleCount: number;
+  hurstExponent?: number;
+  hedgeRatio?: number;
+  cointPValue?: number;
 }
 
 // ─── Execution Draft ─────────────────────────────────────────────────────────

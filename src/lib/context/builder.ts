@@ -3,6 +3,9 @@ import { fetchMacroIndicators, type MacroSnapshot } from "./macro";
 import { compressToContextVector, type ContextVector } from "./compress";
 import { getCurrentRegime } from "@/lib/memory/regime-store";
 import { storeRegime } from "@/lib/memory/regime-store";
+import { db } from "@/db";
+import { marketData } from "@/db/schema";
+import { desc } from "drizzle-orm";
 
 export interface FullContext {
   events: GDELTEvent[];
@@ -26,8 +29,25 @@ export async function buildFullContext(): Promise<FullContext> {
     ? macroResult.value
     : { fetchedAt: new Date().toISOString(), source: "fallback" };
 
+  // Fetch market returns for statistical regime detection
+  let marketReturns: number[] | undefined;
+  try {
+    const recentData = await db
+      .select({ close: marketData.close })
+      .from(marketData)
+      .orderBy(desc(marketData.timestamp))
+      .limit(120);
+    if (recentData.length >= 20) {
+      const closes = recentData.map((d) => d.close).reverse(); // time-ascending
+      marketReturns = [];
+      for (let i = 1; i < closes.length; i++) {
+        marketReturns.push(Math.log(closes[i] / closes[i - 1]));
+      }
+    }
+  } catch { /* market data unavailable, proceed without */ }
+
   // Compress to context vector
-  const contextVector = await compressToContextVector(events, macro);
+  const contextVector = await compressToContextVector(events, macro, marketReturns);
 
   // Store regime to memory
   try {

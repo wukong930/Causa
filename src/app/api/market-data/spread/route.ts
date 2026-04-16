@@ -5,6 +5,7 @@ import { eq, and, gte, desc } from 'drizzle-orm';
 import type { ApiResponse } from '@/types/api';
 import type { SpreadStatistics } from '@/types/domain';
 import { serializeRecords } from '@/lib/serialize';
+import { engleGranger, ouHalfLife, hurstExponent as calcHurst } from '@/lib/stats/cointegration';
 
 // GET /api/market-data/spread - Calculate spread statistics between two symbols
 export async function GET(request: NextRequest) {
@@ -52,20 +53,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Align by timestamp (most recent first)
+    // Align by timestamp and collect close prices
     const tsMap2 = new Map(rows2.map((r) => [r.timestamp.getTime(), r.close]));
-    const spreads: number[] = [];
+    const closes1: number[] = [];
+    const closes2: number[] = [];
     const timestamps: number[] = [];
 
     for (const r1 of rows1) {
       const c2 = tsMap2.get(r1.timestamp.getTime());
       if (c2 !== undefined) {
-        spreads.push(r1.close - c2);
+        closes1.push(r1.close);
+        closes2.push(c2);
         timestamps.push(r1.timestamp.getTime());
       }
     }
 
-    if (spreads.length < window) {
+    // Reverse to time-ascending order for regression
+    closes1.reverse();
+    closes2.reverse();
+
+    if (closes1.length < window) {
       return NextResponse.json(
         {
           success: false,
@@ -78,30 +85,38 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Engle-Granger cointegration test
+    const eg = engleGranger(closes1, closes2);
+    const spreads = eg.residuals.length > 0
+      ? eg.residuals
+      : closes1.map((c, i) => c - closes2[i]);
+
     const n = spreads.length;
     const mean = spreads.reduce((a, b) => a + b, 0) / n;
     const variance = spreads.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
     const stdDev = Math.sqrt(variance);
-    const currentSpread = spreads[0];
+    const currentSpread = spreads[spreads.length - 1];
     const currentZScore = stdDev > 0 ? (currentSpread - mean) / stdDev : 0;
 
-    // Simple EWM half-life estimate
-    const halfLife = Math.log(2) / Math.log(1 + 2 / (window + 1));
+    // Real OU half-life
+    const ou = ouHalfLife(spreads);
 
-    // Simplified ADF p-value: use last value / mean ratio as a proxy
-    // In production, use a proper statistical library
-    const adfPValue = Math.max(0.01, Math.min(0.99, 1 - Math.abs(currentZScore) / 5));
+    // Real Hurst exponent
+    const hurst = calcHurst(spreads);
 
     const stats: SpreadStatistics = {
       symbol1,
       symbol2,
-      window: spreads.length,
+      window: n,
       spreadMean: mean,
       spreadStdDev: stdDev,
       currentZScore,
-      halfLife,
-      adfPValue,
-      sampleCount: spreads.length,
+      halfLife: ou.halfLife,
+      adfPValue: eg.adf.pValue,
+      sampleCount: n,
+      hurstExponent: hurst,
+      hedgeRatio: eg.hedgeRatio,
+      cointPValue: eg.cointPValue,
     };
 
     const response: ApiResponse<SpreadStatistics> = {

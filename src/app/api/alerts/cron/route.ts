@@ -7,8 +7,10 @@ import type { Alert, AlertCategory } from '@/types/domain';
 import { getAllEvaluators } from '@/lib/trigger';
 import type { TriggerContext, SpreadStatistics } from '@/lib/trigger';
 import { applyPositionFilters } from '@/lib/trigger/position-filter';
+import { ensembleSignals } from '@/lib/trigger/ensemble';
 import { serializeRecord } from '@/lib/serialize';
 import { verifyCronSecret } from '@/lib/auth';
+import { engleGranger, ouHalfLife, hurstExponent as calcHurst } from '@/lib/stats/cointegration';
 
 // Cron watchlist: symbol pairs and categories to monitor
 const CRON_WATCHLIST: Array<{ symbol1: string; symbol2?: string; category: AlertCategory }> = [
@@ -19,7 +21,7 @@ const CRON_WATCHLIST: Array<{ symbol1: string; symbol2?: string; category: Alert
   { symbol1: 'CU2506', category: 'nonferrous' },
 ];
 
-const WINDOW = 20;
+const WINDOW = 60;
 
 // POST /api/alerts/cron - Scheduled alert trigger (called by cron job)
 export async function POST(request: NextRequest) {
@@ -97,37 +99,56 @@ async function triggerForPair(
       return { triggered: false, count: 0, error: `Insufficient data for ${symbol2}` };
     }
 
-    // Calculate spread statistics
+    // Calculate spread statistics with real cointegration tests
     const tsMap2 = new Map(data2.map((r) => [r.timestamp.getTime(), r.close]));
-    const spreads: number[] = [];
+    const closes1: number[] = [];
+    const closes2: number[] = [];
 
     for (const r1 of data1) {
       const c2 = tsMap2.get(r1.timestamp.getTime());
       if (c2 !== undefined) {
-        spreads.push(r1.close - c2);
+        closes1.push(r1.close);
+        closes2.push(c2);
       }
     }
 
-    if (spreads.length >= WINDOW) {
+    // Reverse to time-ascending order for regression
+    closes1.reverse();
+    closes2.reverse();
+
+    if (closes1.length >= WINDOW) {
+      // Engle-Granger cointegration test
+      const eg = engleGranger(closes1, closes2);
+      const spreads = eg.residuals.length > 0
+        ? eg.residuals
+        : closes1.map((c, i) => c - closes2[i]);
+
       const n = spreads.length;
       const mean = spreads.reduce((a, b) => a + b, 0) / n;
       const variance = spreads.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
       const stdDev = Math.sqrt(variance);
-      const currentSpread = spreads[0];
+      const currentSpread = spreads[spreads.length - 1];
       const currentZScore = stdDev > 0 ? (currentSpread - mean) / stdDev : 0;
-      const halfLife = Math.log(2) / Math.log(1 + 2 / (WINDOW + 1));
-      const adfPValue = Math.max(0.01, Math.min(0.99, 1 - Math.abs(currentZScore) / 5));
+
+      // Real OU half-life from AR(1) fit
+      const ou = ouHalfLife(spreads);
+
+      // Real Hurst exponent from R/S analysis
+      const hurst = calcHurst(spreads);
 
       spreadStats = {
         symbol1,
         symbol2,
-        window: spreads.length,
+        window: n,
         spreadMean: mean,
         spreadStdDev: stdDev,
         currentZScore,
-        halfLife,
-        adfPValue,
-        sampleCount: spreads.length,
+        halfLife: ou.halfLife,
+        adfPValue: eg.adf.pValue,
+        sampleCount: n,
+        hurstExponent: hurst,
+        hedgeRatio: eg.hedgeRatio,
+        cointPValue: eg.cointPValue,
       };
     }
   }
@@ -207,42 +228,58 @@ async function triggerForPair(
     context
   );
 
-  // Evaluate all triggers
+  // Evaluate all triggers and run ensemble
   const evaluators = getAllEvaluators();
   let alertCount = 0;
+
+  const evalResults: Array<{ type: typeof evaluators[number]["type"]; result: NonNullable<Awaited<ReturnType<typeof evaluators[number]["evaluate"]>>> }> = [];
 
   for (const evaluator of evaluators) {
     try {
       const result = await evaluator.evaluate(context);
-
       if (result && result.triggered) {
-        const now = new Date();
-        const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-
-        await db.insert(alerts).values({
-          title: result.title,
-          summary: result.summary,
-          severity: result.severity,
-          category,
-          type: evaluator.type,
-          status: 'active',
-          triggeredAt: now,
-          updatedAt: now,
-          expiresAt,
-          confidence: result.confidence,
-          relatedAssets: result.relatedAssets,
-          spreadInfo: result.spreadInfo || null,
-          triggerChain: result.triggerChain,
-          riskItems: [...result.riskItems, ...filterResult.riskItems],
-          manualCheckItems: result.manualCheckItems,
-        });
-
-        alertCount++;
-        console.log(`[cron] Triggered ${evaluator.type} alert for ${symbol1}/${symbol2}: ${result.title}`);
+        evalResults.push({ type: evaluator.type, result });
       }
     } catch (err) {
       console.error(`Evaluator ${evaluator.type} failed:`, err);
     }
+  }
+
+  // Ensemble: aggregate, boost resonance, dampen conflicts
+  const ensemble = ensembleSignals(evalResults);
+
+  for (const alert of ensemble.alerts) {
+    try {
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      await db.insert(alerts).values({
+        title: alert.result.title,
+        summary: alert.result.summary,
+        severity: alert.result.severity,
+        category,
+        type: alert.type,
+        status: 'active',
+        triggeredAt: now,
+        updatedAt: now,
+        expiresAt,
+        confidence: alert.result.confidence,
+        relatedAssets: alert.result.relatedAssets,
+        spreadInfo: alert.result.spreadInfo || null,
+        triggerChain: alert.result.triggerChain,
+        riskItems: [...alert.result.riskItems, ...filterResult.riskItems],
+        manualCheckItems: alert.result.manualCheckItems,
+      });
+
+      alertCount++;
+      console.log(`[cron] Triggered ${alert.type} alert for ${symbol1}/${symbol2}: ${alert.result.title} (ensemble: ${ensemble.signalCount} signals, conf: ${ensemble.ensembleConfidence.toFixed(2)})`);
+    } catch (err) {
+      console.error(`Failed to insert alert for ${alert.type}:`, err);
+    }
+  }
+
+  if (ensemble.suppressed.length > 0) {
+    console.log(`[cron] Suppressed ${ensemble.suppressed.length} low-confidence signals for ${symbol1}/${symbol2}`);
   }
 
   return { triggered: alertCount > 0, count: alertCount };

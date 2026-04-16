@@ -115,7 +115,12 @@ ${params.currentMarket}
 export function contextCompressionPrompt(params: {
   gdeltEvents: string;
   macroIndicators: string;
+  statisticalRegime?: string;
 }): LLMMessage[] {
+  const statSection = params.statisticalRegime
+    ? `\n## 统计 Regime 信号\n${params.statisticalRegime}\n`
+    : "";
+
   return [
     { role: "system", content: SYSTEM_BASE },
     {
@@ -127,7 +132,7 @@ ${params.gdeltEvents}
 
 ## 宏观指标
 ${params.macroIndicators}
-
+${statSection}
 请以 JSON 格式返回：
 {
   "macro_regime": "inflation_up" | "inflation_down" | "growth_up" | "growth_down" | "stagflation" | "goldilocks",
@@ -141,7 +146,9 @@ ${params.macroIndicators}
   },
   "key_events": ["最重要的 3 个事件摘要"],
   "regime_confidence": 0.0-1.0
-}`,
+}
+
+注意：如果统计 Regime 信号与你从新闻/宏观数据得出的判断不一致，请在 key_events 中标注分歧，并适当降低 regime_confidence。`,
     },
   ];
 }

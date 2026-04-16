@@ -1,8 +1,9 @@
 import type { Hypothesis, SpreadHypothesis, MarketDataPoint } from "@/types/domain";
+import { getHypothesisHistory } from "@/lib/memory/hypothesis-store";
 
 /**
- * Validation matrix scoring per v3.0 architecture:
- * Score = 0.25*Stability + 0.20*IC + 0.20*Robustness + 0.15*Regime + 0.10*Cost + 0.10*TailRisk
+ * Validation matrix scoring per v3.0 architecture (upgraded):
+ * Score = 0.20*Stability + 0.20*IC + 0.15*Robustness + 0.15*Regime + 0.10*Cost + 0.10*TailRisk + 0.10*MemoryFeedback
  */
 
 export interface ValidationResult {
@@ -14,32 +15,35 @@ export interface ValidationResult {
   regimeConsistency: number;
   cost: number;
   tailRisk: number;
+  memoryFeedback: number;
   details: string;
 }
 
 const WEIGHTS = {
-  stability: 0.25,
+  stability: 0.20,
   ic: 0.20,
-  robustness: 0.20,
+  robustness: 0.15,
   regimeConsistency: 0.15,
   cost: 0.10,
   tailRisk: 0.10,
+  memoryFeedback: 0.10,
 };
 
 /**
- * Validate a hypothesis using statistical checks.
+ * Validate a hypothesis using statistical checks + memory feedback.
  * Returns a score 0-100 based on the validation matrix.
  */
-export function validateHypothesis(
+export async function validateHypothesis(
   hypothesis: Hypothesis,
   marketData?: MarketDataPoint[]
-): ValidationResult {
+): Promise<ValidationResult> {
   let stability = 50;
   let ic = 50;
   let robustness = 50;
   let regimeConsistency = 50;
-  let cost = 70;
+  let cost = 50;
   let tailRisk = 50;
+  let memoryFeedback = 50;
 
   if (hypothesis.type === "spread") {
     const sh = hypothesis as SpreadHypothesis;
@@ -70,9 +74,23 @@ export function validateHypothesis(
       else regimeConsistency = 40; // trending, bad for spread
     }
 
-    // Cost: based on cost-spread ratio from validation metrics
-    // Lower cost-spread ratio = better
-    cost = 70; // default, will be refined with backtest data
+    // Cost: estimate from spread std dev vs transaction cost
+    // Round-trip cost ≈ 0.1% of avg price; expected profit ≈ |z| × spreadStdDev
+    if (sh.currentZScore !== 0 && marketData && marketData.length > 0) {
+      const avgPrice = marketData.reduce((s, d) => s + d.close, 0) / marketData.length;
+      const tickCost = avgPrice * 0.001; // ~0.1% round-trip estimate
+      // Expected profit: z-score × estimated spread std dev
+      // Derive spread std from expectedSpread if available, else use 1% of avg price
+      const spreadStd = sh.expectedSpread
+        ? Math.abs(sh.expectedSpread) / Math.max(1, Math.abs(sh.currentZScore))
+        : avgPrice * 0.01;
+      const expectedProfit = Math.abs(sh.currentZScore) * spreadStd;
+      const costRatio = expectedProfit > 0 ? tickCost / expectedProfit : 1;
+      if (costRatio < 0.05) cost = 90;
+      else if (costRatio < 0.10) cost = 75;
+      else if (costRatio < 0.20) cost = 55;
+      else cost = 30;
+    }
 
     // Tail risk: based on max drawdown if available
     if (sh.maxDrawdown !== undefined) {
@@ -81,6 +99,9 @@ export function validateHypothesis(
       else if (sh.maxDrawdown < 30000) tailRisk = 45;
       else tailRisk = 25;
     }
+
+    // Memory feedback: query historical outcomes for similar hypotheses
+    memoryFeedback = await getMemoryFeedbackScore(sh);
   } else {
     // Directional hypothesis: simpler validation
     const dh = hypothesis;
@@ -99,7 +120,8 @@ export function validateHypothesis(
     WEIGHTS.robustness * robustness +
     WEIGHTS.regimeConsistency * regimeConsistency +
     WEIGHTS.cost * cost +
-    WEIGHTS.tailRisk * tailRisk;
+    WEIGHTS.tailRisk * tailRisk +
+    WEIGHTS.memoryFeedback * memoryFeedback;
 
   const details = [
     `稳定性: ${stability}`,
@@ -108,6 +130,7 @@ export function validateHypothesis(
     `体制一致性: ${regimeConsistency}`,
     `成本: ${cost}`,
     `尾部风险: ${tailRisk}`,
+    `记忆反馈: ${memoryFeedback}`,
   ].join(" | ");
 
   return {
@@ -119,6 +142,40 @@ export function validateHypothesis(
     regimeConsistency,
     cost,
     tailRisk,
+    memoryFeedback,
     details,
   };
+}
+
+/**
+ * Query Weaviate for historical hypothesis outcomes and compute a feedback score.
+ * Uses strategy-level history when available.
+ * Win rate > 0.6 → boost; < 0.4 → penalize.
+ */
+async function getMemoryFeedbackScore(sh: SpreadHypothesis): Promise<number> {
+  try {
+    // If we have a linked strategy, query its history
+    const strategyId = (sh as unknown as Record<string, string>).strategyId;
+    if (!strategyId) return 50;
+
+    const records = await getHypothesisHistory(strategyId, 20);
+
+    // Filter to resolved outcomes only
+    const resolved = records.filter(
+      (r) => r.outcome === "profitable" || r.outcome === "loss"
+    );
+
+    if (resolved.length < 3) return 50; // insufficient data, neutral
+
+    const wins = resolved.filter((r) => r.outcome === "profitable").length;
+    const winRate = wins / resolved.length;
+
+    if (winRate > 0.7) return 85;
+    if (winRate > 0.6) return 70;
+    if (winRate > 0.4) return 50;
+    if (winRate > 0.3) return 35;
+    return 20;
+  } catch {
+    return 50; // Weaviate unavailable, neutral
+  }
 }
