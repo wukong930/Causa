@@ -36,7 +36,7 @@ export function NetValueChart({ baseValue }: { baseValue: number }) {
   const current = values[values.length - 1];
   const prev = values[values.length - 2];
   const change = current - prev;
-  const changePct = ((change / prev) * 100).toFixed(2);
+  const changePct = prev !== 0 ? ((change / prev) * 100).toFixed(2) : "0.00";
   const isUp = change >= 0;
 
   // Pick ~3 label indices spread across the data

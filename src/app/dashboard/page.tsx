@@ -327,6 +327,9 @@ export default function DashboardPage() {
       setVarResult(vr);
       setStressResults(st ?? []);
       setLoading(false);
+    }).catch((err) => {
+      console.error("Dashboard load error:", err);
+      setLoading(false);
     });
   }, []);
 

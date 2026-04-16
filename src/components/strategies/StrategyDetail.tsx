@@ -34,7 +34,7 @@ export function StrategyDetail({
   refresh,
 }: StrategyDetailProps) {
   const router = useRouter();
-  const h = strategy.hypothesis as Hypothesis;
+  const h = (strategy.hypothesis ?? {}) as Hypothesis;
   const v = strategy.validation;
   const [linkedPositions, setLinkedPositions] = useState<PositionGroup[]>([]);
   const [linkedRecs, setLinkedRecs] = useState<Recommendation[]>([]);
@@ -60,9 +60,11 @@ export function StrategyDetail({
 
   async function handleRunBacktest() {
     setBacktestLoading(true);
-    const legs = h.type === "spread"
+    const legs = h.type === "spread" && (h as SpreadHypothesis).legs
       ? (h as SpreadHypothesis).legs.map((l) => ({ asset: l.asset, direction: l.direction, ratio: l.ratio }))
-      : [{ asset: (h as DirectionalHypothesis).leg.asset, direction: (h as DirectionalHypothesis).leg.direction, ratio: 1 }];
+      : h.type === "directional" && (h as DirectionalHypothesis).leg
+      ? [{ asset: (h as DirectionalHypothesis).leg.asset, direction: (h as DirectionalHypothesis).leg.direction, ratio: 1 }]
+      : [];
     const result = await runBacktestClient({
       hypothesis_id: strategy.id,
       legs,

@@ -54,7 +54,13 @@ async function fetchApi<T>(
       return { success: false, error: { code: `HTTP_${response.status}`, message: response.statusText } } as ApiResult<T>;
     }
 
-    return response.json() as Promise<ApiResult<T>>;
+    let data: ApiResult<T>;
+    try {
+      data = await response.json() as ApiResult<T>;
+    } catch {
+      return { success: false, error: { code: "PARSE_ERROR", message: "Invalid JSON response" } } as ApiResult<T>;
+    }
+    return data;
   } catch (err) {
     return { success: false, error: { code: "NETWORK_ERROR", message: err instanceof Error ? err.message : "Network error" } } as ApiResult<T>;
   }
@@ -561,7 +567,12 @@ export async function importMarketData(formData: FormData): Promise<{ imported: 
     method: 'POST',
     body: formData,
   });
-  const result = await response.json() as { success: boolean; data?: { imported: number; errors: string[] }; error?: { message: string } };
+  let result: { success: boolean; data?: { imported: number; errors: string[] }; error?: { message: string } };
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error('Invalid JSON response from import endpoint');
+  }
   if (!result.success) throw new Error(result.error?.message ?? 'Import failed');
   return result.data!;
 }

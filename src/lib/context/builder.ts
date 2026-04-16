@@ -15,11 +15,16 @@ export interface FullContext {
  * Build full context: fetch events + macro → compress → store regime.
  */
 export async function buildFullContext(): Promise<FullContext> {
-  // Fetch data in parallel
-  const [events, macro] = await Promise.all([
+  // Fetch data in parallel — tolerate individual failures
+  const [eventsResult, macroResult] = await Promise.allSettled([
     fetchGDELTEvents(),
     fetchMacroIndicators(),
   ]);
+
+  const events: GDELTEvent[] = eventsResult.status === "fulfilled" ? eventsResult.value : [];
+  const macro: MacroSnapshot = macroResult.status === "fulfilled"
+    ? macroResult.value
+    : { fetchedAt: new Date().toISOString(), source: "fallback" };
 
   // Compress to context vector
   const contextVector = await compressToContextVector(events, macro);

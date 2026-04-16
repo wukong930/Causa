@@ -723,7 +723,8 @@ export default function StrategiesPage() {
   }
 
   async function handleDelete(id: string) {
-    await deleteStrategy(id);
+    const ok = await deleteStrategy(id);
+    if (!ok) return;
     setStrategies((prev) => prev.filter((s) => s.id !== id));
     setDeleteId(null);
     if (selectedId === id) {

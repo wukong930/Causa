@@ -71,7 +71,9 @@ export function runStressTest(
       for (const leg of pos.legs) {
         const prefix = getSymbolPrefix(leg.asset);
         const shock = scenario.shocks[prefix] ?? 0;
-        const legPnl = leg.currentPrice * leg.size * shock * (leg.direction === "long" ? 1 : -1);
+        const price = leg.currentPrice ?? 0;
+        const size = leg.size ?? 0;
+        const legPnl = price * size * shock * (leg.direction === "long" ? 1 : -1);
         posPnl += legPnl;
       }
 

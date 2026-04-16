@@ -29,14 +29,17 @@ export function calculateVaR(
       const data = marketDataBySymbol[leg.asset];
       if (!data || data.length < 2) continue;
 
+      // Cap to last 252 trading days to bound memory usage
+      const capped = data.length > 253 ? data.slice(-253) : data;
+
       // Calculate daily returns
-      for (let i = 1; i < data.length; i++) {
-        const prevClose = data[i - 1].close;
-        const currClose = data[i].close;
+      for (let i = 1; i < capped.length; i++) {
+        const prevClose = capped[i - 1].close;
+        const currClose = capped[i].close;
         if (prevClose === 0) continue;
 
         const dailyReturn = (currClose - prevClose) / prevClose;
-        const positionPnl = dailyReturn * leg.currentPrice * leg.size * (leg.direction === "long" ? 1 : -1);
+        const positionPnl = dailyReturn * (leg.currentPrice ?? 0) * (leg.size ?? 0) * (leg.direction === "long" ? 1 : -1);
         dailyPnls.push(positionPnl);
       }
     }

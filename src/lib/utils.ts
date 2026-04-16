@@ -1,7 +1,9 @@
 import type { AlertSeverity } from "@/types/domain";
 
-export function formatRelativeTime(iso: string): string {
+export function formatRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
   const diff = Date.now() - new Date(iso).getTime();
+  if (isNaN(diff)) return "—";
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return "刚刚";
   if (minutes < 60) return `${minutes} 分钟前`;
@@ -12,15 +14,18 @@ export function formatRelativeTime(iso: string): string {
 }
 
 export function formatPercent(value: number, decimals = 1): string {
+  if (value == null || isNaN(value) || !isFinite(value)) return "—";
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(decimals)}%`;
 }
 
 export function formatNumber(value: number, decimals = 0): string {
+  if (value == null || isNaN(value) || !isFinite(value)) return "—";
   return value.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 export function formatConfidence(value: number): string {
+  if (value == null || isNaN(value)) return "—";
   return `${Math.round(value * 100)}%`;
 }
 

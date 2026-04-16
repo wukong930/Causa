@@ -360,6 +360,8 @@ export default function RecommendationsPage() {
         toast("已创建执行草稿", "success");
         // Navigate to drafts page
         router.push("/drafts");
+      } else {
+        toast("创建执行草稿失败", "error");
       }
     } catch {
       toast("创建执行草稿失败", "error");

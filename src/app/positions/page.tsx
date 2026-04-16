@@ -571,6 +571,9 @@ export default function PositionsPage() {
       setCorrelationMatrix(cm);
       setUpdatedAt(new Date().toISOString());
       setLoading(false);
+    }).catch((err) => {
+      console.error("Positions load error:", err);
+      setLoading(false);
     });
   }, []);
 
@@ -738,7 +741,7 @@ export default function PositionsPage() {
                           {correlationMatrix.symbols.map((row, i) => (
                             <tr key={row}>
                               <td className="px-2 py-1 font-mono font-medium" style={{ color: "var(--accent-blue)" }}>{row}</td>
-                              {correlationMatrix.matrix[i].map((val, j) => {
+                              {(correlationMatrix.matrix[i] ?? []).map((val, j) => {
                                 const abs = Math.abs(val);
                                 const bg = i === j ? "transparent"
                                   : val > 0 ? `rgba(63,185,80,${abs * 0.4})`

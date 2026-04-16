@@ -13,21 +13,29 @@ export async function getWeaviateClient() {
 
   const url = process.env.WEAVIATE_URL || "http://localhost:8080";
 
+  // Wrap connection in a timeout to avoid hanging if Weaviate is unreachable
+  const connectWithTimeout = async <T>(connectFn: () => Promise<T>): Promise<T> => {
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Weaviate connection timeout (10s)")), 10_000)
+    );
+    return Promise.race([connectFn(), timeout]);
+  };
+
   if (process.env.WEAVIATE_API_KEY) {
-    clientInstance = await weaviate.connectToCustom({
+    clientInstance = await connectWithTimeout(() => weaviate.connectToCustom({
       httpHost: new URL(url).hostname,
       httpPort: parseInt(new URL(url).port) || 8080,
       httpSecure: url.startsWith("https"),
       grpcHost: process.env.WEAVIATE_GRPC_HOST || new URL(url).hostname,
       grpcPort: parseInt(process.env.WEAVIATE_GRPC_PORT || "50051"),
       grpcSecure: url.startsWith("https"),
-      authCredentials: new weaviate.ApiKey(process.env.WEAVIATE_API_KEY),
-    });
+      authCredentials: new weaviate.ApiKey(process.env.WEAVIATE_API_KEY!),
+    }));
   } else {
-    clientInstance = await weaviate.connectToLocal({
+    clientInstance = await connectWithTimeout(() => weaviate.connectToLocal({
       host: new URL(url).hostname,
       port: parseInt(new URL(url).port) || 8080,
-    });
+    }));
   }
 
   return clientInstance;

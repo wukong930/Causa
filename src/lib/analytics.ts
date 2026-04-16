@@ -101,10 +101,10 @@ export function calculatePositionHealth(pos: PositionGroup): PositionHealthScore
   const marginEfficiency = roi;
 
   // Days elapsed vs half-life
-  const daysToHalfLifeRatio = pos.halfLifeDays > 0 ? pos.daysHeld / pos.halfLifeDays : 0;
+  const daysToHalfLifeRatio = pos.halfLifeDays > 0 ? (pos.daysHeld ?? 0) / pos.halfLifeDays : 0;
 
   // Z-score distance to target (how close are we to exit?)
-  const zScoreDistanceToExit = Math.abs(pos.currentZScore - pos.targetZScore);
+  const zScoreDistanceToExit = Math.abs((pos.currentZScore ?? 0) - (pos.targetZScore ?? 0));
 
   // Health score components (each 0–100)
   const roiScore = Math.max(0, Math.min(100, (roi + 1) * 50)); // -100% → 0, 0% → 50, +100% → 100
@@ -151,8 +151,8 @@ export function detectExitSignals(positions: PositionGroup[]): ExitSignal[] {
   const openPositions = positions.filter((p) => p.status === "open");
 
   for (const pos of openPositions) {
-    const absCurrent = Math.abs(pos.currentZScore);
-    const absTarget = Math.abs(pos.targetZScore);
+    const absCurrent = Math.abs(pos.currentZScore ?? 0);
+    const absTarget = Math.abs(pos.targetZScore ?? 0);
 
     // Signal 1: approaching exit — Z-score within 0.5σ of target
     if (Math.abs(absCurrent - absTarget) < 0.5) {
@@ -168,7 +168,7 @@ export function detectExitSignals(positions: PositionGroup[]): ExitSignal[] {
 
     // Signal 2: in profit
     if (pos.unrealizedPnl > 0) {
-      const confidence = Math.min(1, pos.unrealizedPnl / (pos.totalMarginUsed * 0.1));
+      const confidence = pos.totalMarginUsed > 0 ? Math.min(1, pos.unrealizedPnl / (pos.totalMarginUsed * 0.1)) : 0;
       if (confidence >= 0.3) {
         signals.push({
           positionId: pos.id,
@@ -199,8 +199,8 @@ export function detectExitSignals(positions: PositionGroup[]): ExitSignal[] {
         positionId: pos.id,
         signalType: "at_loss",
         daysToExit: estimateDaysToExit(pos),
-        confidence: Math.min(1, Math.abs(pos.unrealizedPnl) / (pos.totalMarginUsed * 0.2)),
-        reason: `当前浮亏 ¥${Math.abs(pos.unrealizedPnl).toLocaleString()}，亏损已达保证金 ${((Math.abs(pos.unrealizedPnl) / pos.totalMarginUsed) * 100).toFixed(1)}%`,
+        confidence: pos.totalMarginUsed > 0 ? Math.min(1, Math.abs(pos.unrealizedPnl) / (pos.totalMarginUsed * 0.2)) : 0,
+        reason: `当前浮亏 ¥${Math.abs(pos.unrealizedPnl).toLocaleString()}，亏损已达保证金 ${pos.totalMarginUsed > 0 ? ((Math.abs(pos.unrealizedPnl) / pos.totalMarginUsed) * 100).toFixed(1) : "0.0"}%`,
       });
     }
   }
@@ -300,7 +300,7 @@ function estimateSharpe(account: AccountSnapshot): number {
   // Simplified: if we have realized PnL today and margin utilization, approximate
   // A real implementation would use a rolling daily PnL series
   const { todayRealizedPnl, netValue, marginUtilizationRate } = account;
-  // Annualize ~252 trading days; assume daily vol = margin_utilization * 0.02
+  if (!netValue || netValue <= 0) return 0;
   const annualReturn = (todayRealizedPnl / netValue) * 252;
   const annualVol = marginUtilizationRate * 0.5; // rough
   if (annualVol === 0) return 0;

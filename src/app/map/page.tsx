@@ -336,7 +336,7 @@ function NodeDetailPanel({
           </div>
           <div className="flex flex-col gap-1.5">
             {relatedNodes.map((n) => {
-              const edge = relatedEdges.find((e) => e.source === node.id && e.target === n.id || e.source === n.id && e.target === node.id)!;
+              const edge = relatedEdges.find((e) => (e.source === node.id && e.target === n.id) || (e.source === n.id && e.target === node.id));
               return (
                 <div key={n.id} className="flex items-center gap-2">
                   <span className="font-mono text-xs font-medium" style={{ color: "var(--accent-blue)" }}>
@@ -349,7 +349,7 @@ function NodeDetailPanel({
                     className="ml-auto text-xs px-1.5 py-0.5 rounded"
                     style={{ background: "var(--surface-overlay)", color: "var(--foreground-subtle)", fontSize: "9px" }}
                   >
-                    {EDGE_TYPE_LABEL[edge.type]}
+                    {edge ? EDGE_TYPE_LABEL[edge.type] : "—"}
                   </span>
                 </div>
               );
