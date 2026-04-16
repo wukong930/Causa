@@ -2,13 +2,21 @@
 
 import { useState } from "react";
 import { createExecutionFeedback } from "@/lib/api-client";
-import type { ExecutionFeedbackLeg, Direction, FeedbackLegType } from "@/types/domain";
+import type { ExecutionFeedbackLeg, Direction, FeedbackLegType, ExecutionLegStatus } from "@/types/domain";
+
+export interface FeedbackLegStatus {
+  asset: string;
+  filledSize: number;
+  filledPrice: number;
+  legStatus: ExecutionLegStatus;
+  activeAt?: string;
+}
 
 interface FeedbackFormProps {
   recommendationId?: string;
   strategyId?: string;
-  prefillLegs?: Array<{ asset: string; direction: Direction; size: number; unit: string }>;
-  onSuccess?: () => void;
+  prefillLegs?: Array<{ asset: string; direction: Direction; size: number; unit: string; requestedPrice?: number }>;
+  onSuccess?: (feedbackId: string, legStatuses: FeedbackLegStatus[]) => void;
   onCancel?: () => void;
 }
 
@@ -16,6 +24,7 @@ interface LegFormData {
   asset: string;
   direction: Direction;
   type: FeedbackLegType;
+  requestedSize: number;
   filledSize: string;
   filledPrice: string;
   filledAt: string;
@@ -28,6 +37,7 @@ function emptyLeg(): LegFormData {
     asset: "",
     direction: "long",
     type: "open",
+    requestedSize: 0,
     filledSize: "",
     filledPrice: "",
     filledAt: new Date().toISOString().slice(0, 16),
@@ -49,6 +59,7 @@ export function ExecutionFeedbackForm({
           ...emptyLeg(),
           asset: l.asset,
           direction: l.direction,
+          requestedSize: l.size,
           filledSize: String(l.size),
           unit: l.unit,
         }))
@@ -106,8 +117,30 @@ export function ExecutionFeedbackForm({
       0
     );
 
+    // Compute leg status from filled vs requested
+    const now = new Date().toISOString();
+    const legStatuses: FeedbackLegStatus[] = legs.map((l) => {
+      const filled = parseFloat(l.filledSize);
+      const requested = l.requestedSize;
+      let legStatus: ExecutionLegStatus;
+      if (filled === 0) {
+        legStatus = "broken";
+      } else if (filled < requested) {
+        legStatus = "legging";
+      } else {
+        legStatus = "active";
+      }
+      return {
+        asset: l.asset,
+        filledSize: filled,
+        filledPrice: parseFloat(l.filledPrice),
+        legStatus,
+        activeAt: legStatus === "active" ? now : undefined,
+      };
+    });
+
     try {
-      await createExecutionFeedback({
+      const result = await createExecutionFeedback({
         recommendationId,
         strategyId,
         legs: feedbackLegs,
@@ -117,7 +150,7 @@ export function ExecutionFeedbackForm({
         liquidityNote: liquidityNote || undefined,
         notes: notes || undefined,
       });
-      onSuccess?.();
+      onSuccess?.(result.id, legStatuses);
     } catch (err) {
       setError("提交失败，请重试");
     } finally {

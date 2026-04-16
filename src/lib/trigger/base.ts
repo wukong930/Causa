@@ -6,9 +6,20 @@ import type {
   SpreadStatistics,
   SpreadInfo,
   TriggerStep,
+  PositionGroup,
+  AccountSnapshot,
 } from "@/types/domain";
 
 export type { SpreadStatistics } from "@/types/domain";
+
+/**
+ * Risk parameters for position-aware filtering
+ */
+export interface RiskParameters {
+  maxPositionSizePerCommodity: number;  // max lots per commodity, default 10
+  maxMarginUtilization: number;        // max margin utilization ratio, default 0.80
+  maxConcentrationPerCategory: number; // max margin % per category, default 0.40
+}
 
 /**
  * Context passed to trigger evaluators
@@ -19,6 +30,12 @@ export interface TriggerContext {
   category: AlertCategory;
   marketData: MarketDataPoint[];
   spreadStats?: SpreadStatistics;
+  /** Open positions for conflict/concentration checks */
+  positions?: PositionGroup[];
+  /** Latest account snapshot for margin checks */
+  accountSnapshot?: AccountSnapshot;
+  /** Risk thresholds; defaults applied when omitted */
+  riskParams?: RiskParameters;
   timestamp: string;
 }
 

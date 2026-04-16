@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getExecutionDrafts, updateExecutionDraft } from "@/lib/api-client";
-import type { ExecutionDraft, ExecutionDraftStatus } from "@/types/domain";
+import type { ExecutionDraft, ExecutionDraftStatus, ExecutionLegStatus, ExecutionDraftLeg } from "@/types/domain";
 import { formatRelativeTime } from "@/lib/utils";
 import { ExecutionFeedbackForm } from "@/components/execution/FeedbackForm";
 
@@ -11,6 +11,16 @@ const STATUS_CONFIG: Record<ExecutionDraftStatus, { label: string; color: string
   submitted: { label: "已提交", color: "var(--accent-blue)", bg: "var(--accent-blue-subtle)" },
   executed: { label: "已执行", color: "var(--positive)", bg: "var(--positive-subtle)" },
   cancelled: { label: "已取消", color: "var(--foreground-subtle)", bg: "var(--surface-raised)" },
+};
+
+const LEG_STATUS_CONFIG: Record<ExecutionLegStatus, { label: string; color: string; bg: string }> = {
+  pending:   { label: "待确认", color: "var(--foreground-subtle)", bg: "var(--surface-overlay)" },
+  confirmed: { label: "已确认", color: "var(--accent-blue)",     bg: "var(--accent-blue-muted)" },
+  legging:   { label: "部分成交", color: "var(--alert-high)",    bg: "var(--alert-high-muted)" },
+  active:    { label: "已激活", color: "var(--positive)",       bg: "var(--positive-muted)" },
+  exiting:   { label: "平仓中", color: "var(--alert-high)",     bg: "var(--alert-high-muted)" },
+  closed:    { label: "已平仓", color: "var(--foreground-muted)", bg: "var(--surface-overlay)" },
+  broken:    { label: "失败", color: "var(--negative)",         bg: "var(--negative-muted)" },
 };
 
 export default function DraftsPage() {
@@ -150,11 +160,22 @@ export default function DraftsPage() {
                   direction: l.direction,
                   size: l.requestedSize,
                   unit: l.unit,
+                  requestedPrice: l.requestedPrice,
                 }))}
-                onSuccess={async () => {
-                  await updateExecutionDraft(draft.id, { status: "executed" });
+                onSuccess={async (_feedbackId, legStatuses) => {
+                  const updatedLegs: ExecutionDraftLeg[] = draft.legs.map((l, i) => ({
+                    ...l,
+                    filledSize: legStatuses[i]?.filledSize,
+                    filledPrice: legStatuses[i]?.filledPrice,
+                    legStatus: legStatuses[i]?.legStatus ?? "broken",
+                    activeAt: legStatuses[i]?.activeAt,
+                  }));
+                  await updateExecutionDraft(draft.id, {
+                    status: "executed",
+                    legs: updatedLegs,
+                  });
                   setDrafts((prev) =>
-                    prev.map((d) => (d.id === draft.id ? { ...d, status: "executed" as ExecutionDraftStatus } : d))
+                    prev.map((d) => (d.id === draft.id ? { ...d, status: "executed" as ExecutionDraftStatus, legs: updatedLegs } : d))
                   );
                   setFeedbackDraftId(null);
                 }}
@@ -213,22 +234,31 @@ function DraftCard({
 
       {/* Legs preview */}
       <div className="flex flex-col gap-1 mb-3">
-        {draft.legs.slice(0, 2).map((leg, i) => (
-          <div key={i} className="flex items-center gap-2 text-xs" style={{ color: "var(--foreground-muted)" }}>
-            <span
-              className="px-1.5 py-0.5 rounded font-medium"
-              style={{
-                background: leg.direction === "long" ? "var(--positive-subtle)" : "var(--negative-subtle)",
-                color: leg.direction === "long" ? "var(--positive)" : "var(--negative)",
-              }}
-            >
-              {leg.direction === "long" ? "多" : "空"}
-            </span>
-            <span>{leg.asset}</span>
-            <span>×{leg.requestedSize}</span>
-            {leg.requestedPrice && <span>@ ¥{leg.requestedPrice}</span>}
-          </div>
-        ))}
+        {draft.legs.slice(0, 2).map((leg, i) => {
+          const cfg = LEG_STATUS_CONFIG[leg.legStatus];
+          return (
+            <div key={i} className="flex items-center gap-2 text-xs" style={{ color: "var(--foreground-muted)" }}>
+              <span
+                className="px-1.5 py-0.5 rounded font-medium"
+                style={{
+                  background: leg.direction === "long" ? "var(--positive-subtle)" : "var(--negative-subtle)",
+                  color: leg.direction === "long" ? "var(--positive)" : "var(--negative)",
+                }}
+              >
+                {leg.direction === "long" ? "多" : "空"}
+              </span>
+              <span>{leg.asset}</span>
+              <span>×{leg.requestedSize}</span>
+              {leg.requestedPrice && <span>@ ¥{leg.requestedPrice}</span>}
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] ml-auto"
+                style={{ background: cfg.bg, color: cfg.color }}
+              >
+                {cfg.label}
+              </span>
+            </div>
+          );
+        })}
         {draft.legs.length > 2 && (
           <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
             +{draft.legs.length - 2} 条腿
@@ -340,6 +370,15 @@ function DraftDetailDrawer({
                   </span>
                   <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
                     {leg.asset}
+                  </span>
+                  <span
+                    className="ml-auto px-2 py-0.5 rounded text-[10px]"
+                    style={{
+                      background: LEG_STATUS_CONFIG[leg.legStatus].bg,
+                      color: LEG_STATUS_CONFIG[leg.legStatus].color,
+                    }}
+                  >
+                    {LEG_STATUS_CONFIG[leg.legStatus].label}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">

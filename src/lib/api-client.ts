@@ -617,6 +617,7 @@ export async function createExecutionDraft(recommendationId: string): Promise<Ex
         requestedSize: l.suggestedSize,
         requestedPrice: l.entryPriceRef,
         unit: l.unit,
+        legStatus: "pending" as const,
       })),
       totalMarginUsed: rec.marginRequired,
       totalCommission: 0,

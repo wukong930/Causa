@@ -455,6 +455,16 @@ export interface SpreadStatistics {
 
 export type ExecutionDraftStatus = "draft" | "submitted" | "executed" | "cancelled";
 
+/** Per-leg execution status: follows the v3.1 state machine */
+export type ExecutionLegStatus =
+  | "pending"   // 等待确认
+  | "confirmed" // 已发送交易所
+  | "legging"   // 部分成交
+  | "active"    // 完全成交
+  | "exiting"   // 正在平仓
+  | "closed"    // 已平仓
+  | "broken";   // 成交失败
+
 export interface ExecutionDraftLeg {
   asset: string;
   direction: Direction;
@@ -464,6 +474,12 @@ export interface ExecutionDraftLeg {
   filledSize?: number;
   filledPrice?: number;
   unit: string;
+  /** Per-leg execution status (v3.1 state machine) */
+  legStatus: ExecutionLegStatus;
+  /** When the leg was confirmed by the exchange */
+  confirmedAt?: string;
+  /** When the leg became fully active */
+  activeAt?: string;
 }
 
 export interface ExecutionDraft {

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { marketData, alerts } from '@/db/schema';
+import { marketData, alerts, positions, accountSnapshots } from '@/db/schema';
 import { eq, and, gte, desc } from 'drizzle-orm';
 import type { ApiResponse } from '@/types/api';
 import type { Alert, AlertCategory } from '@/types/domain';
 import { getAllEvaluators } from '@/lib/trigger';
 import type { TriggerContext, SpreadStatistics } from '@/lib/trigger';
+import { applyPositionFilters } from '@/lib/trigger/position-filter';
 import { serializeRecord } from '@/lib/serialize';
 
 // Cron watchlist: symbol pairs and categories to monitor
@@ -137,6 +138,42 @@ async function triggerForPair(
     }
   }
 
+  // Build trigger context with position awareness
+  const openPositions = await db
+    .select()
+    .from(positions)
+    .where(eq(positions.status, "open"))
+    .limit(100);
+
+  const latestSnapshot = await db
+    .select()
+    .from(accountSnapshots)
+    .orderBy(desc(accountSnapshots.snapshotAt))
+    .limit(1);
+
+  const accountSnapshot = latestSnapshot[0]
+    ? {
+        netValue: latestSnapshot[0].netValue,
+        availableMargin: latestSnapshot[0].availableMargin,
+        marginUtilizationRate: latestSnapshot[0].marginUtilizationRate,
+        totalUnrealizedPnl: latestSnapshot[0].totalUnrealizedPnl,
+        todayRealizedPnl: latestSnapshot[0].todayRealizedPnl,
+        snapshotAt: latestSnapshot[0].snapshotAt.toISOString(),
+      }
+    : undefined;
+
+  // Derive proposed legs from the symbol pair for position-aware filtering
+  const proposedLegs: Array<{ asset: string; direction: "long" | "short"; size: number }> = [];
+  if (symbol2 && spreadStats) {
+    const direction: "long" | "short" = spreadStats.currentZScore > 0 ? "short" : "long";
+    proposedLegs.push(
+      { asset: symbol1, direction: direction === "long" ? "long" : "short", size: 1 },
+      { asset: symbol2, direction: direction === "long" ? "short" : "long", size: 1 }
+    );
+  } else {
+    proposedLegs.push({ asset: symbol1, direction: "long", size: 1 });
+  }
+
   // Build trigger context
   const context: TriggerContext = {
     symbol1,
@@ -147,8 +184,34 @@ async function triggerForPair(
       timestamp: d.timestamp.toISOString(),
     })),
     spreadStats,
+    positions: openPositions.map((p) => ({
+      id: p.id,
+      strategyId: p.strategyId ?? undefined,
+      strategyName: p.strategyName ?? undefined,
+      recommendationId: p.recommendationId ?? undefined,
+      legs: p.legs,
+      openedAt: p.openedAt.toISOString(),
+      entrySpread: p.entrySpread,
+      currentSpread: p.currentSpread,
+      spreadUnit: p.spreadUnit,
+      unrealizedPnl: p.unrealizedPnl,
+      totalMarginUsed: p.totalMarginUsed,
+      exitCondition: p.exitCondition,
+      targetZScore: p.targetZScore,
+      currentZScore: p.currentZScore,
+      halfLifeDays: p.halfLifeDays,
+      daysHeld: p.daysHeld,
+      status: p.status as "open" | "closed" | "partially_closed",
+    })),
+    accountSnapshot,
     timestamp: new Date().toISOString(),
   };
+
+  const filterResult = applyPositionFilters(
+    proposedLegs.map((l) => ({ ...l, marginEstimate: 0 })),
+    category,
+    context
+  );
 
   // Evaluate all triggers
   const evaluators = getAllEvaluators();
@@ -176,7 +239,7 @@ async function triggerForPair(
           relatedAssets: result.relatedAssets,
           spreadInfo: result.spreadInfo || null,
           triggerChain: result.triggerChain,
-          riskItems: result.riskItems,
+          riskItems: [...result.riskItems, ...filterResult.riskItems],
           manualCheckItems: result.manualCheckItems,
         });
 
