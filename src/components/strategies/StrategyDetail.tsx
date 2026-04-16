@@ -1,4 +1,4 @@
-import type { StrategyPoolItem } from "@/types/domain";
+import type { StrategyPoolItem, Hypothesis, SpreadHypothesis, DirectionalHypothesis } from "@/types/domain";
 import { STRATEGY_STATUS_LABEL } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -33,7 +33,7 @@ export function StrategyDetail({
   refresh,
 }: StrategyDetailProps) {
   const router = useRouter();
-  const h = strategy.hypothesis;
+  const h = strategy.hypothesis as Hypothesis;
   const v = strategy.validation;
   const [strategyPositionCount, setStrategyPositionCount] = useState(0);
 
@@ -71,11 +71,26 @@ export function StrategyDetail({
           >
             {STRATEGY_STATUS_LABEL[strategy.status]}
           </span>
+          {h.type === "spread" ? (
+            <span
+              className="text-xs px-2 py-0.5 rounded-full"
+              style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}
+            >
+              {(h as SpreadHypothesis).spreadModel.replace(/_/g, " ")}
+            </span>
+          ) : (
+            <span
+              className="text-xs px-2 py-0.5 rounded-full"
+              style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}
+            >
+              方向性 {(h as DirectionalHypothesis).leg.direction === "long" ? "做多" : "做空"}
+            </span>
+          )}
           <span
             className="text-xs px-2 py-0.5 rounded-full"
             style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}
           >
-            {h.spreadModel.replace(/_/g, " ")}
+            {h.type === "spread" ? "价差策略" : "方向性策略"}
           </span>
         </div>
         <h2 className="text-base font-semibold leading-snug mb-2" style={{ color: "var(--foreground)" }}>
@@ -87,121 +102,211 @@ export function StrategyDetail({
       </div>
 
       {/* Legs */}
-      <Section title="套利组合">
-        <div className="flex flex-col gap-2">
-          {h.legs.map((leg, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 rounded-lg px-4 py-3"
-              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-            >
-              <span
-                className="text-xs font-bold px-2 py-0.5 rounded font-mono"
-                style={{
-                  background: leg.direction === "long" ? "var(--positive-muted)" : "var(--negative-muted)",
-                  color: leg.direction === "long" ? "var(--positive)" : "var(--negative)",
-                }}
+      {h.type === "spread" ? (
+        <Section title="套利组合">
+          <div className="flex flex-col gap-2">
+            {(h as SpreadHypothesis).legs.map((leg, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-lg px-4 py-3"
+                style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
               >
-                {leg.direction === "long" ? "做多" : "做空"}
-              </span>
-              <span className="font-mono font-medium text-sm" style={{ color: "var(--foreground)" }}>
-                {leg.asset}
-              </span>
-              <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
-                {leg.exchange}
-              </span>
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded font-mono"
+                  style={{
+                    background: leg.direction === "long" ? "var(--positive-muted)" : "var(--negative-muted)",
+                    color: leg.direction === "long" ? "var(--positive)" : "var(--negative)",
+                  }}
+                >
+                  {leg.direction === "long" ? "做多" : "做空"}
+                </span>
+                <span className="font-mono font-medium text-sm" style={{ color: "var(--foreground)" }}>
+                  {leg.asset}
+                </span>
+                <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
+                  {leg.exchange}
+                </span>
+                <span className="ml-auto text-xs" style={{ color: "var(--foreground-muted)" }}>
+                  配比 {leg.ratio}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      ) : (
+        <Section title="方向性持仓">
+          <div className="flex items-center gap-3 rounded-lg px-4 py-3"
+            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+          >
+            <span
+              className="text-xs font-bold px-2 py-0.5 rounded font-mono"
+              style={{
+                background: (h as DirectionalHypothesis).leg.direction === "long" ? "var(--positive-muted)" : "var(--negative-muted)",
+                color: (h as DirectionalHypothesis).leg.direction === "long" ? "var(--positive)" : "var(--negative)",
+              }}
+            >
+              {(h as DirectionalHypothesis).leg.direction === "long" ? "做多" : "做空"}
+            </span>
+            <span className="font-mono font-medium text-sm" style={{ color: "var(--foreground)" }}>
+              {(h as DirectionalHypothesis).leg.asset}
+            </span>
+            <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
+              {(h as DirectionalHypothesis).leg.exchange}
+            </span>
+            {(h as DirectionalHypothesis).positionSize && (
               <span className="ml-auto text-xs" style={{ color: "var(--foreground-muted)" }}>
-                配比 {leg.ratio}
+                {(h as DirectionalHypothesis).positionSize} 手
               </span>
-            </div>
-          ))}
-        </div>
-      </Section>
+            )}
+          </div>
+        </Section>
+      )}
 
       {/* Hypothesis metrics */}
-      <Section title="假设检验">
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div
-            className="rounded-lg p-3 text-center"
-            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-          >
-            <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>当前 Z-Score</div>
+      {h.type === "spread" ? (
+        <Section title="假设检验">
+          <div className="grid grid-cols-2 gap-3 mb-4">
             <div
-              className="text-xl font-semibold font-mono"
-              style={{
-                color:
-                  Math.abs(h.currentZScore) > 2
-                    ? "var(--alert-critical)"
-                    : Math.abs(h.currentZScore) > 1.5
-                    ? "var(--alert-high)"
-                    : "var(--foreground)",
-              }}
+              className="rounded-lg p-3 text-center"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
             >
-              {h.currentZScore > 0 ? "+" : ""}{h.currentZScore.toFixed(2)}σ
+              <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>当前 Z-Score</div>
+              <div
+                className="text-xl font-semibold font-mono"
+                style={{
+                  color:
+                    Math.abs((h as SpreadHypothesis).currentZScore) > 2
+                      ? "var(--alert-critical)"
+                      : Math.abs((h as SpreadHypothesis).currentZScore) > 1.5
+                      ? "var(--alert-high)"
+                      : "var(--foreground)",
+                }}
+              >
+                {(h as SpreadHypothesis).currentZScore > 0 ? "+" : ""}{(h as SpreadHypothesis).currentZScore.toFixed(2)}σ
+              </div>
             </div>
-          </div>
-          <div
-            className="rounded-lg p-3 text-center"
-            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-          >
-            <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>半衰期</div>
-            <div className="text-xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
-              ~{h.halfLife}天
-            </div>
-          </div>
-          <div
-            className="rounded-lg p-3 text-center"
-            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-          >
-            <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>因果置信度</div>
             <div
-              className="text-xl font-semibold font-mono"
-              style={{
-                color: (h.causalConfidence ?? 0) > 0.7 ? "var(--positive)" : "var(--foreground)",
-              }}
+              className="rounded-lg p-3 text-center"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
             >
-              {formatConfidence(h.causalConfidence ?? 0)}
+              <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>半衰期</div>
+              <div className="text-xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
+                ~{(h as SpreadHypothesis).halfLife}天
+              </div>
             </div>
-          </div>
-          <div
-            className="rounded-lg p-3 text-center"
-            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-          >
-            <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>ADF p-value</div>
             <div
-              className="text-xl font-semibold font-mono"
-              style={{ color: h.adfPValue < 0.05 ? "var(--positive)" : "var(--foreground-muted)" }}
+              className="rounded-lg p-3 text-center"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
             >
-              {h.adfPValue.toFixed(3)}
+              <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>因果置信度</div>
+              <div
+                className="text-xl font-semibold font-mono"
+                style={{
+                  color: ((h as SpreadHypothesis).causalConfidence ?? 0) > 0.7 ? "var(--positive)" : "var(--foreground)",
+                }}
+              >
+                {formatConfidence((h as SpreadHypothesis).causalConfidence ?? 0)}
+              </div>
+            </div>
+            <div
+              className="rounded-lg p-3 text-center"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+            >
+              <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>ADF p-value</div>
+              <div
+                className="text-xl font-semibold font-mono"
+                style={{ color: (h as SpreadHypothesis).adfPValue < 0.05 ? "var(--positive)" : "var(--foreground-muted)" }}
+              >
+                {(h as SpreadHypothesis).adfPValue.toFixed(3)}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Thresholds */}
-        <div
-          className="rounded-lg px-4 py-3"
-          style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-        >
-          <div className="flex items-center justify-between text-sm">
-            <span style={{ color: "var(--foreground-muted)" }}>入场阈值</span>
-            <span className="font-mono font-medium" style={{ color: "var(--foreground)" }}>
-              {h.entryThreshold > 0 ? "+" : ""}{h.entryThreshold}σ
-            </span>
+          {/* Thresholds */}
+          <div
+            className="rounded-lg px-4 py-3"
+            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+          >
+            <div className="flex items-center justify-between text-sm">
+              <span style={{ color: "var(--foreground-muted)" }}>入场阈值</span>
+              <span className="font-mono font-medium" style={{ color: "var(--foreground)" }}>
+                {(h as SpreadHypothesis).entryThreshold > 0 ? "+" : ""}{(h as SpreadHypothesis).entryThreshold}σ
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm mt-2">
+              <span style={{ color: "var(--foreground-muted)" }}>出场阈值</span>
+              <span className="font-mono font-medium" style={{ color: "var(--foreground)" }}>
+                {(h as SpreadHypothesis).exitThreshold > 0 ? "+" : ""}{(h as SpreadHypothesis).exitThreshold}σ
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm mt-2">
+              <span style={{ color: "var(--foreground-muted)" }}>止损阈值</span>
+              <span className="font-mono font-medium" style={{ color: "var(--negative)" }}>
+                {(h as SpreadHypothesis).stopLossThreshold > 0 ? "+" : ""}{(h as SpreadHypothesis).stopLossThreshold}σ
+              </span>
+            </div>
           </div>
-          <div className="flex items-center justify-between text-sm mt-2">
-            <span style={{ color: "var(--foreground-muted)" }}>出场阈值</span>
-            <span className="font-mono font-medium" style={{ color: "var(--foreground)" }}>
-              {h.exitThreshold > 0 ? "+" : ""}{h.exitThreshold}σ
-            </span>
+        </Section>
+      ) : (
+        <Section title="交易信号">
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div
+              className="rounded-lg p-3 text-center"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+            >
+              <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>置信度</div>
+              <div
+                className="text-xl font-semibold font-mono"
+                style={{
+                  color: ((h as DirectionalHypothesis).confidence ?? 0) > 0.7 ? "var(--positive)" : "var(--foreground)",
+                }}
+              >
+                {formatConfidence((h as DirectionalHypothesis).confidence ?? 0)}
+              </div>
+            </div>
+            <div
+              className="rounded-lg p-3 text-center"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+            >
+              <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>风险回报</div>
+              <div className="text-xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
+                {(h as DirectionalHypothesis).riskRewardRatio?.toFixed(2) ?? "—"}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-between text-sm mt-2">
-            <span style={{ color: "var(--foreground-muted)" }}>止损阈值</span>
-            <span className="font-mono font-medium" style={{ color: "var(--negative)" }}>
-              {h.stopLossThreshold > 0 ? "+" : ""}{h.stopLossThreshold}σ
-            </span>
+
+          {/* Price levels */}
+          <div
+            className="rounded-lg px-4 py-3"
+            style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+          >
+            {(h as DirectionalHypothesis).currentPrice && (
+              <div className="flex items-center justify-between text-sm">
+                <span style={{ color: "var(--foreground-muted)" }}>当前价格</span>
+                <span className="font-mono font-medium" style={{ color: "var(--foreground)" }}>
+                  {(h as DirectionalHypothesis).currentPrice?.toLocaleString()}
+                </span>
+              </div>
+            )}
+            {(h as DirectionalHypothesis).stopLoss && (
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span style={{ color: "var(--foreground-muted)" }}>止损价格</span>
+                <span className="font-mono font-medium" style={{ color: "var(--negative)" }}>
+                  {(h as DirectionalHypothesis).stopLoss?.toLocaleString()}
+                </span>
+              </div>
+            )}
+            {(h as DirectionalHypothesis).takeProfit && (
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span style={{ color: "var(--foreground-muted)" }}>止盈价格</span>
+                <span className="font-mono font-medium" style={{ color: "var(--positive)" }}>
+                  {(h as DirectionalHypothesis).takeProfit?.toLocaleString()}
+                </span>
+              </div>
+            )}
           </div>
-        </div>
-      </Section>
+        </Section>
+      )}
 
       {/* Validation metrics */}
       <Section title="验证指标">

@@ -1,9 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getPositions, getExecutionFeedbacks, getAccountSnapshot } from "@/lib/api-client";
 import { formatRelativeTime, formatNumber } from "@/lib/utils";
 import { Drawer } from "@/components/shared/Drawer";
+import { RiskMetricsDashboard } from "@/components/positions/RiskMetricsDashboard";
+import { HistoricalChart } from "@/components/positions/HistoricalChart";
+import { ExitSignalsBanner } from "@/components/positions/ExitSignalsBanner";
+import {
+  calculatePortfolioRisk,
+  calculatePositionHealth,
+  detectExitSignals,
+  buildCumulativePnL,
+  buildDrawdownSeries,
+} from "@/lib/analytics";
 import type { PositionGroup, ExecutionFeedback, AccountSnapshot } from "@/types/domain";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -64,13 +74,7 @@ function MarginBar({ rate }: { rate: number }) {
 
 // ─── Account Summary ─────────────────────────────────────────────────────────
 
-function AccountSummary() {
-  const [account, setAccount] = useState<AccountSnapshot | null>(null);
-
-  useEffect(() => {
-    getAccountSnapshot().then(setAccount);
-  }, []);
-
+function AccountSummary({ account }: { account: AccountSnapshot | null }) {
   if (!account) {
     return (
       <div className="mb-6 rounded-lg p-5 animate-pulse" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -179,6 +183,51 @@ function AccountSummary() {
   );
 }
 
+// ─── Z-Score Mini Progress Bar ───────────────────────────────────────────────
+
+function ZScoreMiniBar({
+  current,
+  target,
+}: {
+  current: number;
+  target: number;
+}) {
+  // Show how close current Z-score is to target
+  // Range: -3σ to +3σ
+  const range = 3;
+  const pct = Math.min(100, Math.max(0, ((current - -range) / (range - -range)) * 100));
+  const targetPct = Math.min(100, Math.max(0, ((target - -range) / (range - -range)) * 100));
+  const barColor =
+    Math.abs(current) > 2
+      ? "var(--alert-critical)"
+      : Math.abs(current) > 1.5
+      ? "var(--alert-high)"
+      : "var(--accent-blue)";
+
+  return (
+    <div className="w-16">
+      <div
+        className="h-1.5 rounded-full overflow-hidden"
+        style={{ background: "var(--surface-overlay)" }}
+      >
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, background: barColor }}
+        />
+      </div>
+      <div className="relative h-1.5 -mt-1.5">
+        <div
+          className="absolute w-0.5 h-2 -mt-0.5 rounded-full"
+          style={{
+            left: `${targetPct}%`,
+            background: "var(--foreground-subtle)",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── Position Row ─────────────────────────────────────────────────────────────
 
 function PositionRow({
@@ -188,6 +237,20 @@ function PositionRow({
   position: PositionGroup;
   onClick: () => void;
 }) {
+  const health = calculatePositionHealth(position);
+  const healthColor =
+    health.status === "healthy"
+      ? "var(--positive)"
+      : health.status === "warning"
+      ? "var(--alert-medium)"
+      : "var(--alert-critical)";
+  const healthBg =
+    health.status === "healthy"
+      ? "var(--positive-muted)"
+      : health.status === "warning"
+      ? "var(--alert-medium-muted)"
+      : "var(--alert-critical-muted)";
+
   return (
     <tr
       onClick={onClick}
@@ -195,11 +258,25 @@ function PositionRow({
       style={{ borderColor: "var(--border-subtle)" }}
     >
       <td className="px-4 py-3">
-        <div className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-          {position.strategyName}
-        </div>
-        <div className="text-xs font-mono mt-0.5" style={{ color: "var(--foreground-subtle)" }}>
-          {position.legs.map((l) => l.asset).join(" / ")}
+        <div className="flex items-center gap-2">
+          <div>
+            <div className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+              {position.strategyName}
+            </div>
+            <div className="text-xs font-mono mt-0.5" style={{ color: "var(--foreground-subtle)" }}>
+              {position.legs.map((l) => l.asset).join(" / ")}
+            </div>
+          </div>
+          {/* Health score badge */}
+          <div
+            className="ml-auto shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: healthBg }}
+            title={`健康分 ${health.healthScore} (${health.status === "healthy" ? "健康" : health.status === "warning" ? "警告" : "危险"})`}
+          >
+            <span className="text-xs font-bold font-mono" style={{ color: healthColor }}>
+              {health.healthScore}
+            </span>
+          </div>
         </div>
       </td>
       <td className="px-4 py-3 text-right">
@@ -222,24 +299,32 @@ function PositionRow({
         >
           {position.currentZScore > 0 ? "+" : ""}{position.currentZScore.toFixed(2)}σ
         </div>
-        <div className="text-xs mt-0.5" style={{ color: "var(--foreground-subtle)" }}>
-          目标 {position.targetZScore > 0 ? "+" : ""}{position.targetZScore}σ
+        <div className="flex items-center justify-end gap-1.5 mt-0.5">
+          <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
+            目标 {position.targetZScore > 0 ? "+" : ""}{position.targetZScore}σ
+          </span>
+          <ZScoreMiniBar current={position.currentZScore} target={position.targetZScore} />
         </div>
       </td>
       <td className="px-4 py-3 text-right">
         <span className="text-sm font-mono" style={{ color: "var(--foreground)" }}>
           {position.daysHeld}天
         </span>
+        {position.halfLifeDays > 0 && (
+          <div className="text-xs mt-0.5" style={{ color: "var(--foreground-subtle)" }}>
+            / {position.halfLifeDays.toFixed(1)}天
+          </div>
+        )}
       </td>
       <td className="px-4 py-3 text-right">
         <span
           className="text-xs font-medium px-2 py-0.5 rounded"
           style={{
-            background: "var(--positive-muted)",
-            color: "var(--positive)",
+            background: healthBg,
+            color: healthColor,
           }}
         >
-          {position.status === "open" ? "持仓中" : position.status}
+          {health.status === "healthy" ? "健康" : health.status === "warning" ? "警告" : "危险"}
         </span>
       </td>
     </tr>
@@ -458,14 +543,16 @@ export default function PositionsPage() {
   const [activeTab, setActiveTab] = useState<"open" | "history" | "feedback">("open");
   const [positions, setPositions] = useState<PositionGroup[]>([]);
   const [feedbacks, setFeedbacks] = useState<ExecutionFeedback[]>([]);
+  const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>(new Date().toISOString());
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getPositions(), getExecutionFeedbacks()]).then(([pos, fb]) => {
+    Promise.all([getPositions(), getExecutionFeedbacks(), getAccountSnapshot()]).then(([pos, fb, acc]) => {
       setPositions(pos);
       setFeedbacks(fb);
+      setAccount(acc);
       setUpdatedAt(new Date().toISOString());
       setLoading(false);
     });
@@ -476,6 +563,30 @@ export default function PositionsPage() {
     : null;
 
   const openPositions = positions.filter((p) => p.status === "open");
+  const closedPositions = positions.filter(
+    (p) => p.status === "closed" || p.status === "partially_closed"
+  );
+
+  // Compute risk metrics and exit signals
+  const riskMetrics = useMemo(
+    () =>
+      account
+        ? calculatePortfolioRisk(openPositions, account, closedPositions)
+        : null,
+    [openPositions, closedPositions, account]
+  );
+
+  const exitSignals = useMemo(
+    () => detectExitSignals(openPositions),
+    [openPositions]
+  );
+
+  // Historical analytics
+  const historicalData = useMemo(() => {
+    const cumPnL = buildCumulativePnL(closedPositions);
+    const drawdown = buildDrawdownSeries(cumPnL);
+    return { cumPnL, drawdown };
+  }, [closedPositions]);
 
   function openPosition(id: string) {
     setSelectedId(id);
@@ -505,7 +616,7 @@ export default function PositionsPage() {
           >
             {[
               { key: "open", label: "持仓中", count: openPositions.length },
-              { key: "history", label: "历史" },
+              { key: "history", label: "历史", count: closedPositions.length },
               { key: "feedback", label: "执行反馈", count: feedbacks.length },
             ].map((tab) => (
               <button
@@ -536,7 +647,14 @@ export default function PositionsPage() {
       <div className="flex-1 overflow-y-auto pb-16 md:pb-0 px-5 py-5">
         {activeTab === "open" && (
           <>
-            <AccountSummary />
+            <AccountSummary account={account} />
+
+            {riskMetrics && <RiskMetricsDashboard metrics={riskMetrics} />}
+
+            <ExitSignalsBanner
+              signals={exitSignals}
+              onSignalClick={(id) => openPosition(id)}
+            />
 
             {loading ? (
               <div
@@ -577,7 +695,7 @@ export default function PositionsPage() {
                         持仓天数
                       </th>
                       <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
-                        状态
+                        健康
                       </th>
                     </tr>
                   </thead>
@@ -604,20 +722,57 @@ export default function PositionsPage() {
         )}
 
         {activeTab === "history" && (
-          <div
-            className="rounded-lg p-5 text-center"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-          >
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--foreground-subtle)", margin: "0 auto" }}>
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-            <p className="text-sm mt-3" style={{ color: "var(--foreground-muted)" }}>
-              已平仓记录开发中
-            </p>
-            <p className="text-xs mt-1" style={{ color: "var(--foreground-subtle)" }}>
-              平仓后的策略将显示在此处，包含完整收益回顾
-            </p>
+          <div className="flex flex-col gap-4">
+            {loading ? (
+              <div
+                className="rounded-lg p-5 animate-pulse"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              >
+                <div className="h-4 w-32 rounded mb-4" style={{ background: "var(--surface-overlay)" }} />
+                <div className="h-40 w-full rounded" style={{ background: "var(--surface-overlay)" }} />
+              </div>
+            ) : (
+              <HistoricalChart
+                cumulativePnL={historicalData.cumPnL}
+                drawdownSeries={historicalData.drawdown}
+              />
+            )}
+
+            {closedPositions.length > 0 && !loading && (
+              <div
+                className="rounded-lg overflow-hidden"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+              >
+                <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                  <span className="text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
+                    历史持仓 ({closedPositions.length})
+                  </span>
+                </div>
+                {closedPositions.map((pos) => (
+                  <div
+                    key={pos.id}
+                    className="flex items-center justify-between px-4 py-3 border-b last:border-b-0 cursor-pointer hover:bg-[var(--surface-raised)] transition-colors"
+                    style={{ borderColor: "var(--border-subtle)" }}
+                    onClick={() => openPosition(pos.id)}
+                  >
+                    <div>
+                      <div className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+                        {pos.strategyName}
+                      </div>
+                      <div className="text-xs font-mono mt-0.5" style={{ color: "var(--foreground-subtle)" }}>
+                        {pos.legs.map((l) => l.asset).join(" / ")}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <PnlBadge value={pos.realizedPnl ?? 0} />
+                      <div className="text-xs mt-0.5" style={{ color: "var(--foreground-subtle)" }}>
+                        {formatRelativeTime(pos.closedAt ?? pos.openedAt)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

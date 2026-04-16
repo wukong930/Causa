@@ -7,7 +7,7 @@ import type {
   PositionGroup,
   ExecutionFeedback,
   ResearchReport,
-  Hypothesis,
+  ResearchHypothesis,
   Suggestion,
   CommodityNode,
   RelationshipEdge,
@@ -24,7 +24,7 @@ import { mockAlerts } from "@/mocks/alerts";
 import { mockStrategies } from "@/mocks/strategies";
 import { mockRecommendations } from "@/mocks/recommendations";
 import { mockExecutionFeedbacks } from "@/mocks/positions";
-import { mockReports, mockHypotheses } from "@/mocks/research";
+import { mockReports, mockResearchHypotheses as mockHypotheses } from "@/mocks/research";
 import { mockSuggestions } from "@/mocks/suggestions";
 import { mockNodes, mockEdges } from "@/mocks/graph";
 
@@ -81,6 +81,7 @@ export async function createStrategy(
       status: "draft",
       hypothesis: data.hypothesis ?? {
         id: `hyp-${Date.now()}`,
+        type: "spread" as const,
         spreadModel: "calendar_spread",
         legs: [],
         entryThreshold: 2,
@@ -89,6 +90,8 @@ export async function createStrategy(
         currentZScore: 0,
         halfLife: 0,
         adfPValue: 0,
+        hypothesisText: "",
+        createdAt: now,
         lastUpdated: now,
       },
       validation: data.validation ?? {
@@ -379,27 +382,27 @@ export async function getResearchReport(id: string): Promise<ResearchReport | nu
 
 export async function getHypotheses(filters?: {
   status?: string;
-}): Promise<Hypothesis[]> {
+}): Promise<ResearchHypothesis[]> {
   if (USE_MOCK_DATA) return [...mockHypotheses];
 
   const params = new URLSearchParams(filters as Record<string, string>);
-  const result = await fetchApi<Hypothesis[]>(`/api/research/hypotheses?${params}`);
+  const result = await fetchApi<ResearchHypothesis[]>(`/api/research/hypotheses?${params}`);
   if (!result.success) return [...mockHypotheses];
-  return (result as { data: Hypothesis[]; success: true }).data;
+  return (result as { data: ResearchHypothesis[]; success: true }).data;
 }
 
 export async function updateHypothesis(
   id: string,
-  data: Partial<Hypothesis>
-): Promise<Hypothesis | null> {
+  data: Partial<ResearchHypothesis>
+): Promise<ResearchHypothesis | null> {
   if (USE_MOCK_DATA) return null;
 
-  const result = await fetchApi<Hypothesis>(`/api/research/hypotheses/${id}`, {
+  const result = await fetchApi<ResearchHypothesis>(`/api/research/hypotheses/${id}`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
   if (!result.success) return null;
-  return (result as { data: Hypothesis; success: true }).data;
+  return (result as { data: ResearchHypothesis; success: true }).data;
 }
 
 // ─── Suggestions ────────────────────────────────────────────────────────────────

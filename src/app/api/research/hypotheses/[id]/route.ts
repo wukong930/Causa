@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ApiResponse } from '@/types/api';
-import type { Hypothesis } from '@/types/domain';
-import { mockHypotheses } from '@/mocks/research';
+import type { ResearchHypothesis } from '@/types/domain';
+import { mockResearchHypotheses } from '@/mocks/research';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || !process.env.DATABASE_URL;
 
@@ -12,7 +12,7 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const hypothesis = mockHypotheses.find((h) => h.id === id);
+  const hypothesis = mockResearchHypotheses.find((h) => h.id === id);
   if (!hypothesis) {
     return NextResponse.json(
       { success: false, error: { code: 'NOT_FOUND', message: 'Hypothesis not found' } },
@@ -20,7 +20,7 @@ export async function GET(
     );
   }
 
-  const response: ApiResponse<Hypothesis> = { success: true, data: hypothesis };
+  const response: ApiResponse<ResearchHypothesis> = { success: true, data: hypothesis };
   return NextResponse.json(response);
 }
 
@@ -32,7 +32,7 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
 
-  const idx = mockHypotheses.findIndex((h) => h.id === id);
+  const idx = mockResearchHypotheses.findIndex((h) => h.id === id);
   if (idx === -1) {
     return NextResponse.json(
       { success: false, error: { code: 'NOT_FOUND', message: 'Hypothesis not found' } },
@@ -40,9 +40,9 @@ export async function PATCH(
     );
   }
 
-  const updated: Hypothesis = { ...mockHypotheses[idx], ...body };
-  mockHypotheses[idx] = updated;
+  const updated: ResearchHypothesis = { ...mockResearchHypotheses[idx], ...body };
+  mockResearchHypotheses[idx] = updated;
 
-  const response: ApiResponse<Hypothesis> = { success: true, data: updated };
+  const response: ApiResponse<ResearchHypothesis> = { success: true, data: updated };
   return NextResponse.json(response);
 }

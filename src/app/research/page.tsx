@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import type { ResearchReport, Hypothesis } from "@/types/domain";
+import type { ResearchReport, ResearchHypothesis } from "@/types/domain";
 import { getResearchReports, getHypotheses, updateHypothesis } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/utils";
 
 // ─── Hypothesis status config ─────────────────────────────────────────────────
 
-const HYP_STATUS: Record<Hypothesis["status"], { label: string; bg: string; color: string }> = {
+const HYP_STATUS: Record<ResearchHypothesis["status"], { label: string; bg: string; color: string }> = {
   validated:   { label: "已验证", bg: "var(--positive-muted)",          color: "var(--positive)" },
   monitoring:  { label: "观察中", bg: "var(--alert-medium-muted)",      color: "var(--alert-medium)" },
   new:         { label: "新建",   bg: "var(--surface-overlay)",         color: "var(--foreground-muted)" },
@@ -16,7 +16,7 @@ const HYP_STATUS: Record<Hypothesis["status"], { label: string; bg: string; colo
 
 // ─── Hypothesis Card ──────────────────────────────────────────────────────────
 
-function HypothesisCard({ hyp }: { hyp: Hypothesis }) {
+function HypothesisCard({ hyp }: { hyp: ResearchHypothesis }) {
   const cfg = HYP_STATUS[hyp.status];
 
   return (
@@ -149,9 +149,9 @@ const REPORT_TYPE_LABEL: Record<string, string> = {
 
 export default function ResearchPage() {
   const [reports, setReports] = useState<ResearchReport[]>([]);
-  const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
+  const [hypotheses, setHypotheses] = useState<ResearchHypothesis[]>([]);
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
-  const [hypFilter, setHypFilter] = useState<Hypothesis["status"] | "all">("all");
+  const [hypFilter, setHypFilter] = useState<ResearchHypothesis["status"] | "all">("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -169,7 +169,7 @@ export default function ResearchPage() {
     ? hypotheses
     : hypotheses.filter((h) => h.status === hypFilter);
 
-  const HYP_FILTERS: Array<{ value: Hypothesis["status"] | "all"; label: string }> = [
+  const HYP_FILTERS: Array<{ value: ResearchHypothesis["status"] | "all"; label: string }> = [
     { value: "all",         label: "全部" },
     { value: "validated",   label: "已验证" },
     { value: "monitoring",  label: "观察中" },

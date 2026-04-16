@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ApiResponse, ApiListResponse } from '@/types/api';
-import type { Hypothesis } from '@/types/domain';
-import { mockHypotheses } from '@/mocks/research';
+import type { ResearchHypothesis } from '@/types/domain';
+import { mockResearchHypotheses } from '@/mocks/research';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || !process.env.DATABASE_URL;
 
 // GET /api/research/hypotheses
 export async function GET(request: NextRequest) {
   if (USE_MOCK) {
-    const response: ApiListResponse<Hypothesis> = {
+    const response: ApiListResponse<ResearchHypothesis> = {
       success: true,
-      data: mockHypotheses,
-      meta: { total: mockHypotheses.length, page: 1, pageSize: mockHypotheses.length },
+      data: mockResearchHypotheses,
+      meta: { total: mockResearchHypotheses.length, page: 1, pageSize: mockResearchHypotheses.length },
     };
     return NextResponse.json(response);
   }
@@ -20,12 +20,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    let data = [...mockHypotheses];
+    let data = [...mockResearchHypotheses];
     if (status) {
       data = data.filter((h) => h.status === status);
     }
 
-    const response: ApiListResponse<Hypothesis> = {
+    const response: ApiListResponse<ResearchHypothesis> = {
       success: true,
       data,
       meta: { total: data.length, page: 1, pageSize: data.length },

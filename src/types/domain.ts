@@ -78,17 +78,45 @@ export interface Alert {
   invalidationReason?: string;
 }
 
-// ─── SpreadHypothesis ────────────────────────────────────────────────────────
+// ─── Hypothesis primitives ────────────────────────────────────────────────────
+
+export type HypothesisType = "spread" | "directional";
 
 export interface HypothesisLeg {
   asset: string;       // e.g. "RB2501"
   direction: Direction;
   ratio: number;       // position sizing ratio, e.g. 1
   exchange: string;    // e.g. "SHFE"
+  contractMonth?: string; // e.g. "2506"
 }
 
-export interface SpreadHypothesis {
+export interface DirectionalLeg {
+  asset: string;       // e.g. "RB2506"
+  direction: Direction;
+  exchange: string;    // e.g. "SHFE"
+  contractMonth?: string;
+  targetSize?: number; // 手数
+  targetPct?: number;   // 资金占比%
+}
+
+// ─── Base hypothesis ─────────────────────────────────────────────────────────
+
+export interface BaseHypothesis {
   id: string;
+  type: HypothesisType;
+  /** Natural language description of the trading hypothesis */
+  hypothesisText: string;
+  /** Alert or event that triggered this hypothesis */
+  triggerDescription?: string;
+  createdFromAlertId?: string;
+  createdAt: string;
+  lastUpdated: string;
+}
+
+// ─── SpreadHypothesis ────────────────────────────────────────────────────────
+
+export interface SpreadHypothesis extends BaseHypothesis {
+  type: "spread";
   spreadModel: SpreadModel;
   legs: HypothesisLeg[];
   entryThreshold: number;   // z-score threshold to enter
@@ -99,8 +127,40 @@ export interface SpreadHypothesis {
   adfPValue: number;
   hurstExponent?: number;
   causalConfidence?: number; // 0–1, from DoWhy
-  lastUpdated: string;
+  expectedSpread?: number;   // expected spread value at mean reversion
+  maxDrawdown?: number;      // historical max drawdown
+  /** Commodity category for this spread */
+  category?: AlertCategory;
 }
+
+// ─── DirectionalHypothesis ──────────────────────────────────────────────────
+
+export interface DirectionalHypothesis extends BaseHypothesis {
+  type: "directional";
+  leg: DirectionalLeg;
+  /** Entry price when hypothesis was created */
+  entryPrice?: number;
+  /** Current market price */
+  currentPrice?: number;
+  /** Stop loss price */
+  stopLoss?: number;
+  /** Take profit price */
+  takeProfit?: number;
+  /** Conviction/confidence score 0–1 */
+  confidence?: number;
+  /** Risk/reward ratio */
+  riskRewardRatio?: number;
+  /** Position sizing: number of lots */
+  positionSize?: number;
+  /** Category of the asset */
+  category?: AlertCategory;
+  /** Momentum direction: 'up' | 'down' | 'neutral' */
+  momentum?: "up" | "down" | "neutral";
+}
+
+// ─── Hypothesis union ────────────────────────────────────────────────────────
+
+export type Hypothesis = SpreadHypothesis | DirectionalHypothesis;
 
 // ─── StrategyPoolItem ────────────────────────────────────────────────────────
 
@@ -300,7 +360,7 @@ export interface Suggestion {
 
 export type ReportType = "daily" | "weekly" | "hypothesis" | "postmortem";
 
-export interface Hypothesis {
+export interface ResearchHypothesis {
   id: string;
   title: string;
   description: string;
@@ -315,7 +375,7 @@ export interface ResearchReport {
   title: string;
   summary: string;
   body: string;
-  hypotheses: Hypothesis[];
+  hypotheses: ResearchHypothesis[];
   relatedStrategyIds: string[];
   relatedAlertIds: string[];
   publishedAt: string;

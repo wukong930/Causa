@@ -694,6 +694,7 @@ export default function StrategiesPage() {
       status: "draft",
       hypothesis: {
         id: `hyp-${Date.now()}`,
+        type: "spread" as const,
         spreadModel: form.spreadModel,
         legs,
         entryThreshold: form.entryThreshold,
@@ -702,6 +703,8 @@ export default function StrategiesPage() {
         currentZScore: 0,
         halfLife: 0,
         adfPValue: 0,
+        hypothesisText: "",
+        createdAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
       },
       validation: {

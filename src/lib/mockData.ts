@@ -8,5 +8,5 @@ export { mockStrategies as mockSetups } from "@/mocks/strategies";
 export { mockRecommendations } from "@/mocks/recommendations";
 export { mockSuggestions } from "@/mocks/suggestions";
 export { mockPositionSnapshot, mockExecutionFeedbacks } from "@/mocks/positions";
-export { mockReports, mockHypotheses } from "@/mocks/research";
+export { mockReports, mockResearchHypotheses as mockHypotheses } from "@/mocks/research";
 export { mockNodes, mockEdges } from "@/mocks/graph";

@@ -1,12 +1,12 @@
 import { pgTable, uuid, text, timestamp, real, jsonb, varchar, index } from 'drizzle-orm/pg-core';
-import type { StrategyPoolItem, SpreadHypothesis, ValidationMetrics } from '@/types/domain';
+import type { StrategyPoolItem, Hypothesis, ValidationMetrics } from '@/types/domain';
 
 export const strategies = pgTable('strategies', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   description: text('description').notNull(),
   status: varchar('status', { length: 30 }).notNull().default('draft'), // 'draft' | 'active' | 'approaching_trigger' | 'paused' | 'watch_only' | 'retired'
-  hypothesis: jsonb('hypothesis').$type<SpreadHypothesis>().notNull(),
+  hypothesis: jsonb('hypothesis').$type<Hypothesis>().notNull(),
   validation: jsonb('validation').$type<ValidationMetrics>().notNull(),
   relatedAlertIds: jsonb('related_alert_ids').$type<string[]>().notNull().default([]),
   recommendationHistory: jsonb('recommendation_history').$type<string[]>().notNull().default([]),

@@ -1,4 +1,4 @@
-import type { ResearchReport, Hypothesis } from "@/types/domain";
+import type { ResearchReport, ResearchHypothesis } from "@/types/domain";
 
 export const mockReports: ResearchReport[] = [
   {
@@ -46,7 +46,7 @@ export const mockReports: ResearchReport[] = [
   },
 ];
 
-export const mockHypotheses: Hypothesis[] = [
+export const mockResearchHypotheses: ResearchHypothesis[] = [
   {
     id: "hyp-001",
     title: "螺纹-热卷价差均值回归",

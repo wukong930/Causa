@@ -9,6 +9,7 @@ export const mockStrategies: StrategyPoolItem[] = [
     status: "approaching_trigger",
     hypothesis: {
       id: "hyp-001",
+      type: "spread",
       spreadModel: "calendar_spread",
       legs: [
         { asset: "I2505", direction: "long", ratio: 1, exchange: "DCE" },
@@ -22,6 +23,8 @@ export const mockStrategies: StrategyPoolItem[] = [
       adfPValue: 0.021,
       hurstExponent: 0.38,
       causalConfidence: 0.76,
+      hypothesisText: "做多 I2505、做空 I2509，捕捉近强远弱格局下跨期价差回归机会。基于 ADF 检验确认均值回归特性，半衰期约 8.5 天。",
+      createdAt: "2025-11-10T00:00:00Z",
       lastUpdated: "2026-04-14T09:00:00Z",
     },
     validation: {
@@ -48,6 +51,7 @@ export const mockStrategies: StrategyPoolItem[] = [
     status: "active",
     hypothesis: {
       id: "hyp-002",
+      type: "spread",
       spreadModel: "inter_market",
       legs: [
         { asset: "CU2506", direction: "long", ratio: 1, exchange: "SHFE" },
@@ -60,6 +64,8 @@ export const mockStrategies: StrategyPoolItem[] = [
       adfPValue: 0.032,
       hurstExponent: 0.41,
       causalConfidence: 0.71,
+      hypothesisText: "当 SHFE/LME 比价跌破盈亏平衡线 7.95 时，做多沪铜 CU2506，等待比价向均值修复。",
+      createdAt: "2025-10-05T00:00:00Z",
       lastUpdated: "2026-04-14T09:05:00Z",
     },
     validation: {
@@ -85,6 +91,7 @@ export const mockStrategies: StrategyPoolItem[] = [
     status: "active",
     hypothesis: {
       id: "hyp-003",
+      type: "spread",
       spreadModel: "cross_commodity",
       legs: [
         { asset: "RB2506", direction: "long", ratio: 1, exchange: "SHFE" },
@@ -98,6 +105,8 @@ export const mockStrategies: StrategyPoolItem[] = [
       adfPValue: 0.018,
       hurstExponent: 0.33,
       causalConfidence: 0.84,
+      hypothesisText: "做空 HC2506、做多 RB2506，捕捉 RB-HC 价差回归至历史均值区间的机会。",
+      createdAt: "2025-08-20T00:00:00Z",
       lastUpdated: "2026-04-14T09:10:00Z",
     },
     validation: {
@@ -123,6 +132,7 @@ export const mockStrategies: StrategyPoolItem[] = [
     status: "watch_only",
     hypothesis: {
       id: "hyp-004",
+      type: "spread",
       spreadModel: "cross_commodity",
       legs: [
         { asset: "J2506", direction: "long", ratio: 1.4, exchange: "DCE" },
@@ -135,6 +145,8 @@ export const mockStrategies: StrategyPoolItem[] = [
       halfLife: 18.2,
       adfPValue: 0.041,
       causalConfidence: 0.62,
+      hypothesisText: "当焦化利润（JM→J 转换收益）压缩至历史低位时，做多 J2506 / 做空 JM2506，等待利润均值回归带动价差修复。",
+      createdAt: "2026-01-15T00:00:00Z",
       lastUpdated: "2026-04-14T08:00:00Z",
     },
     validation: {
@@ -159,6 +171,7 @@ export const mockStrategies: StrategyPoolItem[] = [
     status: "draft",
     hypothesis: {
       id: "hyp-005",
+      type: "spread",
       spreadModel: "basis_trade",
       legs: [
         { asset: "P2506", direction: "long", ratio: 1, exchange: "DCE" },
@@ -170,6 +183,8 @@ export const mockStrategies: StrategyPoolItem[] = [
       halfLife: 6.8,
       adfPValue: 0.058,
       causalConfidence: 0.54,
+      hypothesisText: "马盘大幅上涨而国内 P 合约跟涨滞后时，做多 P2506 等待基差收敛。",
+      createdAt: "2026-03-01T00:00:00Z",
       lastUpdated: "2026-04-14T08:30:00Z",
     },
     validation: {

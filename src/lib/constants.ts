@@ -7,6 +7,8 @@ import type {
   RecommendationStatus,
   RecommendedAction,
   SpreadModel,
+  HypothesisType,
+  Direction,
 } from "@/types/domain";
 
 // ─── Alert labels / colors ────────────────────────────────────────────────────
@@ -101,6 +103,16 @@ export const SPREAD_MODEL_LABEL: Record<SpreadModel, string> = {
   triangular: "三角套利",
   event_driven: "事件驱动",
   structural: "结构化套利",
+};
+
+export const HYPOTHESIS_TYPE_LABEL: Record<HypothesisType, string> = {
+  spread: "价差策略",
+  directional: "方向性策略",
+};
+
+export const DIRECTION_LABEL: Record<Direction, string> = {
+  long: "做多",
+  short: "做空",
 };
 
 // ─── Recommendation labels / colors ──────────────────────────────────────────
