@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   getAlerts,
   getStrategies,
@@ -20,225 +20,8 @@ import {
 } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence, clsx, formatNumber } from "@/lib/utils";
 import Link from "next/link";
-
-// ─── Dynamic historical data from account snapshot ──────────────────────────
-
-// Generate 14-day net value history from account snapshot base value
-function generateNetValueHistory(baseValue: number) {
-  return Array.from({ length: 14 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (13 - i));
-    // Simulate daily fluctuation around base value
-    const dayOffset = (i - 7) * (baseValue * 0.004) + Math.sin(i * 1.2) * (baseValue * 0.008);
-    return { date: date.toISOString().slice(0, 10), value: Math.round(baseValue + dayOffset) };
-  });
-}
-
-// Generate 7-day alert trend from actual alerts
-function generateAlertTrend(alerts: Alert[]) {
-  return Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    const dayStr = date.toISOString().slice(0, 10);
-    const label = date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
-    const count = alerts.filter((a) => a.triggeredAt.slice(0, 10) === dayStr).length || (i % 3 === 0 ? 2 : 1);
-    return { label, count };
-  });
-}
-
-// ─── Net Value Chart (SVG) ───────────────────────────────────────────────────
-
-function NetValueChart({ data }: { data: { date: string; value: number }[] }) {
-  const W = 560, H = 100, PAD = 4;
-  const values = data.map((d) => d.value);
-  const min = Math.min(...values) * 0.998;
-  const max = Math.max(...values) * 1.002;
-  const range = max - min || 1;
-
-  function x(i: number) { return PAD + (i / (values.length - 1)) * (W - PAD * 2); }
-  function y(v: number) { return H - PAD - ((v - min) / range) * (H - PAD * 2); }
-
-  const pts = values.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-  const fillPts = `${PAD},${H - PAD} ${pts} ${x(values.length - 1)},${H - PAD}`;
-
-  const current = values[values.length - 1];
-  const prev = values[values.length - 2];
-  const change = current - prev;
-  const changePct = ((change / prev) * 100).toFixed(2);
-  const isUp = change >= 0;
-
-  // Generate area gradient path
-  const areaPath = `M${x(0)},${H - PAD} ${values.map((v, i) => `L${x(i)},${y(v)}`).join(" ")} L${x(values.length - 1)},${H - PAD} Z`;
-
-  return (
-    <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>账户净值</div>
-          <div className="text-xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
-            ¥{formatNumber(current)}
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>日涨跌</div>
-          <div
-            className="text-sm font-semibold font-mono"
-            style={{ color: isUp ? "var(--positive)" : "var(--negative)" }}
-          >
-            {isUp ? "+" : ""}¥{formatNumber(change)} ({isUp ? "+" : ""}{changePct}%)
-          </div>
-        </div>
-      </div>
-
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full"
-        style={{ display: "block", overflow: "visible" }}
-      >
-        <defs>
-          <linearGradient id="netValueGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent-blue)" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="var(--accent-blue)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
-        {/* Horizontal grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-          <line
-            key={t}
-            x1={PAD}
-            y1={PAD + t * (H - PAD * 2)}
-            x2={W - PAD}
-            y2={PAD + t * (H - PAD * 2)}
-            stroke="var(--border)"
-            strokeWidth="0.5"
-            strokeDasharray="3,3"
-          />
-        ))}
-
-        {/* Area fill */}
-        <path d={areaPath} fill="url(#netValueGrad)" />
-
-        {/* Line */}
-        <polyline
-          points={pts}
-          fill="none"
-          stroke="var(--accent-blue)"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-
-        {/* Current point dot */}
-        <circle
-          cx={x(values.length - 1)}
-          cy={y(values[values.length - 1])}
-          r="3"
-          fill="var(--accent-blue)"
-        />
-
-        {/* Date labels */}
-        {[0, 6, 13].map((i) => (
-          <text
-            key={i}
-            x={x(i)}
-            y={H - 1}
-            textAnchor="middle"
-            fontSize="9"
-            fill="var(--foreground-subtle)"
-          >
-            {data[i].date.slice(5)}
-          </text>
-        ))}
-      </svg>
-
-      <div className="flex justify-between text-xs mt-1" style={{ color: "var(--foreground-subtle)" }}>
-        <span>¥{formatNumber(min)}</span>
-        <span>¥{formatNumber(max)}</span>
-      </div>
-    </div>
-  );
-}
-
-// ─── Alert Trend Chart (SVG) ─────────────────────────────────────────────────
-
-function AlertTrendChart({ data }: { data: { label: string; count: number }[] }) {
-  const W = 560, H = 80, PAD = 4;
-  const counts = data.map((d) => d.count);
-  const max = Math.max(...counts, 1);
-
-  function barX(i: number) {
-    const bw = (W - PAD * 2) / counts.length;
-    return PAD + i * bw + bw * 0.15;
-  }
-  function barW() {
-    return ((W - PAD * 2) / counts.length) * 0.7;
-  }
-  function barH(c: number) {
-    return (c / max) * (H - PAD * 2);
-  }
-  function barY(c: number) {
-    return H - PAD - barH(c);
-  }
-
-  const today = data[data.length - 1].label;
-
-  return (
-    <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-          预警趋势
-        </h3>
-        <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
-          近 7 天
-        </span>
-      </div>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full"
-        style={{ display: "block", overflow: "visible" }}
-      >
-        {data.map((d, i) => {
-          const bh = barH(d.count);
-          const isToday = d.label === today;
-          return (
-            <g key={d.label}>
-              <rect
-                x={barX(i)}
-                y={barY(d.count)}
-                width={barW()}
-                height={bh}
-                rx="2"
-                fill={isToday ? "var(--alert-high)" : "var(--surface-overlay)"}
-                stroke={isToday ? "var(--alert-high)" : "var(--border)"}
-                strokeWidth="0.5"
-              />
-              <text
-                x={barX(i) + barW() / 2}
-                y={H - 1}
-                textAnchor="middle"
-                fontSize="8"
-                fill={isToday ? "var(--alert-high)" : "var(--foreground-subtle)"}
-              >
-                {d.label}
-              </text>
-              <text
-                x={barX(i) + barW() / 2}
-                y={barY(d.count) - 3}
-                textAnchor="middle"
-                fontSize="9"
-                fontWeight="600"
-                fill={isToday ? "var(--alert-high)" : "var(--foreground-muted)"}
-              >
-                {d.count}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
+import { NetValueChart } from "@/components/dashboard/NetValueChart";
+import { AlertTrendChart } from "@/components/dashboard/AlertTrendChart";
 
 // ─── Commodity Heatmap ───────────────────────────────────────────────────────
 
@@ -553,12 +336,6 @@ export default function DashboardPage() {
   const account = accountSnapshot;
   const marginPct = account ? Math.round(account.marginUtilizationRate * 100) : 0;
 
-  const netValueHistory = useMemo(
-    () => generateNetValueHistory(account?.netValue ?? 1200000),
-    [account?.netValue]
-  );
-  const alertTrend = useMemo(() => generateAlertTrend(alerts), [alerts]);
-
   return (
     <div className="flex h-full" style={{ minHeight: 0 }}>
       {/* ── Left main column ─────────────────────────────────────── */}
@@ -597,8 +374,8 @@ export default function DashboardPage() {
 
         {/* Net value + alert trend charts */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
-          <NetValueChart data={netValueHistory} />
-          <AlertTrendChart data={alertTrend} />
+          <NetValueChart baseValue={account?.netValue ?? 1200000} />
+          <AlertTrendChart alerts={alerts} />
         </div>
 
         {/* Alert feed */}

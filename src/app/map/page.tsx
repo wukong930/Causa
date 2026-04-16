@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { CommodityNode, RelationshipEdge, CommodityCluster, RelationshipType } from "@/types/domain";
 import { getCommodityNodes, getRelationshipEdges } from "@/lib/api-client";
 import { CATEGORY_LABEL } from "@/lib/constants";
@@ -488,6 +488,7 @@ function Legend({
 
 export default function MapPage() {
   const router = useRouter();
+  const svgRef = useRef<SVGSVGElement>(null);
   const [nodes, setNodes] = useState<CommodityNode[]>([]);
   const [edges, setEdges] = useState<RelationshipEdge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -495,6 +496,45 @@ export default function MapPage() {
   const [selectedNode, setSelectedNode] = useState<CommodityNode | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<RelationshipEdge | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+
+  // Zoom & pan state
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom((z) => Math.min(Math.max(z * delta, 0.3), 3));
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    // Only start pan if clicking on SVG background (not on nodes/edges)
+    const target = e.target as SVGElement;
+    if (target.tagName !== "svg" && target.tagName !== "rect" && !target.closest("[data-bg]")) return;
+    setIsPanning(true);
+    panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  }, [pan]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isPanning) return;
+    setPan({
+      x: panStart.current.panX + (e.clientX - panStart.current.x) / zoom,
+      y: panStart.current.panY + (e.clientY - panStart.current.y) / zoom,
+    });
+  }, [isPanning, zoom]);
+
+  const handlePointerUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  function resetView() {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }
 
   useEffect(() => {
     Promise.all([getCommodityNodes(), getRelationshipEdges()]).then(([n, e]) => {
@@ -602,11 +642,18 @@ export default function MapPage() {
           </div>
         )}
         <svg
+          ref={svgRef}
           width="100%"
           height="100%"
           viewBox="0 0 900 620"
-          style={{ display: "block" }}
+          style={{ display: "block", cursor: isPanning ? "grabbing" : "grab" }}
+          onWheel={handleWheel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
         >
+          <g data-bg="true" transform={`translate(${450 + pan.x}, ${310 + pan.y}) scale(${zoom}) translate(-450, -310)`}>
+          <rect data-bg="true" x="-500" y="-500" width="2000" height="2000" fill="transparent" />
           <defs>
             {/* Arrow markers per edge type */}
             {Object.entries(EDGE_TYPE_COLOR).map(([type, color]) => (
@@ -695,6 +742,7 @@ export default function MapPage() {
               />
             );
           })}
+          </g>
         </svg>
 
         {/* Node detail panel */}
@@ -746,6 +794,13 @@ export default function MapPage() {
             </div>
           );
         })()}
+
+        {/* Zoom controls */}
+        <div className="absolute bottom-4 right-4 flex items-center gap-1 rounded-lg p-1" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <button onClick={() => setZoom((z) => Math.min(z * 1.2, 3))} className="w-7 h-7 flex items-center justify-center rounded text-sm" style={{ color: "var(--foreground-muted)" }}>+</button>
+          <button onClick={resetView} className="text-xs px-1.5 font-mono" style={{ color: "var(--foreground-subtle)" }}>{Math.round(zoom * 100)}%</button>
+          <button onClick={() => setZoom((z) => Math.max(z * 0.8, 0.3))} className="w-7 h-7 flex items-center justify-center rounded text-sm" style={{ color: "var(--foreground-muted)" }}>−</button>
+        </div>
 
         {/* Legend */}
         <Legend
