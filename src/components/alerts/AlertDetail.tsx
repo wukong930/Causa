@@ -7,7 +7,8 @@ import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { getNotificationService } from "@/lib/notifications";
-import { createStrategy, createRecommendation } from "@/lib/api-client";
+import { createStrategy, createRecommendation, updateAlert } from "@/lib/api-client";
+import { useToast } from "@/components/shared/Toast";
 
 interface AlertDetailProps {
   alert: Alert;
@@ -15,6 +16,8 @@ interface AlertDetailProps {
   onMoveToStrategy?: () => void;
   onEscalate?: () => void;
   onInvalidate?: () => void;
+  onAcknowledge?: () => void;
+  onArchive?: () => void;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -73,8 +76,11 @@ export function AlertDetail({
   onMoveToStrategy,
   onEscalate,
   onInvalidate,
+  onAcknowledge,
+  onArchive,
 }: AlertDetailProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const si = alert.spreadInfo;
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -132,10 +138,11 @@ export function AlertDetail({
         },
         relatedAlertIds: [alert.id],
       });
+      toast("已创建策略", "success");
       router.push("/strategies");
       onMoveToStrategy?.();
-    } catch (error) {
-      console.error("Failed to create strategy:", error);
+    } catch {
+      toast("创建策略失败", "error");
     } finally {
       setActionLoading(null);
     }
@@ -152,17 +159,40 @@ export function AlertDetail({
         riskItems: alert.riskItems,
         marginRequired: 0,
       });
+      toast("已加入关注", "success");
       router.push("/recommendations");
       onAddToWatch?.();
-    } catch (error) {
-      console.error("Failed to create recommendation:", error);
+    } catch {
+      toast("加入关注失败", "error");
     } finally {
       setActionLoading(null);
     }
   }
 
-  function handleInvalidate() {
-    onInvalidate?.();
+  async function handleAcknowledge() {
+    setActionLoading("ack");
+    try {
+      await updateAlert(alert.id, { status: "acknowledged" });
+      toast("已确认预警", "success");
+      onAcknowledge?.();
+    } catch {
+      toast("确认失败", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleArchive() {
+    setActionLoading("archive");
+    try {
+      await updateAlert(alert.id, { status: "archived" });
+      toast("已归档预警", "success");
+      onArchive?.();
+    } catch {
+      toast("归档失败", "error");
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   return (
@@ -368,17 +398,31 @@ export function AlertDetail({
       {/* Actions */}
       <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
         {alert.status === "active" && (
-          <button
-            onClick={handleEscalate}
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
-            style={{
-              background: "var(--accent-blue)",
-              color: "#fff",
-              border: "1px solid var(--accent-blue)",
-            }}
-          >
-            升级为推荐
-          </button>
+          <>
+            <button
+              onClick={handleAcknowledge}
+              disabled={actionLoading === "ack"}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
+              style={{
+                background: "var(--positive)",
+                color: "#fff",
+                opacity: actionLoading === "ack" ? 0.6 : 1,
+              }}
+            >
+              {actionLoading === "ack" ? "确认中..." : "确认"}
+            </button>
+            <button
+              onClick={handleEscalate}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
+              style={{
+                background: "var(--accent-blue)",
+                color: "#fff",
+                border: "1px solid var(--accent-blue)",
+              }}
+            >
+              升级为推荐
+            </button>
+          </>
         )}
         <button
           onClick={handleMoveToStrategy}
@@ -407,15 +451,17 @@ export function AlertDetail({
           {actionLoading === "watch" ? "创建中..." : "加入关注"}
         </button>
         <button
-          onClick={handleInvalidate}
+          onClick={handleArchive}
+          disabled={actionLoading === "archive"}
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded ml-auto transition-colors"
           style={{
             background: "transparent",
             color: "var(--foreground-subtle)",
             border: "1px solid var(--border)",
+            opacity: actionLoading === "archive" ? 0.6 : 1,
           }}
         >
-          标记失效
+          {actionLoading === "archive" ? "归档中..." : "归档"}
         </button>
       </div>
     </div>

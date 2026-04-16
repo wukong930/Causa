@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { loadNotificationConfig, updateNotificationConfig, type NotificationConfig } from "@/lib/notifications";
+import { useToast } from "@/components/shared/Toast";
 
 interface RiskParameters {
   maxPositionSizePerCommodity: number;
@@ -41,6 +42,7 @@ function applyTheme(mode: ThemeMode) {
 }
 
 export default function SettingsPage() {
+  const { toast } = useToast();
   const [config, setConfig] = useState<NotificationConfig>({ webhookUrl: "", enabled: false });
   const [testStatus, setTestStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [saved, setSaved] = useState(false);
@@ -253,7 +255,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex gap-2 pt-2">
             <button
-              onClick={() => { saveRiskParams(riskParams); setRiskSaved(true); setTimeout(() => setRiskSaved(false), 2000); }}
+              onClick={() => { saveRiskParams(riskParams); setRiskSaved(true); setTimeout(() => setRiskSaved(false), 2000); toast("风险参数已保存", "success"); }}
               className="px-4 py-2 rounded-lg text-sm font-medium"
               style={{ background: "var(--accent-blue)", color: "#fff" }}
             >

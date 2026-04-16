@@ -445,6 +445,8 @@ export default function AlertsPage() {
             onAddToWatch={() => { setDrawerOpen(false); refreshAlerts(); }}
             onMoveToStrategy={() => { setDrawerOpen(false); refreshAlerts(); }}
             onInvalidate={() => setDrawerOpen(false)}
+            onAcknowledge={() => { setDrawerOpen(false); refreshAlerts(); }}
+            onArchive={() => { setDrawerOpen(false); refreshAlerts(); }}
           />
         )}
       </Drawer>

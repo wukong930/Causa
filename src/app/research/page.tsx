@@ -16,7 +16,7 @@ const HYP_STATUS: Record<ResearchHypothesis["status"], { label: string; bg: stri
 
 // ─── Hypothesis Card ──────────────────────────────────────────────────────────
 
-function HypothesisCard({ hyp }: { hyp: ResearchHypothesis }) {
+function HypothesisCard({ hyp, onStatusChange }: { hyp: ResearchHypothesis; onStatusChange: (id: string, status: ResearchHypothesis["status"]) => void }) {
   const cfg = HYP_STATUS[hyp.status];
 
   return (
@@ -38,12 +38,17 @@ function HypothesisCard({ hyp }: { hyp: ResearchHypothesis }) {
         >
           {hyp.title}
         </h3>
-        <span
-          className="text-xs px-2 py-0.5 rounded-full shrink-0"
-          style={{ background: cfg.bg, color: cfg.color }}
+        <select
+          value={hyp.status}
+          onChange={(e) => onStatusChange(hyp.id, e.target.value as ResearchHypothesis["status"])}
+          className="text-xs px-2 py-0.5 rounded-full shrink-0 cursor-pointer"
+          style={{ background: cfg.bg, color: cfg.color, border: "none", appearance: "auto" }}
         >
-          {cfg.label}
-        </span>
+          <option value="new">新建</option>
+          <option value="monitoring">观察中</option>
+          <option value="validated">已验证</option>
+          <option value="invalidated">已失效</option>
+        </select>
       </div>
 
       <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--foreground-muted)" }}>
@@ -169,6 +174,11 @@ export default function ResearchPage() {
     ? hypotheses
     : hypotheses.filter((h) => h.status === hypFilter);
 
+  function handleHypStatusChange(id: string, status: ResearchHypothesis["status"]) {
+    setHypotheses((prev) => prev.map((h) => (h.id === id ? { ...h, status } : h)));
+    updateHypothesis(id, { status });
+  }
+
   const HYP_FILTERS: Array<{ value: ResearchHypothesis["status"] | "all"; label: string }> = [
     { value: "all",         label: "全部" },
     { value: "validated",   label: "已验证" },
@@ -283,7 +293,7 @@ export default function ResearchPage() {
 
             <div className="flex flex-col gap-3">
               {filteredHypotheses.map((hyp) => (
-                <HypothesisCard key={hyp.id} hyp={hyp} />
+                <HypothesisCard key={hyp.id} hyp={hyp} onStatusChange={handleHypStatusChange} />
               ))}
             </div>
           </div>

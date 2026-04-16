@@ -493,6 +493,7 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCluster, setSelectedCluster] = useState<CommodityCluster | null>(null);
   const [selectedNode, setSelectedNode] = useState<CommodityNode | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<RelationshipEdge | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   useEffect(() => {
@@ -674,7 +675,7 @@ export default function MapPage() {
                 sourceY={sourcePos.y}
                 targetX={targetPos.x}
                 targetY={targetPos.y}
-                onClick={() => {}}
+                onClick={() => { setSelectedEdge(selectedEdge?.id === edge.id ? null : edge); setSelectedNode(null); }}
               />
             );
           })}
@@ -706,6 +707,45 @@ export default function MapPage() {
             onNavigate={handleNavigate}
           />
         )}
+
+        {/* Edge info panel */}
+        {selectedEdge && !selectedNode && (() => {
+          const src = nodes.find((n) => n.id === selectedEdge.source);
+          const tgt = nodes.find((n) => n.id === selectedEdge.target);
+          return (
+            <div
+              className="absolute top-4 right-4 w-64 rounded-lg p-4 shadow-lg"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                  关系详情
+                </span>
+                <button onClick={() => setSelectedEdge(null)} className="text-xs" style={{ color: "var(--foreground-muted)" }}>×</button>
+              </div>
+              <div className="text-xs space-y-2" style={{ color: "var(--foreground-muted)" }}>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium" style={{ color: "var(--foreground)" }}>{src?.name ?? selectedEdge.source}</span>
+                  <span>→</span>
+                  <span className="font-medium" style={{ color: "var(--foreground)" }}>{tgt?.name ?? selectedEdge.target}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: EDGE_TYPE_COLOR[selectedEdge.type] }}
+                  />
+                  <span>{EDGE_TYPE_LABEL[selectedEdge.type]}</span>
+                </div>
+                {selectedEdge.label && <p>{selectedEdge.label}</p>}
+                {selectedEdge.activeAlertCount > 0 && (
+                  <div style={{ color: "var(--alert-high)" }}>
+                    {selectedEdge.activeAlertCount} 条活跃预警
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Legend */}
         <Legend

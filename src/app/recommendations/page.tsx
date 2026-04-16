@@ -8,6 +8,7 @@ import {
   updateRecommendation,
   createExecutionDraft,
 } from "@/lib/api-client";
+import { useToast } from "@/components/shared/Toast";
 import {
   RECOMMENDATION_STATUS_LABEL,
   RECOMMENDED_ACTION_LABEL,
@@ -134,10 +135,12 @@ function RecommendationDetail({
   rec,
   onConfirm,
   onDefer,
+  onIgnore,
 }: {
   rec: Recommendation;
   onConfirm?: (id: string) => void;
   onDefer?: (id: string) => void;
+  onIgnore?: (id: string, reason: string) => void;
 }) {
   return (
     <div className="p-5">
@@ -301,7 +304,10 @@ function RecommendationDetail({
             延后
           </button>
           <button
-            onClick={() => {}}
+            onClick={() => {
+              const reason = prompt("请输入忽略原因：");
+              if (reason) onIgnore?.(rec.id, reason);
+            }}
             className="text-sm px-4 py-2.5 rounded-lg"
             style={{ background: "transparent", color: "var(--foreground-subtle)", border: "1px solid var(--border)" }}
           >
@@ -324,6 +330,7 @@ const ALL_STATUSES: RecommendationStatus[] = [
 
 export default function RecommendationsPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<RecommendationStatus[]>([]);
@@ -350,22 +357,32 @@ export default function RecommendationsPage() {
         setRecommendations((prev) =>
           prev.map((r) => (r.id === id ? { ...r, status: "confirmed" as RecommendationStatus } : r))
         );
+        toast("已创建执行草稿", "success");
         // Navigate to drafts page
         router.push("/drafts");
       }
     } catch (error) {
       console.error("Failed to create execution draft:", error);
+      toast("创建执行草稿失败", "error");
     } finally {
       setConfirmingId(null);
     }
   }
 
   function handleDefer(id: string) {
-    // Optimistic update
     setRecommendations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "deferred" as RecommendationStatus } : r))
     );
     updateRecommendation(id, { status: "deferred" });
+    toast("已延后推荐", "info");
+  }
+
+  function handleIgnore(id: string, reason: string) {
+    setRecommendations((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "ignored" as RecommendationStatus, ignoredReason: reason } : r))
+    );
+    updateRecommendation(id, { status: "ignored", ignoredReason: reason });
+    toast("已忽略推荐", "info");
   }
 
   const filtered = useMemo(() => {
@@ -516,6 +533,7 @@ export default function RecommendationsPage() {
             rec={selectedRec}
             onConfirm={handleConfirm}
             onDefer={handleDefer}
+            onIgnore={handleIgnore}
           />
         )}
       </Drawer>
