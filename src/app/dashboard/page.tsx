@@ -8,8 +8,12 @@ import {
   getPositions,
   getCommodityNodes,
   getAccountSnapshot,
+  getRiskVaR,
+  getStressTest,
 } from "@/lib/api-client";
 import type { Alert, StrategyPoolItem, Recommendation, PositionGroup, CommodityNode, AccountSnapshot } from "@/types/domain";
+import type { VaRResult } from "@/lib/risk/var";
+import type { StressTestResult } from "@/lib/risk/stress";
 import {
   SEVERITY_LABEL,
   SEVERITY_BG,
@@ -301,6 +305,8 @@ export default function DashboardPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [positions, setPositions] = useState<PositionGroup[]>([]);
   const [accountSnapshot, setAccountSnapshot] = useState<AccountSnapshot | null>(null);
+  const [varResult, setVarResult] = useState<VaRResult | null>(null);
+  const [stressResults, setStressResults] = useState<StressTestResult[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -310,12 +316,16 @@ export default function DashboardPage() {
       getRecommendations(),
       getPositions(),
       getAccountSnapshot(),
-    ]).then(([a, s, r, p, acct]) => {
+      getRiskVaR(),
+      getStressTest(),
+    ]).then(([a, s, r, p, acct, vr, st]) => {
       setAlerts(a);
       setStrategies(s);
       setRecommendations(r);
       setPositions(p);
       setAccountSnapshot(acct);
+      setVarResult(vr);
+      setStressResults(st ?? []);
       setLoading(false);
     });
   }, []);
@@ -377,6 +387,55 @@ export default function DashboardPage() {
           <NetValueChart baseValue={account?.netValue ?? 1200000} />
           <AlertTrendChart alerts={alerts} />
         </div>
+
+        {/* Risk overview */}
+        {(varResult || stressResults.length > 0) && (
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                风控概览
+              </h2>
+              <Link href="/positions" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+                详情 →
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
+              {[
+                { label: "VaR (95%)", value: varResult?.var95, color: "var(--alert-high)" },
+                { label: "VaR (99%)", value: varResult?.var99, color: "var(--alert-critical)" },
+                { label: "CVaR (95%)", value: varResult?.cvar95, color: "var(--alert-high)" },
+                { label: "CVaR (99%)", value: varResult?.cvar99, color: "var(--alert-critical)" },
+              ].map((m) => (
+                <div
+                  key={m.label}
+                  className="rounded-lg px-3 py-2.5"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>{m.label}</div>
+                  <div className="text-sm font-semibold font-mono" style={{ color: m.value ? m.color : "var(--foreground-subtle)" }}>
+                    {m.value != null ? `¥${formatNumber(m.value)}` : "—"}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {stressResults.length > 0 && (() => {
+              const worst = stressResults.reduce((w, s) => s.portfolioPnl < w.portfolioPnl ? s : w, stressResults[0]);
+              return (
+                <div
+                  className="rounded-lg px-3 py-2.5 flex items-center gap-2"
+                  style={{ background: "var(--alert-critical-muted)", border: "1px solid var(--alert-critical)" }}
+                >
+                  <span className="text-xs" style={{ color: "var(--alert-critical)" }}>
+                    最差场景：{worst.scenario}
+                  </span>
+                  <span className="text-xs font-mono font-semibold ml-auto" style={{ color: "var(--alert-critical)" }}>
+                    ¥{formatNumber(worst.portfolioPnl)}
+                  </span>
+                </div>
+              );
+            })()}
+          </section>
+        )}
 
         {/* Alert feed */}
         <section className="mb-6">
