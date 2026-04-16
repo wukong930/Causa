@@ -1,10 +1,12 @@
 import { pgTable, uuid, text, timestamp, real, jsonb, index } from 'drizzle-orm/pg-core';
 import type { ExecutionFeedback, ExecutionFeedbackLeg } from '@/types/domain';
+import { recommendations } from './recommendations';
+import { strategies } from './strategies';
 
 export const executionFeedback = pgTable('execution_feedback', {
   id: uuid('id').primaryKey().defaultRandom(),
-  recommendationId: uuid('recommendation_id'),
-  strategyId: uuid('strategy_id'),
+  recommendationId: uuid('recommendation_id').references(() => recommendations.id, { onDelete: 'set null' }),
+  strategyId: uuid('strategy_id').references(() => strategies.id, { onDelete: 'set null' }),
   legs: jsonb('legs').$type<ExecutionFeedbackLeg[]>().notNull(),
   totalMarginUsed: real('total_margin_used').notNull(),
   totalCommission: real('total_commission').notNull(),

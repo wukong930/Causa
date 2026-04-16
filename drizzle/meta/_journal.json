@@ -8,6 +8,13 @@
       "when": 1776269461863,
       "tag": "0000_slimy_norman_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776360464291,
+      "tag": "0001_brave_outlaw_kid",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,12 @@
 import { pgTable, uuid, text, timestamp, real, jsonb, varchar, index } from 'drizzle-orm/pg-core';
 import type { Recommendation, RecommendationLeg } from '@/types/domain';
+import { strategies } from './strategies';
+import { alerts } from './alerts';
 
 export const recommendations = pgTable('recommendations', {
   id: uuid('id').primaryKey().defaultRandom(),
-  strategyId: uuid('strategy_id'),
-  alertId: uuid('alert_id'),
+  strategyId: uuid('strategy_id').references(() => strategies.id, { onDelete: 'set null' }),
+  alertId: uuid('alert_id').references(() => alerts.id, { onDelete: 'set null' }),
   status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending' | 'confirmed' | 'deferred' | 'ignored' | 'backfilled' | 'expired'
   recommendedAction: varchar('recommended_action', { length: 20 }).notNull(), // 'new_open' | 'add' | 'reduce' | 'close' | 'hedge' | 'replace' | 'watchlist_only'
   legs: jsonb('legs').$type<RecommendationLeg[]>().notNull(),

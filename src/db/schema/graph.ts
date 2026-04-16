@@ -18,8 +18,8 @@ export const commodityNodes = pgTable('commodity_nodes', {
 
 export const relationshipEdges = pgTable('relationship_edges', {
   id: uuid('id').primaryKey().defaultRandom(),
-  source: uuid('source').notNull(),
-  target: uuid('target').notNull(),
+  source: uuid('source').notNull().references(() => commodityNodes.id, { onDelete: 'cascade' }),
+  target: uuid('target').notNull().references(() => commodityNodes.id, { onDelete: 'cascade' }),
   type: varchar('type', { length: 30 }).notNull(),
   strength: real('strength').notNull(),
   label: text('label'),

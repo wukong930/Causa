@@ -42,12 +42,10 @@ async function fetchApi<T>(
   options?: RequestInit
 ): Promise<ApiResult<T>> {
   try {
-    const apiSecret = process.env.NEXT_PUBLIC_API_SECRET;
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
-        ...(apiSecret ? { Authorization: `Bearer ${apiSecret}` } : {}),
         ...options?.headers,
       },
     });
@@ -754,4 +752,46 @@ export async function triggerContextCron(): Promise<unknown> {
 export async function triggerRiskCron(): Promise<unknown> {
   const result = await fetchApi<unknown>("/api/cron/risk", { method: "POST" });
   return result.success ? (result as { data: unknown; success: true }).data : null;
+}
+
+// ─── Context ─────────────────────────────────────────────────────────────────
+
+export interface GDELTEvent {
+  title: string;
+  url: string;
+  domain: string;
+  language: string;
+  seenDate: string;
+  socialImage?: string;
+}
+
+export interface MacroSnapshot {
+  usdIndex?: number;
+  cpiYoY?: number;
+  pmiManufacturing?: number;
+  fedFundsRate?: number;
+  us10yYield?: number;
+  cn10yYield?: number;
+  crudeBrent?: number;
+  goldSpot?: number;
+  copperLME?: number;
+  ironOre62Fe?: number;
+  balticDryIndex?: number;
+  fetchedAt: string;
+  source: string;
+}
+
+export async function getGDELTEvents(query?: string, limit?: number): Promise<GDELTEvent[]> {
+  const params = new URLSearchParams();
+  if (query) params.set("query", query);
+  if (limit) params.set("limit", String(limit));
+  const result = await fetchApi<GDELTEvent[]>(`/api/context/gdelt?${params}`);
+  if (!result.success) return [];
+  return (result as { data: GDELTEvent[]; success: true }).data;
+}
+
+export async function getMacroIndicators(): Promise<MacroSnapshot | null> {
+  const result = await fetchApi<MacroSnapshot>("/api/context/macro");
+  if (!result.success) return null;
+  return (result as { data: MacroSnapshot; success: true }).data;
 }

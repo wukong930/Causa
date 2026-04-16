@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { ApiResponse, ApiListResponse } from '@/types/api';
+import { db } from '@/db';
+import { researchReports } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
+import type { ApiListResponse } from '@/types/api';
 import type { ResearchReport } from '@/types/domain';
+import { serializeRecords } from '@/lib/serialize';
 import { mockReports } from '@/mocks/research';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || !process.env.DATABASE_URL;
@@ -8,29 +12,30 @@ const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || !process.en
 // GET /api/research/reports
 export async function GET(request: NextRequest) {
   if (USE_MOCK) {
-    const response: ApiListResponse<ResearchReport> = {
+    return NextResponse.json({
       success: true,
       data: mockReports,
       meta: { total: mockReports.length, page: 1, pageSize: mockReports.length },
-    };
-    return NextResponse.json(response);
+    } satisfies ApiListResponse<ResearchReport>);
   }
 
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 
-    let data = [...mockReports];
+    let query = db.select().from(researchReports).orderBy(desc(researchReports.publishedAt));
     if (type) {
-      data = data.filter((r) => r.type === type);
+      query = query.where(eq(researchReports.type, type)) as typeof query;
     }
 
-    const response: ApiListResponse<ResearchReport> = {
+    const rows = await query;
+    const data = serializeRecords<ResearchReport>(rows);
+
+    return NextResponse.json({
       success: true,
       data,
       meta: { total: data.length, page: 1, pageSize: data.length },
-    };
-    return NextResponse.json(response);
+    } satisfies ApiListResponse<ResearchReport>);
   } catch (error) {
     console.error('GET /api/research/reports error:', error);
     return NextResponse.json(

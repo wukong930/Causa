@@ -1,9 +1,10 @@
 import { pgTable, uuid, varchar, timestamp, jsonb, real, index } from 'drizzle-orm/pg-core';
 import type { ExecutionDraftStatus } from '@/types/domain';
+import { recommendations } from './recommendations';
 
 export const executionDrafts = pgTable('execution_drafts', {
   id: uuid('id').primaryKey().defaultRandom(),
-  recommendationId: uuid('recommendation_id').notNull(),
+  recommendationId: uuid('recommendation_id').notNull().references(() => recommendations.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 20 }).notNull().default('draft'),
   legs: jsonb('legs').notNull(),
   totalMarginUsed: real('total_margin_used').notNull(),

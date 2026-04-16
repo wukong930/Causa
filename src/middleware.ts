@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 /**
  * Global API authentication middleware.
- * - /api/cron/* routes require x-cron-secret header
- * - All other /api/* routes require Authorization: Bearer <API_SECRET>
- * - Non-API routes pass through
+ * - Same-origin requests (from the Next.js frontend) pass through
+ * - External /api/* requests require Authorization: Bearer <API_SECRET>
+ * - /api/cron/* routes additionally validated inside each handler via verifyCronSecret()
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -14,9 +14,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Cron routes: validated inside each handler via verifyCronSecret()
-  // Still require Bearer token at middleware level
-  const authHeader = request.headers.get("authorization");
   const expectedSecret = process.env.API_SECRET;
 
   // If API_SECRET is not configured, skip auth (development mode)
@@ -24,6 +21,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow same-origin requests from the Next.js frontend
+  const referer = request.headers.get("referer");
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("host");
+  if (host && (referer?.includes(host) || origin?.includes(host))) {
+    return NextResponse.next();
+  }
+
+  // External requests require Bearer token
+  const authHeader = request.headers.get("authorization");
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
   if (token !== expectedSecret) {

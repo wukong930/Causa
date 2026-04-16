@@ -1,11 +1,13 @@
 import { pgTable, uuid, text, timestamp, real, jsonb, varchar, index } from 'drizzle-orm/pg-core';
 import type { PositionGroup, PositionLeg } from '@/types/domain';
+import { strategies } from './strategies';
+import { recommendations } from './recommendations';
 
 export const positions = pgTable('positions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  strategyId: uuid('strategy_id'),
+  strategyId: uuid('strategy_id').references(() => strategies.id, { onDelete: 'set null' }),
   strategyName: text('strategy_name'),
-  recommendationId: uuid('recommendation_id'),
+  recommendationId: uuid('recommendation_id').references(() => recommendations.id, { onDelete: 'set null' }),
   legs: jsonb('legs').$type<PositionLeg[]>().notNull(),
   openedAt: timestamp('opened_at', { withTimezone: true }).notNull(),
   entrySpread: real('entry_spread').notNull(),

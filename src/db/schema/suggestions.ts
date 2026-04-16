@@ -1,10 +1,11 @@
 import { pgTable, uuid, text, timestamp, real, jsonb, varchar, index } from 'drizzle-orm/pg-core';
 import type { Suggestion, SuggestionStatus } from '@/types/domain';
+import { alerts } from './alerts';
 
 export const suggestions = pgTable('suggestions', {
   id: uuid('id').primaryKey().defaultRandom(),
   setupId: text('setup_id').notNull(),
-  alertId: uuid('alert_id'),
+  alertId: uuid('alert_id').references(() => alerts.id, { onDelete: 'set null' }),
   expression: text('expression').notNull(),
   leg1Asset: text('leg1_asset').notNull(),
   leg1Contract: text('leg1_contract').notNull(),
