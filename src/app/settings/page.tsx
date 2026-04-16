@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { loadNotificationConfig, updateNotificationConfig, type NotificationConfig } from "@/lib/notifications";
 import { useToast } from "@/components/shared/Toast";
+import type { LLMProviderName } from "@/lib/llm/types";
+import { DEFAULT_MODELS } from "@/lib/llm/types";
 
 interface RiskParameters {
   maxPositionSizePerCommodity: number;
@@ -50,12 +52,81 @@ export default function SettingsPage() {
   const [riskSaved, setRiskSaved] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>("dark");
 
+  // LLM config state
+  const [llmProvider, setLlmProvider] = useState<LLMProviderName>("openai");
+  const [llmApiKey, setLlmApiKey] = useState("");
+  const [llmModel, setLlmModel] = useState("gpt-4o");
+  const [llmBaseUrl, setLlmBaseUrl] = useState("");
+  const [llmConfigId, setLlmConfigId] = useState<string | null>(null);
+  const [llmSaving, setLlmSaving] = useState(false);
+  const [llmTestStatus, setLlmTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [llmTestMsg, setLlmTestMsg] = useState("");
+
   useEffect(() => {
     const loaded = loadNotificationConfig();
     setConfig(loaded);
     setRiskParams(loadRiskParams());
     setTheme(loadTheme());
+    // Load LLM config
+    fetch("/api/llm/config")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data.configs.length > 0) {
+          const cfg = res.data.configs[0];
+          setLlmProvider(cfg.provider as LLMProviderName);
+          setLlmModel(cfg.model);
+          setLlmBaseUrl(cfg.baseUrl || "");
+          setLlmConfigId(cfg.id);
+          setLlmApiKey(""); // Don't load key back for security
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  async function handleLlmSave() {
+    if (!llmApiKey && !llmConfigId) {
+      toast("请输入 API Key", "error");
+      return;
+    }
+    setLlmSaving(true);
+    try {
+      const body: Record<string, unknown> = { provider: llmProvider, apiKey: llmApiKey, model: llmModel, enabled: true };
+      if (llmBaseUrl) body.baseUrl = llmBaseUrl;
+      if (llmConfigId) body.id = llmConfigId;
+      const res = await fetch("/api/llm/config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (data.success) {
+        setLlmConfigId(data.data.id);
+        toast("AI 模型配置已保存", "success");
+      } else {
+        toast(data.error?.message || "保存失败", "error");
+      }
+    } catch { toast("保存失败", "error"); }
+    setLlmSaving(false);
+  }
+
+  async function handleLlmTest() {
+    if (!llmApiKey) { toast("请输入 API Key", "error"); return; }
+    setLlmTestStatus("testing");
+    setLlmTestMsg("");
+    try {
+      const body: Record<string, unknown> = { provider: llmProvider, apiKey: llmApiKey, model: llmModel };
+      if (llmBaseUrl) body.baseUrl = llmBaseUrl;
+      const res = await fetch("/api/llm/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (data.success) {
+        setLlmTestStatus("success");
+        setLlmTestMsg(`模型: ${data.data.model}`);
+      } else {
+        setLlmTestStatus("error");
+        setLlmTestMsg(data.error?.message || "连接失败");
+      }
+    } catch {
+      setLlmTestStatus("error");
+      setLlmTestMsg("网络错误");
+    }
+    setTimeout(() => setLlmTestStatus("idle"), 4000);
+  }
 
   function handleSave() {
     updateNotificationConfig(config);
@@ -198,6 +269,101 @@ export default function SettingsPage() {
                 : testStatus === "error"
                 ? "✗ 测试失败"
                 : "发送测试消息"}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Model Config */}
+      <section
+        className="rounded-lg p-5 mb-6"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      >
+        <h2 className="text-base font-semibold mb-4" style={{ color: "var(--foreground)" }}>
+          AI 模型配置
+        </h2>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm mb-1.5" style={{ color: "var(--foreground-muted)" }}>Provider</label>
+              <select
+                value={llmProvider}
+                onChange={(e) => {
+                  const p = e.target.value as LLMProviderName;
+                  setLlmProvider(p);
+                  setLlmModel(DEFAULT_MODELS[p][0]);
+                }}
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+              >
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="deepseek">DeepSeek</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1.5" style={{ color: "var(--foreground-muted)" }}>模型</label>
+              <select
+                value={llmModel}
+                onChange={(e) => setLlmModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+              >
+                {DEFAULT_MODELS[llmProvider].map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm mb-1.5" style={{ color: "var(--foreground-muted)" }}>API Key</label>
+            <input
+              type="password"
+              value={llmApiKey}
+              onChange={(e) => setLlmApiKey(e.target.value)}
+              placeholder={llmConfigId ? "已配置（留空保持不变）" : "sk-..."}
+              className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1.5" style={{ color: "var(--foreground-muted)" }}>
+              Base URL（可选，自定义端点）
+            </label>
+            <input
+              value={llmBaseUrl}
+              onChange={(e) => setLlmBaseUrl(e.target.value)}
+              placeholder={llmProvider === "openai" ? "https://api.openai.com/v1" : llmProvider === "anthropic" ? "https://api.anthropic.com" : "https://api.deepseek.com/v1"}
+              className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+            />
+          </div>
+          {llmTestMsg && (
+            <p className="text-xs" style={{ color: llmTestStatus === "success" ? "var(--positive)" : "var(--negative)" }}>
+              {llmTestMsg}
+            </p>
+          )}
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={handleLlmSave}
+              disabled={llmSaving}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ background: "var(--accent-blue)", color: "#fff", opacity: llmSaving ? 0.6 : 1 }}
+            >
+              {llmSaving ? "保存中..." : "保存配置"}
+            </button>
+            <button
+              onClick={handleLlmTest}
+              disabled={llmTestStatus === "testing"}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{
+                background: llmTestStatus === "success" ? "var(--positive)" : llmTestStatus === "error" ? "var(--negative)" : "var(--surface-overlay)",
+                color: llmTestStatus === "success" || llmTestStatus === "error" ? "#fff" : "var(--foreground-muted)",
+                border: "1px solid var(--border)",
+                opacity: llmTestStatus === "testing" ? 0.6 : 1,
+              }}
+            >
+              {llmTestStatus === "testing" ? "测试中..." : llmTestStatus === "success" ? "连接成功" : llmTestStatus === "error" ? "连接失败" : "测试连接"}
             </button>
           </div>
         </div>
