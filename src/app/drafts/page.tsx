@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getExecutionDrafts, updateExecutionDraft } from "@/lib/api-client";
+import { getExecutionDrafts, updateExecutionDraft, transitionLeg } from "@/lib/api-client";
 import type { ExecutionDraft, ExecutionDraftStatus, ExecutionLegStatus, ExecutionDraftLeg } from "@/types/domain";
+import { getAvailableEvents } from "@/lib/execution/state-machine";
+import type { LegEvent } from "@/lib/execution/state-machine";
 import { formatRelativeTime } from "@/lib/utils";
 import { ExecutionFeedbackForm } from "@/components/execution/FeedbackForm";
 
@@ -21,6 +23,15 @@ const LEG_STATUS_CONFIG: Record<ExecutionLegStatus, { label: string; color: stri
   exiting:   { label: "平仓中", color: "var(--alert-high)",     bg: "var(--alert-high-muted)" },
   closed:    { label: "已平仓", color: "var(--foreground-muted)", bg: "var(--surface-overlay)" },
   broken:    { label: "失败", color: "var(--negative)",         bg: "var(--negative-muted)" },
+};
+
+const LEG_EVENT_LABEL: Record<string, string> = {
+  confirm: "确认",
+  partial_fill: "部分成交",
+  full_fill: "全部成交",
+  start_exit: "开始平仓",
+  close: "平仓完成",
+  break: "标记失败",
 };
 
 export default function DraftsPage() {
@@ -316,6 +327,18 @@ function DraftDetailDrawer({
   const [editedLegs, setEditedLegs] = useState(draft.legs);
   const [notes, setNotes] = useState(draft.notes || "");
   const [saving, setSaving] = useState(false);
+  const [transitioning, setTransitioning] = useState<number | null>(null);
+
+  async function handleTransition(legIndex: number, event: LegEvent) {
+    setTransitioning(legIndex);
+    const result = await transitionLeg(draft.id, legIndex, event);
+    if (result) {
+      const newLegs = [...editedLegs];
+      newLegs[legIndex] = { ...newLegs[legIndex], legStatus: result.newStatus as ExecutionLegStatus };
+      setEditedLegs(newLegs);
+    }
+    setTransitioning(null);
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -381,6 +404,31 @@ function DraftDetailDrawer({
                     {LEG_STATUS_CONFIG[leg.legStatus].label}
                   </span>
                 </div>
+                {/* Transition buttons */}
+                {(() => {
+                  const events = getAvailableEvents(leg.legStatus);
+                  if (events.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {events.map((ev) => (
+                        <button
+                          key={ev}
+                          onClick={() => handleTransition(i, ev)}
+                          disabled={transitioning === i}
+                          className="text-[10px] px-2 py-0.5 rounded transition-colors"
+                          style={{
+                            background: ev === "break" ? "var(--negative-muted)" : "var(--surface-overlay)",
+                            color: ev === "break" ? "var(--negative)" : "var(--accent-blue)",
+                            border: "1px solid var(--border)",
+                            opacity: transitioning === i ? 0.5 : 1,
+                          }}
+                        >
+                          {LEG_EVENT_LABEL[ev] ?? ev}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>
