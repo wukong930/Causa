@@ -34,11 +34,17 @@ export async function POST(
     const position = serializeRecords<PositionGroup>(rows)[0];
     const draft = buildPartialCloseDraft(position, { positionId: id, legIndex, closeSize, reason });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle JSON column typing limitation
-    const [created] = await db.insert(executionDrafts).values({
-      ...draft,
-      legs: draft.legs,
-    } as any).returning();
+    // Use transaction to prevent race conditions between read and write
+    const [created] = await db.transaction(async (tx) => {
+      // Re-check position exists inside transaction
+      const check = await tx.select().from(positions).where(eq(positions.id, id));
+      if (check.length === 0) throw new Error("Position not found");
+
+      return tx.insert(executionDrafts).values({
+        ...draft,
+        legs: draft.legs,
+      } as any).returning();
+    });
 
     return NextResponse.json({ success: true, data: created });
   } catch (error) {

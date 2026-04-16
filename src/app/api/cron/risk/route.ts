@@ -20,12 +20,23 @@ export async function POST(request: NextRequest) {
 
     const symbols = [...new Set(pos.flatMap((p) => p.legs.map((l) => l.asset)))];
     const marketDataBySymbol: Record<string, MarketDataPoint[]> = {};
-    for (const sym of symbols) {
-      const rows = await db.select().from(marketDataTable)
-        .where(eq(marketDataTable.symbol, sym))
-        .orderBy(desc(marketDataTable.timestamp))
-        .limit(252);
-      marketDataBySymbol[sym] = serializeRecords<MarketDataPoint>(rows);
+
+    // Parallelize market data queries (batch of 10 to avoid pool exhaustion)
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+      const batch = symbols.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map(async (sym) => {
+          const rows = await db.select().from(marketDataTable)
+            .where(eq(marketDataTable.symbol, sym))
+            .orderBy(desc(marketDataTable.timestamp))
+            .limit(252);
+          return { sym, data: serializeRecords<MarketDataPoint>(rows) };
+        })
+      );
+      for (const { sym, data } of results) {
+        marketDataBySymbol[sym] = data;
+      }
     }
 
     const varResult = calculateVaR(pos, marketDataBySymbol);

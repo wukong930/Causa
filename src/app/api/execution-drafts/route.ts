@@ -4,7 +4,7 @@ import { executionDrafts } from '@/db/schema';
 import { recommendations } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import type { ApiResponse, ApiListResponse } from '@/types/api';
-import type { ExecutionDraft } from '@/types/domain';
+import type { ExecutionDraft, ExecutionDraftLeg, Direction } from '@/types/domain';
 import { serializeRecord, serializeRecords } from '@/lib/serialize';
 
 // GET /api/execution-drafts - List all execution drafts
@@ -83,12 +83,14 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    const legs = (rec.legs as Array<{ asset: string; direction: string; suggestedSize: number; unit?: string }>).map((leg) => ({
+    const legs: ExecutionDraftLeg[] = (rec.legs as Array<{ asset: string; direction: Direction; suggestedSize: number; entryPriceRef?: number; unit?: string }>).map((leg) => ({
       asset: leg.asset,
       direction: leg.direction,
-      type: 'open',
+      type: 'open' as const,
       requestedSize: leg.suggestedSize,
+      requestedPrice: leg.entryPriceRef,
       unit: leg.unit || '手',
+      legStatus: 'pending' as const,
     }));
 
     const [draft] = await db

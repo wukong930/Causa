@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
         await db.insert(marketData).values({
           id,
-          market: row['market'] || row['market'] || 'UNKNOWN',
+          market: row['market'] || 'UNKNOWN',
           exchange: row['exchange'] || 'UNKNOWN',
           commodity: row['commodity'] || '',
           symbol,

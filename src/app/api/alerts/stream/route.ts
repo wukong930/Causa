@@ -59,7 +59,9 @@ export async function GET(request: NextRequest) {
       await poll();
 
       // Poll every 10 seconds
-      const interval = setInterval(poll, 10000);
+      const interval = setInterval(() => {
+        poll().catch((err) => console.error("SSE poll unhandled:", err));
+      }, 10000);
 
       // Clean up when client disconnects
       request.signal.addEventListener("abort", () => {

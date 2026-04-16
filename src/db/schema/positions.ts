@@ -20,7 +20,7 @@ export const positions = pgTable('positions', {
   currentZScore: real('current_z_score').notNull(),
   halfLifeDays: real('half_life_days').notNull(),
   daysHeld: real('days_held').notNull(),
-  status: varchar('status', { length: 20 }).notNull().default('open'), // 'open' | 'closed' | 'partial'
+  status: varchar('status', { length: 20 }).notNull().default('open'), // 'open' | 'closed' | 'partially_closed'
   closedAt: timestamp('closed_at', { withTimezone: true }),
   realizedPnl: real('realized_pnl'),
 }, (table) => ({
