@@ -1,0 +1,2 @@
+ALTER TABLE "alerts" ADD CONSTRAINT "alerts_related_strategy_id_strategies_id_fk" FOREIGN KEY ("related_strategy_id") REFERENCES "public"."strategies"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "alerts" ADD CONSTRAINT "alerts_related_research_id_research_reports_id_fk" FOREIGN KEY ("related_research_id") REFERENCES "public"."research_reports"("id") ON DELETE set null ON UPDATE no action;

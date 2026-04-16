@@ -15,6 +15,13 @@
       "when": 1776360464291,
       "tag": "0001_brave_outlaw_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776361205225,
+      "tag": "0002_pink_jasper_sitwell",
+      "breakpoints": true
     }
   ]
 }

@@ -25,8 +25,16 @@ export function middleware(request: NextRequest) {
   const referer = request.headers.get("referer");
   const origin = request.headers.get("origin");
   const host = request.headers.get("host");
-  if (host && (referer?.includes(host) || origin?.includes(host))) {
-    return NextResponse.next();
+  if (host) {
+    try {
+      const refererHost = referer ? new URL(referer).host : null;
+      const originHost = origin ? new URL(origin).host : null;
+      if (refererHost === host || originHost === host) {
+        return NextResponse.next();
+      }
+    } catch {
+      // Malformed URL — fall through to Bearer check
+    }
   }
 
   // External requests require Bearer token
