@@ -36,15 +36,23 @@ async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<ApiResult<T>> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
 
-  return response.json() as Promise<ApiResult<T>>;
+    if (!response.ok) {
+      return { success: false, error: { code: `HTTP_${response.status}`, message: response.statusText } } as ApiResult<T>;
+    }
+
+    return response.json() as Promise<ApiResult<T>>;
+  } catch (err) {
+    return { success: false, error: { code: "NETWORK_ERROR", message: err instanceof Error ? err.message : "Network error" } } as ApiResult<T>;
+  }
 }
 
 // ─── Strategies ──────────────────────────────────────────────────────────────

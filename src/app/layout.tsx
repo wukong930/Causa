@@ -3,6 +3,8 @@ import "./globals.css";
 import { SideNav } from "@/components/shared/SideNav";
 import { MobileNav } from "@/components/shared/MobileNav";
 import { TopBar } from "@/components/shared/TopBar";
+import { ToastProvider } from "@/components/shared/Toast";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 
 export const metadata: Metadata = {
   title: "Causa — 大宗商品智能监控与套利系统",
@@ -27,6 +29,7 @@ export default function RootLayout({
         className="h-full flex"
         style={{ background: "var(--background)", color: "var(--foreground)" }}
       >
+        <ToastProvider>
         {/* Desktop sidebar */}
         <SideNav />
 
@@ -42,12 +45,15 @@ export default function RootLayout({
               paddingBottom: "env(safe-area-inset-bottom)",
             }}
           >
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </main>
         </div>
 
         {/* Mobile bottom nav */}
         <MobileNav />
+        </ToastProvider>
       </body>
     </html>
   );
