@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import type { ResearchReport, ResearchHypothesis } from "@/types/domain";
-import { getResearchReports, getHypotheses, updateHypothesis } from "@/lib/api-client";
+import { getResearchReports, getHypotheses, updateHypothesis, getGDELTEvents, getMacroIndicators } from "@/lib/api-client";
+import type { GDELTEvent, MacroSnapshot } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/utils";
 
 // ─── Hypothesis status config ─────────────────────────────────────────────────
@@ -155,14 +156,23 @@ const REPORT_TYPE_LABEL: Record<string, string> = {
 export default function ResearchPage() {
   const [reports, setReports] = useState<ResearchReport[]>([]);
   const [hypotheses, setHypotheses] = useState<ResearchHypothesis[]>([]);
+  const [gdeltEvents, setGdeltEvents] = useState<GDELTEvent[]>([]);
+  const [macroSnapshot, setMacroSnapshot] = useState<MacroSnapshot | null>(null);
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
   const [hypFilter, setHypFilter] = useState<ResearchHypothesis["status"] | "all">("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getResearchReports(), getHypotheses()]).then(([r, h]) => {
+    Promise.all([
+      getResearchReports(),
+      getHypotheses(),
+      getGDELTEvents(),
+      getMacroIndicators(),
+    ]).then(([r, h, ge, mi]) => {
       setReports(r);
       setHypotheses(h);
+      setGdeltEvents(ge ?? []);
+      setMacroSnapshot(mi);
       setActiveReportId(r[0]?.id ?? null);
       setLoading(false);
     });
@@ -296,6 +306,72 @@ export default function ResearchPage() {
                 <HypothesisCard key={hyp.id} hyp={hyp} onStatusChange={handleHypStatusChange} />
               ))}
             </div>
+
+            {/* GDELT Events */}
+            {gdeltEvents.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>
+                  近期事件
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {gdeltEvents.slice(0, 5).map((ev, i) => (
+                    <a
+                      key={i}
+                      href={ev.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg p-3 border block transition-colors hover:brightness-110"
+                      style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+                    >
+                      <div className="text-xs font-medium leading-snug mb-1" style={{ color: "var(--foreground)" }}>
+                        {ev.title}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs" style={{ color: "var(--foreground-subtle)" }}>
+                        <span>{ev.domain}</span>
+                        <span>·</span>
+                        <span>{ev.seenDate?.slice(0, 10)}</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Macro Indicators */}
+            {macroSnapshot && (
+              <div className="mt-6">
+                <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>
+                  宏观指标
+                </h2>
+                <div className="rounded-lg p-4 border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                    {[
+                      { label: "美元指数", value: macroSnapshot.usdIndex },
+                      { label: "联邦基金利率", value: macroSnapshot.fedFundsRate, suffix: "%" },
+                      { label: "CPI (YoY)", value: macroSnapshot.cpiYoY, suffix: "%" },
+                      { label: "PMI 制造业", value: macroSnapshot.pmiManufacturing },
+                      { label: "美10Y", value: macroSnapshot.us10yYield, suffix: "%" },
+                      { label: "中10Y", value: macroSnapshot.cn10yYield, suffix: "%" },
+                      { label: "Brent 原油", value: macroSnapshot.crudeBrent, prefix: "$" },
+                      { label: "黄金", value: macroSnapshot.goldSpot, prefix: "$" },
+                      { label: "LME 铜", value: macroSnapshot.copperLME, prefix: "$" },
+                      { label: "铁矿石 62%", value: macroSnapshot.ironOre62Fe, prefix: "$" },
+                      { label: "BDI", value: macroSnapshot.balticDryIndex },
+                    ].filter((m) => m.value != null).map((m) => (
+                      <div key={m.label}>
+                        <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>{m.label}</div>
+                        <div className="text-sm font-mono font-medium" style={{ color: "var(--foreground)" }}>
+                          {m.prefix ?? ""}{typeof m.value === "number" ? m.value.toLocaleString() : m.value}{m.suffix ?? ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xs mt-3 pt-2 border-t" style={{ borderColor: "var(--border-subtle)", color: "var(--foreground-subtle)" }}>
+                    数据来源：{macroSnapshot.source} · {macroSnapshot.fetchedAt?.slice(0, 10)}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         )}
