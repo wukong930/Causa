@@ -15,7 +15,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className="h-full">
+    <html lang="zh-CN" className="h-full" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("causa-theme")||"dark";document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==="light"?"light":t==="system"?"light dark":"dark"}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body
         className="h-full flex"
         style={{ background: "var(--background)", color: "var(--foreground)" }}

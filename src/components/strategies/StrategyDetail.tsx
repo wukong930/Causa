@@ -1,8 +1,8 @@
-import type { StrategyPoolItem, Hypothesis, SpreadHypothesis, DirectionalHypothesis } from "@/types/domain";
-import { STRATEGY_STATUS_LABEL } from "@/lib/constants";
+import type { StrategyPoolItem, Hypothesis, SpreadHypothesis, DirectionalHypothesis, Recommendation, PositionGroup, Alert } from "@/types/domain";
+import { STRATEGY_STATUS_LABEL, RECOMMENDATION_STATUS_LABEL, RECOMMENDED_ACTION_LABEL, SEVERITY_LABEL } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { getPositions } from "@/lib/api-client";
+import { getPositions, getRecommendations, getAlerts } from "@/lib/api-client";
 import { useState, useEffect } from "react";
 
 interface StrategyDetailProps {
@@ -35,15 +35,25 @@ export function StrategyDetail({
   const router = useRouter();
   const h = strategy.hypothesis as Hypothesis;
   const v = strategy.validation;
-  const [strategyPositionCount, setStrategyPositionCount] = useState(0);
+  const [linkedPositions, setLinkedPositions] = useState<PositionGroup[]>([]);
+  const [linkedRecs, setLinkedRecs] = useState<Recommendation[]>([]);
+  const [linkedAlerts, setLinkedAlerts] = useState<Alert[]>([]);
 
   useEffect(() => {
     getPositions({ status: "open" }).then((positions) => {
-      setStrategyPositionCount(positions.filter((p) => p.strategyId === strategy.id).length);
+      setLinkedPositions(positions.filter((p) => p.strategyId === strategy.id));
     });
-  }, [strategy.id]);
+    getRecommendations().then((recs) => {
+      setLinkedRecs(recs.filter((r) => r.strategyId === strategy.id));
+    });
+    getAlerts().then((alerts) => {
+      setLinkedAlerts(alerts.filter((a) =>
+        a.relatedStrategyId === strategy.id || strategy.relatedAlertIds.includes(a.id)
+      ));
+    });
+  }, [strategy.id, strategy.relatedAlertIds]);
 
-  const hasPositions = strategyPositionCount > 0;
+  const hasPositions = linkedPositions.length > 0;
 
   const isActive = strategy.status === "active" || strategy.status === "approaching_trigger";
 
@@ -430,6 +440,102 @@ export function StrategyDetail({
         </div>
       </Section>
 
+      {/* Linked Recommendations */}
+      {linkedRecs.length > 0 && (
+        <Section title={`关联推荐 (${linkedRecs.length})`}>
+          <div className="flex flex-col gap-2">
+            {linkedRecs.map((rec) => (
+              <div
+                key={rec.id}
+                className="rounded-lg px-3 py-2.5 cursor-pointer hover:brightness-110"
+                style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+                onClick={() => router.push("/recommendations")}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-medium px-1.5 py-0.5 rounded" style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)" }}>
+                    {RECOMMENDED_ACTION_LABEL[rec.recommendedAction]}
+                  </span>
+                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--surface-overlay)", color: "var(--foreground-subtle)" }}>
+                    {RECOMMENDATION_STATUS_LABEL[rec.status]}
+                  </span>
+                  <span className="ml-auto text-xs" style={{ color: "var(--foreground-subtle)" }}>
+                    {formatRelativeTime(rec.createdAt)}
+                  </span>
+                </div>
+                <div className="text-xs font-mono" style={{ color: "var(--foreground-muted)" }}>
+                  {rec.legs.map((l) => l.asset).join(" / ")}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Linked Positions */}
+      {linkedPositions.length > 0 && (
+        <Section title={`关联持仓 (${linkedPositions.length})`}>
+          <div className="flex flex-col gap-2">
+            {linkedPositions.map((pos) => (
+              <div
+                key={pos.id}
+                className="rounded-lg px-3 py-2.5 cursor-pointer hover:brightness-110"
+                style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+                onClick={() => router.push("/positions")}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-mono font-medium" style={{ color: "var(--foreground)" }}>
+                    {pos.legs.map((l) => l.asset).join(" / ")}
+                  </span>
+                  <span
+                    className="ml-auto text-sm font-mono font-medium"
+                    style={{ color: pos.unrealizedPnl >= 0 ? "var(--positive)" : "var(--negative)" }}
+                  >
+                    {pos.unrealizedPnl >= 0 ? "+" : ""}¥{pos.unrealizedPnl.toLocaleString()}
+                  </span>
+                </div>
+                <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
+                  持仓 {pos.daysHeld} 天 · Z-Score {pos.currentZScore.toFixed(2)}σ
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Linked Alerts */}
+      {linkedAlerts.length > 0 && (
+        <Section title={`关联预警 (${linkedAlerts.length})`}>
+          <div className="flex flex-col gap-2">
+            {linkedAlerts.map((a) => (
+              <div
+                key={a.id}
+                className="rounded-lg px-3 py-2.5 cursor-pointer hover:brightness-110"
+                style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+                onClick={() => router.push("/alerts")}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-xs font-medium px-1.5 py-0.5 rounded"
+                    style={{
+                      background: a.severity === "critical" ? "var(--alert-critical-muted)" : a.severity === "high" ? "var(--alert-high-muted)" : "var(--surface-overlay)",
+                      color: a.severity === "critical" ? "var(--alert-critical)" : a.severity === "high" ? "var(--alert-high)" : "var(--foreground-muted)",
+                    }}
+                  >
+                    {SEVERITY_LABEL[a.severity]}
+                  </span>
+                  <span className="text-xs truncate flex-1" style={{ color: "var(--foreground-muted)" }}>
+                    {a.title}
+                  </span>
+                  <span className="text-xs shrink-0" style={{ color: "var(--foreground-subtle)" }}>
+                    {formatRelativeTime(a.triggeredAt)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {/* Actions */}
       <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
         <button
@@ -447,7 +553,7 @@ export function StrategyDetail({
               className="text-xs px-1.5 py-0.5 rounded-full ml-1"
               style={{ background: "rgba(255,255,255,0.2)" }}
             >
-              {strategyPositionCount}
+              {linkedPositions.length}
             </span>
           )}
         </button>

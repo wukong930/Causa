@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import type { Alert } from "@/types/domain";
 import { ALERT_STATUS_LABEL, ALERT_TYPE_LABEL } from "@/lib/constants";
 import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { getNotificationService } from "@/lib/notifications";
+import { createStrategy, createRecommendation } from "@/lib/api-client";
 
 interface AlertDetailProps {
   alert: Alert;
@@ -74,34 +76,89 @@ export function AlertDetail({
 }: AlertDetailProps) {
   const router = useRouter();
   const si = alert.spreadInfo;
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  function buildLegsFromAlert() {
+    if (si) {
+      return [
+        { asset: si.leg1, direction: si.zScore > 0 ? "long" as const : "short" as const, suggestedSize: 1, unit: "手" },
+        { asset: si.leg2, direction: si.zScore > 0 ? "short" as const : "long" as const, suggestedSize: 1, unit: "手" },
+      ];
+    }
+    return alert.relatedAssets.map((a) => ({
+      asset: a, direction: "long" as const, suggestedSize: 1, unit: "手",
+    }));
+  }
 
   function handleEscalate() {
-    // Send Feishu notification
     try {
       const notificationService = getNotificationService();
-      notificationService.notifyRecommendationCreated(
-        alert.title,
-        `rec-${Date.now()}`
-      );
+      notificationService.notifyRecommendationCreated(alert.title, `rec-${Date.now()}`);
     } catch (error) {
       console.error("Failed to send notification:", error);
     }
-
-    // Navigate to recommendations page — user can fill in details
     router.push("/recommendations");
     onEscalate?.();
   }
 
-  function handleMoveToStrategy() {
-    // Navigate to strategies page
-    router.push("/strategies");
-    onMoveToStrategy?.();
+  async function handleMoveToStrategy() {
+    setActionLoading("strategy");
+    try {
+      const now = new Date().toISOString();
+      await createStrategy({
+        name: alert.title,
+        description: alert.summary,
+        hypothesis: {
+          id: `hyp-${Date.now()}`,
+          type: "spread" as const,
+          spreadModel: si ? "calendar_spread" : "event_driven",
+          legs: buildLegsFromAlert().map((l) => ({
+            asset: l.asset,
+            direction: l.direction,
+            size: l.suggestedSize,
+            unit: l.unit,
+            ratio: 1,
+            exchange: "",
+          })),
+          entryThreshold: 2,
+          exitThreshold: 0.5,
+          stopLossThreshold: 3.5,
+          currentZScore: si?.zScore ?? 0,
+          halfLife: si?.halfLife ?? 0,
+          adfPValue: si?.adfPValue ?? 0,
+          hypothesisText: alert.summary,
+          createdAt: now,
+          lastUpdated: now,
+        },
+        relatedAlertIds: [alert.id],
+      });
+      router.push("/strategies");
+      onMoveToStrategy?.();
+    } catch (error) {
+      console.error("Failed to create strategy:", error);
+    } finally {
+      setActionLoading(null);
+    }
   }
 
-  function handleAddToWatch() {
-    // Navigate to research page for now
-    router.push("/research");
-    onAddToWatch?.();
+  async function handleAddToWatch() {
+    setActionLoading("watch");
+    try {
+      await createRecommendation({
+        alertId: alert.id,
+        recommendedAction: "watchlist_only",
+        legs: buildLegsFromAlert(),
+        reasoning: `来自预警「${alert.title}」：${alert.summary}`,
+        riskItems: alert.riskItems,
+        marginRequired: 0,
+      });
+      router.push("/recommendations");
+      onAddToWatch?.();
+    } catch (error) {
+      console.error("Failed to create recommendation:", error);
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   function handleInvalidate() {
@@ -325,25 +382,29 @@ export function AlertDetail({
         )}
         <button
           onClick={handleMoveToStrategy}
+          disabled={actionLoading === "strategy"}
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
           style={{
             background: "var(--surface-overlay)",
             color: "var(--foreground-muted)",
             border: "1px solid var(--border)",
+            opacity: actionLoading === "strategy" ? 0.6 : 1,
           }}
         >
-          加入策略池
+          {actionLoading === "strategy" ? "创建中..." : "加入策略池"}
         </button>
         <button
           onClick={handleAddToWatch}
+          disabled={actionLoading === "watch"}
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
           style={{
             background: "var(--surface-overlay)",
             color: "var(--foreground-muted)",
             border: "1px solid var(--border)",
+            opacity: actionLoading === "watch" ? 0.6 : 1,
           }}
         >
-          加入关注
+          {actionLoading === "watch" ? "创建中..." : "加入关注"}
         </button>
         <button
           onClick={handleInvalidate}

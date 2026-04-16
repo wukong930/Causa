@@ -3,14 +3,56 @@
 import { useState, useEffect } from "react";
 import { loadNotificationConfig, updateNotificationConfig, type NotificationConfig } from "@/lib/notifications";
 
+interface RiskParameters {
+  maxPositionSizePerCommodity: number;
+  maxMarginUtilization: number;
+  maxConcentrationPerCategory: number;
+}
+
+const DEFAULT_RISK_PARAMS: RiskParameters = {
+  maxPositionSizePerCommodity: 10,
+  maxMarginUtilization: 80,
+  maxConcentrationPerCategory: 40,
+};
+
+function loadRiskParams(): RiskParameters {
+  if (typeof window === "undefined") return DEFAULT_RISK_PARAMS;
+  try {
+    const raw = localStorage.getItem("causa-risk-params");
+    return raw ? { ...DEFAULT_RISK_PARAMS, ...JSON.parse(raw) } : DEFAULT_RISK_PARAMS;
+  } catch { return DEFAULT_RISK_PARAMS; }
+}
+
+function saveRiskParams(params: RiskParameters) {
+  localStorage.setItem("causa-risk-params", JSON.stringify(params));
+}
+
+type ThemeMode = "dark" | "light" | "system";
+
+function loadTheme(): ThemeMode {
+  if (typeof window === "undefined") return "dark";
+  return (localStorage.getItem("causa-theme") as ThemeMode) || "dark";
+}
+
+function applyTheme(mode: ThemeMode) {
+  localStorage.setItem("causa-theme", mode);
+  document.documentElement.dataset.theme = mode;
+  document.documentElement.style.colorScheme = mode === "light" ? "light" : mode === "system" ? "light dark" : "dark";
+}
+
 export default function SettingsPage() {
   const [config, setConfig] = useState<NotificationConfig>({ webhookUrl: "", enabled: false });
   const [testStatus, setTestStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [saved, setSaved] = useState(false);
+  const [riskParams, setRiskParams] = useState<RiskParameters>(DEFAULT_RISK_PARAMS);
+  const [riskSaved, setRiskSaved] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>("dark");
 
   useEffect(() => {
     const loaded = loadNotificationConfig();
     setConfig(loaded);
+    setRiskParams(loadRiskParams());
+    setTheme(loadTheme());
   }, []);
 
   function handleSave() {
@@ -160,7 +202,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Risk Parameters (placeholder) */}
+      {/* Risk Parameters */}
       <section
         className="rounded-lg p-5 mb-6"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
@@ -168,12 +210,67 @@ export default function SettingsPage() {
         <h2 className="text-base font-semibold mb-4" style={{ color: "var(--foreground)" }}>
           风险参数
         </h2>
-        <p className="text-sm" style={{ color: "var(--foreground-muted)" }}>
-          保证金上限、单品种最大仓位等配置开发中...
-        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm mb-1.5" style={{ color: "var(--foreground-muted)" }}>
+              单品种最大仓位（手）
+            </label>
+            <input
+              type="number"
+              value={riskParams.maxPositionSizePerCommodity}
+              onChange={(e) => setRiskParams((p) => ({ ...p, maxPositionSizePerCommodity: parseInt(e.target.value) || 0 }))}
+              className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1.5" style={{ color: "var(--foreground-muted)" }}>
+              保证金利用率上限（%）
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={riskParams.maxMarginUtilization}
+              onChange={(e) => setRiskParams((p) => ({ ...p, maxMarginUtilization: parseInt(e.target.value) || 0 }))}
+              className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1.5" style={{ color: "var(--foreground-muted)" }}>
+              单板块集中度上限（%）
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={riskParams.maxConcentrationPerCategory}
+              onChange={(e) => setRiskParams((p) => ({ ...p, maxConcentrationPerCategory: parseInt(e.target.value) || 0 }))}
+              className="w-full px-3 py-2 rounded-lg text-sm font-mono"
+              style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => { saveRiskParams(riskParams); setRiskSaved(true); setTimeout(() => setRiskSaved(false), 2000); }}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ background: "var(--accent-blue)", color: "#fff" }}
+            >
+              {riskSaved ? "已保存" : "保存参数"}
+            </button>
+            <button
+              onClick={() => { setRiskParams(DEFAULT_RISK_PARAMS); saveRiskParams(DEFAULT_RISK_PARAMS); }}
+              className="px-4 py-2 rounded-lg text-sm"
+              style={{ background: "var(--surface-overlay)", border: "1px solid var(--border)", color: "var(--foreground-muted)" }}
+            >
+              恢复默认
+            </button>
+          </div>
+        </div>
       </section>
 
-      {/* Theme (placeholder) */}
+      {/* Theme */}
       <section
         className="rounded-lg p-5"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
@@ -181,9 +278,26 @@ export default function SettingsPage() {
         <h2 className="text-base font-semibold mb-4" style={{ color: "var(--foreground)" }}>
           外观
         </h2>
-        <p className="text-sm" style={{ color: "var(--foreground-muted)" }}>
-          主题切换（暗色/亮色/跟随系统）开发中...
-        </p>
+        <div className="flex gap-2">
+          {([
+            { value: "dark" as ThemeMode, label: "暗色" },
+            { value: "light" as ThemeMode, label: "亮色" },
+            { value: "system" as ThemeMode, label: "跟随系统" },
+          ]).map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { setTheme(opt.value); applyTheme(opt.value); }}
+              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+              style={{
+                background: theme === opt.value ? "var(--accent-blue)" : "var(--surface-overlay)",
+                color: theme === opt.value ? "#fff" : "var(--foreground-muted)",
+                border: `1px solid ${theme === opt.value ? "var(--accent-blue)" : "var(--border)"}`,
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </section>
     </div>
   );

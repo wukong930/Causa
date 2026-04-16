@@ -275,6 +275,40 @@ export async function updateRecommendation(
   return (result as { data: Recommendation; success: true }).data;
 }
 
+export async function createRecommendation(
+  data: Partial<Recommendation>
+): Promise<Recommendation> {
+  const now = new Date().toISOString();
+  if (USE_MOCK_DATA) {
+    const rec: Recommendation = {
+      id: `rec-${Date.now()}`,
+      status: data.status ?? "pending",
+      recommendedAction: data.recommendedAction ?? "watchlist_only",
+      legs: data.legs ?? [],
+      priorityScore: data.priorityScore ?? 50,
+      portfolioFitScore: data.portfolioFitScore ?? 50,
+      marginEfficiencyScore: data.marginEfficiencyScore ?? 50,
+      marginRequired: data.marginRequired ?? 0,
+      reasoning: data.reasoning ?? "",
+      riskItems: data.riskItems ?? [],
+      expiresAt: data.expiresAt ?? new Date(Date.now() + 7 * 86400000).toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      strategyId: data.strategyId,
+      alertId: data.alertId,
+    };
+    mockRecommendations.push(rec);
+    return rec;
+  }
+
+  const result = await fetchApi<Recommendation>("/api/recommendations", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!result.success) throw new Error(result.error.message);
+  return (result as { data: Recommendation; success: true }).data;
+}
+
 // ─── Positions ───────────────────────────────────────────────────────────────
 
 export async function getPositions(filters?: {
