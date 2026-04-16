@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { getPositions, getExecutionFeedbacks, getAccountSnapshot } from "@/lib/api-client";
+import { getPositions, getExecutionFeedbacks, getAccountSnapshot, getRiskVaR, getStressTest, getCorrelationMatrix } from "@/lib/api-client";
 import { formatRelativeTime, formatNumber } from "@/lib/utils";
+import type { VaRResult } from "@/lib/risk/var";
+import type { StressTestResult } from "@/lib/risk/stress";
+import type { CorrelationMatrix } from "@/lib/risk/correlation";
 import { Drawer } from "@/components/shared/Drawer";
 import { RiskMetricsDashboard } from "@/components/positions/RiskMetricsDashboard";
 import { HistoricalChart } from "@/components/positions/HistoricalChart";
@@ -546,13 +549,26 @@ export default function PositionsPage() {
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>(new Date().toISOString());
+  const [varResult, setVarResult] = useState<VaRResult | null>(null);
+  const [stressResults, setStressResults] = useState<StressTestResult[]>([]);
+  const [correlationMatrix, setCorrelationMatrix] = useState<CorrelationMatrix | null>(null);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getPositions(), getExecutionFeedbacks(), getAccountSnapshot()]).then(([pos, fb, acc]) => {
+    Promise.all([
+      getPositions(),
+      getExecutionFeedbacks(),
+      getAccountSnapshot(),
+      getRiskVaR(),
+      getStressTest(),
+      getCorrelationMatrix(),
+    ]).then(([pos, fb, acc, vr, st, cm]) => {
       setPositions(pos);
       setFeedbacks(fb);
       setAccount(acc);
+      setVarResult(vr);
+      setStressResults(st ?? []);
+      setCorrelationMatrix(cm);
       setUpdatedAt(new Date().toISOString());
       setLoading(false);
     });
@@ -650,6 +666,98 @@ export default function PositionsPage() {
             <AccountSummary account={account} />
 
             {riskMetrics && <RiskMetricsDashboard metrics={riskMetrics} />}
+
+            {/* VaR / Stress / Correlation panels */}
+            {(varResult || stressResults.length > 0 || correlationMatrix) && (
+              <div className="mb-6 flex flex-col gap-4">
+                {/* VaR/CVaR cards */}
+                {varResult && (
+                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                    {[
+                      { label: "VaR (95%)", value: varResult.var95, color: "var(--alert-high)" },
+                      { label: "VaR (99%)", value: varResult.var99, color: "var(--alert-critical)" },
+                      { label: "CVaR (95%)", value: varResult.cvar95, color: "var(--alert-high)" },
+                      { label: "CVaR (99%)", value: varResult.cvar99, color: "var(--alert-critical)" },
+                    ].map((m) => (
+                      <div key={m.label} className="rounded-lg px-3 py-2.5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                        <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>{m.label}</div>
+                        <div className="text-sm font-semibold font-mono" style={{ color: m.color }}>
+                          ¥{formatNumber(m.value)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Stress test table */}
+                {stressResults.length > 0 && (
+                  <div className="rounded-lg overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                    <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                      <span className="text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>压力测试</span>
+                    </div>
+                    <table className="w-full">
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                          <th className="px-4 py-2 text-left text-xs" style={{ color: "var(--foreground-subtle)" }}>场景</th>
+                          <th className="px-4 py-2 text-left text-xs" style={{ color: "var(--foreground-subtle)" }}>描述</th>
+                          <th className="px-4 py-2 text-right text-xs" style={{ color: "var(--foreground-subtle)" }}>组合 P&L</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stressResults.slice(0, 5).map((s) => (
+                          <tr key={s.scenario} className="border-b last:border-b-0" style={{ borderColor: "var(--border-subtle)" }}>
+                            <td className="px-4 py-2 text-sm font-medium" style={{ color: "var(--foreground)" }}>{s.scenario}</td>
+                            <td className="px-4 py-2 text-xs" style={{ color: "var(--foreground-muted)" }}>{s.description}</td>
+                            <td className="px-4 py-2 text-right text-sm font-mono font-semibold" style={{ color: s.portfolioPnl >= 0 ? "var(--positive)" : "var(--negative)" }}>
+                              {s.portfolioPnl >= 0 ? "+" : ""}¥{formatNumber(s.portfolioPnl)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Correlation matrix */}
+                {correlationMatrix && correlationMatrix.symbols.length > 0 && (
+                  <div className="rounded-lg overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                    <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                      <span className="text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>相关性矩阵</span>
+                    </div>
+                    <div className="overflow-x-auto p-3">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr>
+                            <th className="px-2 py-1" />
+                            {correlationMatrix.symbols.map((s) => (
+                              <th key={s} className="px-2 py-1 font-mono text-center" style={{ color: "var(--accent-blue)" }}>{s}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {correlationMatrix.symbols.map((row, i) => (
+                            <tr key={row}>
+                              <td className="px-2 py-1 font-mono font-medium" style={{ color: "var(--accent-blue)" }}>{row}</td>
+                              {correlationMatrix.matrix[i].map((val, j) => {
+                                const abs = Math.abs(val);
+                                const bg = i === j ? "transparent"
+                                  : val > 0 ? `rgba(63,185,80,${abs * 0.4})`
+                                  : `rgba(248,81,73,${abs * 0.4})`;
+                                return (
+                                  <td key={j} className="px-2 py-1 text-center font-mono" style={{ background: bg, color: "var(--foreground)" }}>
+                                    {val.toFixed(2)}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <ExitSignalsBanner
               signals={exitSignals}
