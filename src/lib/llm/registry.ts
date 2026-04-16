@@ -2,6 +2,7 @@ import type { LLMProvider, LLMProviderName, LLMConfig } from "./types";
 import { createOpenAIProvider } from "./openai";
 import { createAnthropicProvider } from "./anthropic";
 import { createDeepSeekProvider } from "./deepseek";
+import { decrypt } from "@/lib/crypto";
 
 const PROVIDER_FACTORIES: Record<LLMProviderName, (config: LLMConfig) => LLMProvider> = {
   openai: createOpenAIProvider,
@@ -41,7 +42,7 @@ export async function getActiveLLMProvider(): Promise<LLMProvider> {
       const cfg = configs[0];
       return createProvider({
         provider: cfg.provider as LLMProviderName,
-        apiKey: cfg.apiKey,
+        apiKey: decrypt(cfg.apiKey),
         model: cfg.model,
         enabled: true,
         baseUrl: cfg.baseUrl ?? undefined,

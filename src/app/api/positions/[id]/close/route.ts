@@ -34,6 +34,7 @@ export async function POST(
     const position = serializeRecords<PositionGroup>(rows)[0];
     const draft = buildPartialCloseDraft(position, { positionId: id, legIndex, closeSize, reason });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle JSON column typing limitation
     const [created] = await db.insert(executionDrafts).values({
       ...draft,
       legs: draft.legs,
@@ -42,7 +43,7 @@ export async function POST(
     return NextResponse.json({ success: true, data: created });
   } catch (error) {
     console.error("POST /api/positions/[id]/close error:", error);
-    const message = error instanceof Error ? error.message : "Close failed";
+    const message = process.env.NODE_ENV === "development" && error instanceof Error ? error.message : "Close operation failed";
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message } },
       { status: 500 }

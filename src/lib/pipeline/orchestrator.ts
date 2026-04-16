@@ -84,6 +84,7 @@ export async function runOrchestration(
             unit: "手",
           }];
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle JSON column typing limitation
       await db.insert(recsTable).values({
         strategyId: hyp.id,
         alertId: hyp.createdFromAlertId,

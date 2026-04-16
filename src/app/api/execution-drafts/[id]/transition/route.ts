@@ -52,7 +52,8 @@ export async function POST(
     updatedLegs[legIndex] = { ...leg, legStatus: newStatus };
 
     await db.update(executionDrafts)
-      .set({ legs: updatedLegs as any, updatedAt: new Date() } as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle JSON column typing limitation
+      .set({ legs: updatedLegs, updatedAt: new Date() } as any)
       .where(eq(executionDrafts.id, id));
 
     return NextResponse.json({
@@ -61,7 +62,7 @@ export async function POST(
     });
   } catch (error) {
     console.error("POST /api/execution-drafts/[id]/transition error:", error);
-    const message = error instanceof Error ? error.message : "Transition failed";
+    const message = process.env.NODE_ENV === "development" && error instanceof Error ? error.message : "Transition failed";
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message } },
       { status: 500 }

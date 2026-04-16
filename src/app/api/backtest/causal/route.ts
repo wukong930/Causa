@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error("POST /api/backtest/causal error:", error);
-    const message = error instanceof Error ? error.message : "Causal validation failed";
+    const message = process.env.NODE_ENV === "development" && error instanceof Error ? error.message : "Causal validation service unavailable";
     return NextResponse.json(
       { success: false, error: { code: "CAUSAL_ERROR", message } },
       { status: 502 }

@@ -34,6 +34,7 @@ export async function POST(
     const position = serializeRecords<PositionGroup>(rows)[0];
     const draft = buildRollDrafts(position, { positionId: id, fromContract, toContract, size, reason });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle JSON column typing limitation
     const [created] = await db.insert(executionDrafts).values({
       ...draft,
       legs: draft.legs,
@@ -42,7 +43,7 @@ export async function POST(
     return NextResponse.json({ success: true, data: created });
   } catch (error) {
     console.error("POST /api/positions/[id]/roll error:", error);
-    const message = error instanceof Error ? error.message : "Roll failed";
+    const message = process.env.NODE_ENV === "development" && error instanceof Error ? error.message : "Roll operation failed";
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message } },
       { status: 500 }

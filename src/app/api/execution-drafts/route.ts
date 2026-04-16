@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    const legs = (rec.legs as any[]).map((leg) => ({
+    const legs = (rec.legs as Array<{ asset: string; direction: string; suggestedSize: number; unit?: string }>).map((leg) => ({
       asset: leg.asset,
       direction: leg.direction,
       type: 'open',

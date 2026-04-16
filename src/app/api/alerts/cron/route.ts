@@ -8,6 +8,7 @@ import { getAllEvaluators } from '@/lib/trigger';
 import type { TriggerContext, SpreadStatistics } from '@/lib/trigger';
 import { applyPositionFilters } from '@/lib/trigger/position-filter';
 import { serializeRecord } from '@/lib/serialize';
+import { verifyCronSecret } from '@/lib/auth';
 
 // Cron watchlist: symbol pairs and categories to monitor
 const CRON_WATCHLIST: Array<{ symbol1: string; symbol2?: string; category: AlertCategory }> = [
@@ -23,15 +24,8 @@ const WINDOW = 20;
 // POST /api/alerts/cron - Scheduled alert trigger (called by cron job)
 export async function POST(request: NextRequest) {
   // Verify cron secret
-  const authHeader = request.headers.get('x-cron-secret');
-  const expectedSecret = process.env.CRON_SECRET;
-
-  if (!expectedSecret || authHeader !== expectedSecret) {
-    return NextResponse.json(
-      { success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret' } },
-      { status: 401 }
-    );
-  }
+  const authError = verifyCronSecret(request);
+  if (authError) return authError;
 
   const results: Array<{
     symbol1: string;

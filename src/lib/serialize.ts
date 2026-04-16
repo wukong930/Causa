@@ -1,18 +1,22 @@
-// Utility to serialize database records to domain types (Date -> ISO string)
-export function serializeRecord<T>(record: any): T {
-  const serialized: any = {};
+// Utility to serialize database records to domain types (Date -> ISO string, recursive)
 
-  for (const [key, value] of Object.entries(record)) {
-    if (value instanceof Date) {
-      serialized[key] = value.toISOString();
-    } else {
-      serialized[key] = value;
+function serializeValue(value: unknown): unknown {
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(serializeValue);
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = serializeValue(v);
     }
+    return out;
   }
-
-  return serialized as T;
+  return value;
 }
 
-export function serializeRecords<T>(records: any[]): T[] {
-  return records.map(record => serializeRecord<T>(record));
+export function serializeRecord<T>(record: Record<string, unknown>): T {
+  return serializeValue(record) as T;
+}
+
+export function serializeRecords<T>(records: Record<string, unknown>[]): T[] {
+  return records.map((r) => serializeRecord<T>(r));
 }

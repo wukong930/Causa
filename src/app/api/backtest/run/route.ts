@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error("POST /api/backtest/run error:", error);
-    const message = error instanceof Error ? error.message : "Backtest failed";
+    const message = process.env.NODE_ENV === "development" && error instanceof Error ? error.message : "Backtest service unavailable";
     return NextResponse.json(
       { success: false, error: { code: "BACKTEST_ERROR", message } },
       { status: 502 }

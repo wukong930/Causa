@@ -4,6 +4,7 @@ import { llmConfig } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import type { LLMProviderName } from "@/lib/llm/types";
 import { DEFAULT_MODELS } from "@/lib/llm/types";
+import { encrypt } from "@/lib/crypto";
 
 // GET /api/llm/config — list all LLM configs
 export async function GET() {
@@ -61,13 +62,14 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const encryptedKey = encrypt(apiKey);
     const now = new Date();
 
     if (id) {
       // Update existing
       const [updated] = await db
         .update(llmConfig)
-        .set({ provider, apiKey, model, baseUrl: baseUrl ?? null, enabled: enabled ?? true, updatedAt: now })
+        .set({ provider, apiKey: encryptedKey, model, baseUrl: baseUrl ?? null, enabled: enabled ?? true, updatedAt: now })
         .where(eq(llmConfig.id, id))
         .returning({ id: llmConfig.id, provider: llmConfig.provider, model: llmConfig.model, enabled: llmConfig.enabled });
 
@@ -81,7 +83,7 @@ export async function PUT(request: NextRequest) {
 
     const [created] = await db
       .insert(llmConfig)
-      .values({ provider, apiKey, model, baseUrl: baseUrl ?? null, enabled: enabled ?? true, createdAt: now, updatedAt: now })
+      .values({ provider, apiKey: encryptedKey, model, baseUrl: baseUrl ?? null, enabled: enabled ?? true, createdAt: now, updatedAt: now })
       .returning({ id: llmConfig.id, provider: llmConfig.provider, model: llmConfig.model, enabled: llmConfig.enabled });
 
     return NextResponse.json({ success: true, data: created });

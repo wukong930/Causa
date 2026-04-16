@@ -18,7 +18,12 @@ import type {
   AccountSnapshot,
   AlertType,
   AlertCategory,
+  ExecutionLegStatus,
 } from "@/types/domain";
+import type { VaRResult } from "@/lib/risk/var";
+import type { StressTestResult, StressScenario } from "@/lib/risk/stress";
+import type { CorrelationMatrix } from "@/lib/risk/correlation";
+import type { BacktestRequest, BacktestResult, CausalRequest, CausalResult } from "@/lib/backtest/client";
 import type { ApiResult } from "@/types/api";
 import { mockAlerts } from "@/mocks/alerts";
 import { mockStrategies } from "@/mocks/strategies";
@@ -37,10 +42,12 @@ async function fetchApi<T>(
   options?: RequestInit
 ): Promise<ApiResult<T>> {
   try {
+    const apiSecret = process.env.NEXT_PUBLIC_API_SECRET;
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
+        ...(apiSecret ? { Authorization: `Bearer ${apiSecret}` } : {}),
         ...options?.headers,
       },
     });
@@ -655,3 +662,96 @@ export async function updateExecutionDraft(
   return (result as { data: ExecutionDraft; success: true }).data;
 }
 
+// ─── Risk ────────────────────────────────────────────────────────────────────
+
+export async function getRiskVaR(): Promise<VaRResult | null> {
+  const result = await fetchApi<VaRResult>("/api/risk/var");
+  if (!result.success) return null;
+  return (result as { data: VaRResult; success: true }).data;
+}
+
+export async function getStressTest(): Promise<StressTestResult[] | null> {
+  const result = await fetchApi<StressTestResult[]>("/api/risk/stress");
+  if (!result.success) return null;
+  return (result as { data: StressTestResult[]; success: true }).data;
+}
+
+export async function runStressTestClient(scenarios?: StressScenario[]): Promise<StressTestResult[] | null> {
+  const result = await fetchApi<StressTestResult[]>("/api/risk/stress", {
+    method: "POST",
+    body: JSON.stringify(scenarios ? { scenarios } : {}),
+  });
+  if (!result.success) return null;
+  return (result as { data: StressTestResult[]; success: true }).data;
+}
+
+export async function getCorrelationMatrix(symbols?: string[], window?: number): Promise<CorrelationMatrix | null> {
+  const params = new URLSearchParams();
+  if (symbols?.length) params.set("symbols", symbols.join(","));
+  if (window) params.set("window", String(window));
+  const result = await fetchApi<CorrelationMatrix>(`/api/risk/correlation?${params}`);
+  if (!result.success) return null;
+  return (result as { data: CorrelationMatrix; success: true }).data;
+}
+
+// ─── Backtest ────────────────────────────────────────────────────────────────
+
+export async function runBacktestClient(req: BacktestRequest): Promise<BacktestResult | null> {
+  const result = await fetchApi<BacktestResult>("/api/backtest/run", {
+    method: "POST", body: JSON.stringify(req),
+  });
+  if (!result.success) return null;
+  return (result as { data: BacktestResult; success: true }).data;
+}
+
+export async function runCausalValidationClient(req: CausalRequest): Promise<CausalResult | null> {
+  const result = await fetchApi<CausalResult>("/api/backtest/causal", {
+    method: "POST", body: JSON.stringify(req),
+  });
+  if (!result.success) return null;
+  return (result as { data: CausalResult; success: true }).data;
+}
+
+// ─── Position Lifecycle ──────────────────────────────────────────────────────
+
+export async function closePosition(id: string, legIndex: number, closeSize: number, reason?: string): Promise<ExecutionDraft | null> {
+  const result = await fetchApi<ExecutionDraft>(`/api/positions/${id}/close`, {
+    method: "POST", body: JSON.stringify({ legIndex, closeSize, reason }),
+  });
+  if (!result.success) return null;
+  return (result as { data: ExecutionDraft; success: true }).data;
+}
+
+export async function rollPosition(id: string, fromContract: string, toContract: string, size: number, reason?: string): Promise<ExecutionDraft | null> {
+  const result = await fetchApi<ExecutionDraft>(`/api/positions/${id}/roll`, {
+    method: "POST", body: JSON.stringify({ fromContract, toContract, size, reason }),
+  });
+  if (!result.success) return null;
+  return (result as { data: ExecutionDraft; success: true }).data;
+}
+
+export async function transitionLeg(draftId: string, legIndex: number, event: string): Promise<{ legIndex: number; previousStatus: string; newStatus: string; event: string } | null> {
+  const result = await fetchApi<{ legIndex: number; previousStatus: string; newStatus: string; event: string }>(
+    `/api/execution-drafts/${draftId}/transition`,
+    { method: "POST", body: JSON.stringify({ legIndex, event }) }
+  );
+  if (!result.success) return null;
+  return (result as { data: { legIndex: number; previousStatus: string; newStatus: string; event: string }; success: true }).data;
+}
+
+// ─── Cron (Admin) ────────────────────────────────────────────────────────────
+
+export async function triggerEvolutionCron(): Promise<unknown> {
+  const result = await fetchApi<unknown>("/api/cron/evolution", { method: "POST" });
+  return result.success ? (result as { data: unknown; success: true }).data : null;
+}
+
+export async function triggerContextCron(): Promise<unknown> {
+  const result = await fetchApi<unknown>("/api/cron/context", { method: "POST" });
+  return result.success ? (result as { data: unknown; success: true }).data : null;
+}
+
+export async function triggerRiskCron(): Promise<unknown> {
+  const result = await fetchApi<unknown>("/api/cron/risk", { method: "POST" });
+  return result.success ? (result as { data: unknown; success: true }).data : null;
+}

@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { verifyCronSecret } from "@/lib/auth";
 import { db } from "@/db";
 import { positions as positionsTable, marketData as marketDataTable } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -9,7 +10,10 @@ import { serializeRecords } from "@/lib/serialize";
 import type { PositionGroup, MarketDataPoint } from "@/types/domain";
 
 // POST /api/cron/risk — recalculate VaR, stress tests, correlation
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const authError = verifyCronSecret(request);
+  if (authError) return authError;
+
   try {
     const posRows = await db.select().from(positionsTable).where(eq(positionsTable.status, "open"));
     const pos = serializeRecords<PositionGroup>(posRows);
