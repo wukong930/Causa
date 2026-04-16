@@ -2,8 +2,9 @@ import type { StrategyPoolItem, Hypothesis, SpreadHypothesis, DirectionalHypothe
 import { STRATEGY_STATUS_LABEL, RECOMMENDATION_STATUS_LABEL, RECOMMENDED_ACTION_LABEL, SEVERITY_LABEL } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { getPositions, getRecommendations, getAlerts } from "@/lib/api-client";
+import { getPositions, getRecommendations, getAlerts, runBacktestClient, runCausalValidationClient } from "@/lib/api-client";
 import { useState, useEffect } from "react";
+import type { BacktestResult, CausalResult } from "@/lib/backtest/client";
 
 interface StrategyDetailProps {
   strategy: StrategyPoolItem;
@@ -38,6 +39,10 @@ export function StrategyDetail({
   const [linkedPositions, setLinkedPositions] = useState<PositionGroup[]>([]);
   const [linkedRecs, setLinkedRecs] = useState<Recommendation[]>([]);
   const [linkedAlerts, setLinkedAlerts] = useState<Alert[]>([]);
+  const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
+  const [causalResult, setCausalResult] = useState<CausalResult | null>(null);
+  const [backtestLoading, setBacktestLoading] = useState(false);
+  const [causalLoading, setCausalLoading] = useState(false);
 
   useEffect(() => {
     getPositions({ status: "open" }).then((positions) => {
@@ -52,6 +57,37 @@ export function StrategyDetail({
       ));
     });
   }, [strategy.id, strategy.relatedAlertIds]);
+
+  async function handleRunBacktest() {
+    setBacktestLoading(true);
+    const legs = h.type === "spread"
+      ? (h as SpreadHypothesis).legs.map((l) => ({ asset: l.asset, direction: l.direction, ratio: l.ratio }))
+      : [{ asset: (h as DirectionalHypothesis).leg.asset, direction: (h as DirectionalHypothesis).leg.direction, ratio: 1 }];
+    const result = await runBacktestClient({
+      hypothesis_id: strategy.id,
+      legs,
+      prices: {},
+      dates: [],
+    });
+    setBacktestResult(result);
+    setBacktestLoading(false);
+  }
+
+  async function handleRunCausal() {
+    setCausalLoading(true);
+    const assets = h.type === "spread"
+      ? (h as SpreadHypothesis).legs.map((l) => l.asset)
+      : [(h as DirectionalHypothesis).leg.asset];
+    const result = await runCausalValidationClient({
+      hypothesis_id: strategy.id,
+      treatment: assets[0],
+      outcome: assets[1] ?? assets[0],
+      prices: {},
+      dates: [],
+    });
+    setCausalResult(result);
+    setCausalLoading(false);
+  }
 
   const hasPositions = linkedPositions.length > 0;
 
@@ -402,6 +438,62 @@ export function StrategyDetail({
             </div>
           </div>
         </div>
+      </Section>
+
+      {/* Backtest & Causal Validation */}
+      <Section title="回测 & 因果验证">
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={handleRunBacktest}
+            disabled={backtestLoading}
+            className="text-xs px-3 py-1.5 rounded transition-colors"
+            style={{
+              background: backtestLoading ? "var(--surface-overlay)" : "var(--accent-blue)",
+              color: backtestLoading ? "var(--foreground-subtle)" : "#fff",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {backtestLoading ? "运行中…" : "运行回测"}
+          </button>
+          <button
+            onClick={handleRunCausal}
+            disabled={causalLoading}
+            className="text-xs px-3 py-1.5 rounded transition-colors"
+            style={{
+              background: causalLoading ? "var(--surface-overlay)" : "var(--surface)",
+              color: causalLoading ? "var(--foreground-subtle)" : "var(--foreground)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {causalLoading ? "验证中…" : "因果验证"}
+          </button>
+        </div>
+
+        {backtestResult && (
+          <div className="rounded-lg p-3 mb-3" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+            <div className="text-xs font-semibold mb-2" style={{ color: "var(--foreground-subtle)" }}>回测结果</div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div><span style={{ color: "var(--foreground-subtle)" }}>Sharpe</span><div className="font-mono font-medium" style={{ color: "var(--foreground)" }}>{backtestResult.sharpe_ratio.toFixed(2)}</div></div>
+              <div><span style={{ color: "var(--foreground-subtle)" }}>最大回撤</span><div className="font-mono font-medium" style={{ color: "var(--negative)" }}>{(backtestResult.max_drawdown * 100).toFixed(1)}%</div></div>
+              <div><span style={{ color: "var(--foreground-subtle)" }}>胜率</span><div className="font-mono font-medium" style={{ color: "var(--foreground)" }}>{(backtestResult.win_rate * 100).toFixed(0)}%</div></div>
+              <div><span style={{ color: "var(--foreground-subtle)" }}>IC</span><div className="font-mono font-medium" style={{ color: "var(--foreground)" }}>{backtestResult.ic.toFixed(3)}</div></div>
+              <div><span style={{ color: "var(--foreground-subtle)" }}>Calmar</span><div className="font-mono font-medium" style={{ color: "var(--foreground)" }}>{backtestResult.calmar_ratio.toFixed(2)}</div></div>
+              <div><span style={{ color: "var(--foreground-subtle)" }}>盈亏比</span><div className="font-mono font-medium" style={{ color: "var(--foreground)" }}>{backtestResult.profit_factor.toFixed(2)}</div></div>
+            </div>
+          </div>
+        )}
+
+        {causalResult && (
+          <div className="rounded-lg p-3" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+            <div className="text-xs font-semibold mb-2" style={{ color: "var(--foreground-subtle)" }}>因果验证结果</div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div><span style={{ color: "var(--foreground-subtle)" }}>因果效应</span><div className="font-mono font-medium" style={{ color: "var(--foreground)" }}>{causalResult.causal_effect.toFixed(4)}</div></div>
+              <div><span style={{ color: "var(--foreground-subtle)" }}>p-value</span><div className="font-mono font-medium" style={{ color: causalResult.p_value < 0.05 ? "var(--positive)" : "var(--foreground-muted)" }}>{causalResult.p_value.toFixed(4)}</div></div>
+              <div><span style={{ color: "var(--foreground-subtle)" }}>置信区间</span><div className="font-mono font-medium" style={{ color: "var(--foreground)" }}>[{causalResult.confidence_interval[0].toFixed(3)}, {causalResult.confidence_interval[1].toFixed(3)}]</div></div>
+              <div><span style={{ color: "var(--foreground-subtle)" }}>反驳检验</span><div className="font-mono font-medium" style={{ color: causalResult.refutation_passed ? "var(--positive)" : "var(--negative)" }}>{causalResult.refutation_passed ? "通过" : "未通过"}</div></div>
+            </div>
+          </div>
+        )}
       </Section>
 
       {/* Metadata */}
