@@ -23,7 +23,7 @@ import type { ApiResult } from "@/types/api";
 import { mockAlerts } from "@/mocks/alerts";
 import { mockStrategies } from "@/mocks/strategies";
 import { mockRecommendations } from "@/mocks/recommendations";
-import { mockExecutionFeedbacks } from "@/mocks/positions";
+import { mockExecutionFeedbacks, mockPositionSnapshot } from "@/mocks/positions";
 import { mockReports, mockResearchHypotheses as mockHypotheses } from "@/mocks/research";
 import { mockSuggestions } from "@/mocks/suggestions";
 import { mockNodes, mockEdges } from "@/mocks/graph";
@@ -169,7 +169,12 @@ export async function updateAlert(
   id: string,
   data: Partial<Alert>
 ): Promise<Alert | null> {
-  if (USE_MOCK_DATA) return null;
+  if (USE_MOCK_DATA) {
+    const idx = mockAlerts.findIndex((a) => a.id === id);
+    if (idx === -1) return null;
+    Object.assign(mockAlerts[idx], data, { updatedAt: new Date().toISOString() });
+    return mockAlerts[idx];
+  }
 
   const result = await fetchApi<Alert>(`/api/alerts/${id}`, {
     method: "PATCH",
@@ -226,7 +231,12 @@ export async function invalidateAlert(
   id: string,
   reason: string
 ): Promise<Alert | null> {
-  if (USE_MOCK_DATA) return null;
+  if (USE_MOCK_DATA) {
+    const idx = mockAlerts.findIndex((a) => a.id === id);
+    if (idx === -1) return null;
+    Object.assign(mockAlerts[idx], { status: "archived", invalidationReason: reason, updatedAt: new Date().toISOString() });
+    return mockAlerts[idx];
+  }
 
   const result = await fetchApi<Alert>(`/api/alerts/${id}`, {
     method: "PATCH",
@@ -314,7 +324,11 @@ export async function createRecommendation(
 export async function getPositions(filters?: {
   status?: string;
 }): Promise<PositionGroup[]> {
-  if (USE_MOCK_DATA) return [];
+  if (USE_MOCK_DATA) {
+    let positions = [...mockPositionSnapshot.positions];
+    if (filters?.status) positions = positions.filter((p) => p.status === filters.status);
+    return positions;
+  }
 
   const params = new URLSearchParams(filters as Record<string, string>);
   const result = await fetchApi<PositionGroup[]>(`/api/positions?${params}`);
@@ -491,7 +505,7 @@ export async function getRelationshipEdges(): Promise<RelationshipEdge[]> {
 // ─── Account Snapshot ───────────────────────────────────────────────────────────
 
 export async function getAccountSnapshot(): Promise<AccountSnapshot | null> {
-  if (USE_MOCK_DATA) return null;
+  if (USE_MOCK_DATA) return { ...mockPositionSnapshot.account };
 
   const result = await fetchApi<AccountSnapshot>("/api/account/snapshot");
   if (!result.success) return null;

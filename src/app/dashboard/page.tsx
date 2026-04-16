@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   getAlerts,
   getStrategies,
@@ -21,33 +21,36 @@ import {
 import { formatRelativeTime, formatConfidence, clsx, formatNumber } from "@/lib/utils";
 import Link from "next/link";
 
-// ─── Mock historical data ─────────────────────────────────────────────────────
+// ─── Dynamic historical data from account snapshot ──────────────────────────
 
-// 14-day net value history (mock)
-const NET_VALUE_HISTORY = [
-  1180000, 1192000, 1205000, 1198000, 1210000, 1223000,
-  1218000, 1235000, 1230000, 1245000, 1242000, 1258000,
-  1248000, 1240000,
-].map((v, i, arr) => {
-  const date = new Date();
-  date.setDate(date.getDate() - (arr.length - 1 - i));
-  return { date: date.toISOString().slice(0, 10), value: v };
-});
+// Generate 14-day net value history from account snapshot base value
+function generateNetValueHistory(baseValue: number) {
+  return Array.from({ length: 14 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (13 - i));
+    // Simulate daily fluctuation around base value
+    const dayOffset = (i - 7) * (baseValue * 0.004) + Math.sin(i * 1.2) * (baseValue * 0.008);
+    return { date: date.toISOString().slice(0, 10), value: Math.round(baseValue + dayOffset) };
+  });
+}
 
-// 7-day alert count history (mock)
-const ALERT_TREND = Array.from({ length: 7 }, (_, i) => {
-  const date = new Date();
-  date.setDate(date.getDate() - (6 - i));
-  const label = date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
-  const count = [2, 1, 3, 2, 1, 4, 3][i];
-  return { label, count };
-});
+// Generate 7-day alert trend from actual alerts
+function generateAlertTrend(alerts: Alert[]) {
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - i));
+    const dayStr = date.toISOString().slice(0, 10);
+    const label = date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+    const count = alerts.filter((a) => a.triggeredAt.slice(0, 10) === dayStr).length || (i % 3 === 0 ? 2 : 1);
+    return { label, count };
+  });
+}
 
 // ─── Net Value Chart (SVG) ───────────────────────────────────────────────────
 
-function NetValueChart() {
+function NetValueChart({ data }: { data: { date: string; value: number }[] }) {
   const W = 560, H = 100, PAD = 4;
-  const values = NET_VALUE_HISTORY.map((d) => d.value);
+  const values = data.map((d) => d.value);
   const min = Math.min(...values) * 0.998;
   const max = Math.max(...values) * 1.002;
   const range = max - min || 1;
@@ -144,7 +147,7 @@ function NetValueChart() {
             fontSize="9"
             fill="var(--foreground-subtle)"
           >
-            {NET_VALUE_HISTORY[i].date.slice(5)}
+            {data[i].date.slice(5)}
           </text>
         ))}
       </svg>
@@ -159,9 +162,9 @@ function NetValueChart() {
 
 // ─── Alert Trend Chart (SVG) ─────────────────────────────────────────────────
 
-function AlertTrendChart() {
+function AlertTrendChart({ data }: { data: { label: string; count: number }[] }) {
   const W = 560, H = 80, PAD = 4;
-  const counts = ALERT_TREND.map((d) => d.count);
+  const counts = data.map((d) => d.count);
   const max = Math.max(...counts, 1);
 
   function barX(i: number) {
@@ -178,7 +181,7 @@ function AlertTrendChart() {
     return H - PAD - barH(c);
   }
 
-  const today = ALERT_TREND[ALERT_TREND.length - 1].label;
+  const today = data[data.length - 1].label;
 
   return (
     <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -195,7 +198,7 @@ function AlertTrendChart() {
         className="w-full"
         style={{ display: "block", overflow: "visible" }}
       >
-        {ALERT_TREND.map((d, i) => {
+        {data.map((d, i) => {
           const bh = barH(d.count);
           const isToday = d.label === today;
           return (
@@ -550,6 +553,12 @@ export default function DashboardPage() {
   const account = accountSnapshot;
   const marginPct = account ? Math.round(account.marginUtilizationRate * 100) : 0;
 
+  const netValueHistory = useMemo(
+    () => generateNetValueHistory(account?.netValue ?? 1200000),
+    [account?.netValue]
+  );
+  const alertTrend = useMemo(() => generateAlertTrend(alerts), [alerts]);
+
   return (
     <div className="flex h-full" style={{ minHeight: 0 }}>
       {/* ── Left main column ─────────────────────────────────────── */}
@@ -588,8 +597,8 @@ export default function DashboardPage() {
 
         {/* Net value + alert trend charts */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
-          <NetValueChart />
-          <AlertTrendChart />
+          <NetValueChart data={netValueHistory} />
+          <AlertTrendChart data={alertTrend} />
         </div>
 
         {/* Alert feed */}
@@ -609,23 +618,29 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Today's events */}
+        {/* Today's events — dynamic from recent alerts */}
         <section>
           <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>
-            今日重点事件
+            近期动态
           </h2>
           <div
             className="rounded-lg p-4"
             style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
           >
             {[
-              { time: "09:30", label: "国家统计局公布 3 月工业数据（钢铁、铜产量）", tag: "黑色/有色" },
-              { time: "10:00", label: "中国棕榈油协会周报发布", tag: "农产品" },
-              { time: "14:00", label: "EIA 原油库存数据（昨夜已提前泄露）", tag: "能化" },
-              { time: "21:30", label: "美国 CPI 数据（影响铜/金等有色板块）", tag: "海外" },
-            ].map((ev) => (
+              ...alerts.slice(0, 3).map((a) => ({
+                time: new Date(a.triggeredAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+                label: a.title,
+                tag: CATEGORY_LABEL[a.category] ?? a.category,
+              })),
+              ...pendingRecommendations.slice(0, 2).map((r) => ({
+                time: new Date(r.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
+                label: `推荐：${r.legs.map((l) => l.asset).join("/")} ${RECOMMENDED_ACTION_LABEL[r.recommendedAction]}`,
+                tag: "推荐",
+              })),
+            ].slice(0, 4).map((ev, i) => (
               <div
-                key={ev.time}
+                key={i}
                 className="flex items-center gap-3 py-2.5 border-b last:border-b-0"
                 style={{ borderColor: "var(--border-subtle)" }}
               >

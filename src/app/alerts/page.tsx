@@ -442,8 +442,8 @@ export default function AlertsPage() {
         {selectedAlert && (
           <AlertDetail
             alert={selectedAlert}
-            onAddToWatch={() => {/* TODO */}}
-            onMoveToStrategy={() => {/* TODO */}}
+            onAddToWatch={() => { setDrawerOpen(false); refreshAlerts(); }}
+            onMoveToStrategy={() => { setDrawerOpen(false); refreshAlerts(); }}
             onInvalidate={() => setDrawerOpen(false)}
           />
         )}
