@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { Recommendation, RecommendationStatus } from "@/types/domain";
 import {
   getRecommendations,
   updateRecommendation,
+  createExecutionDraft,
 } from "@/lib/api-client";
 import {
   RECOMMENDATION_STATUS_LABEL,
@@ -43,11 +45,13 @@ function RecommendationCard({
   onClick,
   onConfirm,
   onDefer,
+  confirming,
 }: {
   rec: Recommendation;
   onClick: () => void;
   onConfirm: (id: string) => void;
   onDefer: (id: string) => void;
+  confirming: boolean;
 }) {
   return (
     <button
@@ -106,15 +110,17 @@ function RecommendationCard({
         <div className="flex gap-2">
           <button
             className="flex-1 text-sm py-2 rounded-lg font-medium"
-            style={{ background: "var(--positive)", color: "#fff" }}
+            style={{ background: "var(--positive)", color: "#fff", opacity: confirming ? 0.6 : 1 }}
             onClick={(e) => { e.stopPropagation(); onConfirm(rec.id); }}
+            disabled={confirming}
           >
-            确认执行
+            {confirming ? "创建中..." : "确认执行"}
           </button>
           <button
             className="text-sm px-3 py-2 rounded-lg"
             style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}
             onClick={(e) => { e.stopPropagation(); onDefer(rec.id); }}
+            disabled={confirming}
           >
             延后
           </button>
@@ -317,11 +323,13 @@ const ALL_STATUSES: RecommendationStatus[] = [
 ];
 
 export default function RecommendationsPage() {
+  const router = useRouter();
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<RecommendationStatus[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -331,12 +339,25 @@ export default function RecommendationsPage() {
     });
   }, []);
 
-  function handleConfirm(id: string) {
-    // Optimistic update
-    setRecommendations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "confirmed" as RecommendationStatus } : r))
-    );
-    updateRecommendation(id, { status: "confirmed" });
+  async function handleConfirm(id: string) {
+    setConfirmingId(id);
+    try {
+      // Create execution draft
+      const draft = await createExecutionDraft(id);
+      if (draft) {
+        // Update recommendation status
+        await updateRecommendation(id, { status: "confirmed" });
+        setRecommendations((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, status: "confirmed" as RecommendationStatus } : r))
+        );
+        // Navigate to drafts page
+        router.push("/drafts");
+      }
+    } catch (error) {
+      console.error("Failed to create execution draft:", error);
+    } finally {
+      setConfirmingId(null);
+    }
   }
 
   function handleDefer(id: string) {
@@ -477,6 +498,7 @@ export default function RecommendationsPage() {
                 onClick={() => openRec(rec.id)}
                 onConfirm={handleConfirm}
                 onDefer={handleDefer}
+                confirming={confirmingId === rec.id}
               />
             ))}
           </div>

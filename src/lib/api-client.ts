@@ -27,6 +27,7 @@ import { mockExecutionFeedbacks } from "@/mocks/positions";
 import { mockReports, mockResearchHypotheses as mockHypotheses } from "@/mocks/research";
 import { mockSuggestions } from "@/mocks/suggestions";
 import { mockNodes, mockEdges } from "@/mocks/graph";
+import { mockExecutionDrafts } from "@/mocks/drafts";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true" || !process.env.DATABASE_URL;
@@ -525,7 +526,11 @@ export async function generateCandidates(params: {
 export async function getExecutionDrafts(filters?: {
   status?: string;
 }): Promise<ExecutionDraft[]> {
-  if (USE_MOCK_DATA) return [];
+  if (USE_MOCK_DATA) {
+    let drafts = [...mockExecutionDrafts];
+    if (filters?.status) drafts = drafts.filter((d) => d.status === filters.status);
+    return drafts;
+  }
 
   const params = new URLSearchParams(filters as Record<string, string>);
   const result = await fetchApi<ExecutionDraft[]>(`/api/execution-drafts?${params}`);
@@ -534,7 +539,7 @@ export async function getExecutionDrafts(filters?: {
 }
 
 export async function getExecutionDraft(id: string): Promise<ExecutionDraft | null> {
-  if (USE_MOCK_DATA) return null;
+  if (USE_MOCK_DATA) return mockExecutionDrafts.find((d) => d.id === id) ?? null;
 
   const result = await fetchApi<ExecutionDraft>(`/api/execution-drafts/${id}`);
   if (!result.success) return null;
@@ -542,7 +547,29 @@ export async function getExecutionDraft(id: string): Promise<ExecutionDraft | nu
 }
 
 export async function createExecutionDraft(recommendationId: string): Promise<ExecutionDraft | null> {
-  if (USE_MOCK_DATA) return null;
+  if (USE_MOCK_DATA) {
+    const rec = mockRecommendations.find((r) => r.id === recommendationId);
+    if (!rec) return null;
+    const draft: ExecutionDraft = {
+      id: `draft-${Date.now()}`,
+      recommendationId,
+      status: "draft",
+      legs: rec.legs.map((l) => ({
+        asset: l.asset,
+        direction: l.direction,
+        type: "open" as const,
+        requestedSize: l.suggestedSize,
+        requestedPrice: l.entryPriceRef,
+        unit: l.unit,
+      })),
+      totalMarginUsed: rec.marginRequired,
+      totalCommission: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockExecutionDrafts.push(draft);
+    return draft;
+  }
 
   const result = await fetchApi<ExecutionDraft>('/api/execution-drafts', {
     method: 'POST',
@@ -556,7 +583,12 @@ export async function updateExecutionDraft(
   id: string,
   data: Partial<ExecutionDraft>
 ): Promise<ExecutionDraft | null> {
-  if (USE_MOCK_DATA) return null;
+  if (USE_MOCK_DATA) {
+    const idx = mockExecutionDrafts.findIndex((d) => d.id === id);
+    if (idx === -1) return null;
+    mockExecutionDrafts[idx] = { ...mockExecutionDrafts[idx], ...data, updatedAt: new Date().toISOString() };
+    return mockExecutionDrafts[idx];
+  }
 
   const result = await fetchApi<ExecutionDraft>(`/api/execution-drafts/${id}`, {
     method: 'PATCH',
