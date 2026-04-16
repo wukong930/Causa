@@ -213,8 +213,7 @@ export default function AlertsPage() {
       } else {
         alert("触发失败，请检查市场数据");
       }
-    } catch (err) {
-      console.error("Trigger error:", err);
+    } catch {
       alert("触发失败");
     } finally {
       setTriggering(false);

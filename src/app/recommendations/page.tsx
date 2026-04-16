@@ -361,8 +361,7 @@ export default function RecommendationsPage() {
         // Navigate to drafts page
         router.push("/drafts");
       }
-    } catch (error) {
-      console.error("Failed to create execution draft:", error);
+    } catch {
       toast("创建执行草稿失败", "error");
     } finally {
       setConfirmingId(null);

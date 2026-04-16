@@ -100,8 +100,8 @@ export function AlertDetail({
     try {
       const notificationService = getNotificationService();
       notificationService.notifyRecommendationCreated(alert.title, `rec-${Date.now()}`);
-    } catch (error) {
-      console.error("Failed to send notification:", error);
+    } catch {
+      // notification is best-effort
     }
     router.push("/recommendations");
     onEscalate?.();

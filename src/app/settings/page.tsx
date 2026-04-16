@@ -86,8 +86,7 @@ export default function SettingsPage() {
       } else {
         setTestStatus("error");
       }
-    } catch (error) {
-      console.error("Test notification failed:", error);
+    } catch {
       setTestStatus("error");
     }
 
