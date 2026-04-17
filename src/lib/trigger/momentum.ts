@@ -1,5 +1,6 @@
 import type { TriggerEvaluator, TriggerContext, TriggerResult } from "./base";
 import { buildTriggerStep, calculateMA, calculateVolumeChange } from "./base";
+import { getAdaptiveThresholds } from "./adaptive-threshold";
 
 /**
  * Momentum Detector
@@ -56,7 +57,8 @@ export class MomentumDetector implements TriggerEvaluator {
     const recentVolume = volumes[currentIdx];
     const previousVolume = volumes[prevIdx];
     const volumeChange = calculateVolumeChange(recentVolume, previousVolume);
-    const volumeTriggered = volumeChange > 30;
+    const thresholds = getAdaptiveThresholds(category);
+    const volumeTriggered = volumeChange > thresholds.volumeSpike;
 
     // Check price breakout (compare current price with recent 10-day high/low)
     const recentPrices = closePrices.slice(currentIdx - 10, currentIdx);

@@ -1,5 +1,6 @@
 import type { TriggerEvaluator, TriggerContext, TriggerResult } from "./base";
 import { buildTriggerStep, severityFromZScore } from "./base";
+import { getAdaptiveThresholds } from "./adaptive-threshold";
 
 /**
  * Spread Anomaly Detector
@@ -23,10 +24,13 @@ export class SpreadAnomalyDetector implements TriggerEvaluator {
     const { adfPValue, halfLife, spreadMean, spreadStdDev, currentZScore } = spreadStats;
     const absZ = Math.abs(currentZScore);
 
+    // Adaptive thresholds based on category, regime, and half-life
+    const thresholds = getAdaptiveThresholds(category, undefined, halfLife);
+
     // Check trigger conditions
-    const zScoreTriggered = absZ > 2.0;
+    const zScoreTriggered = absZ > thresholds.zScoreEntry;
     const adfTriggered = adfPValue < 0.05;
-    const halfLifeTriggered = halfLife < 30;
+    const halfLifeTriggered = halfLife < thresholds.halfLifeCap;
 
     if (!zScoreTriggered) {
       return null;

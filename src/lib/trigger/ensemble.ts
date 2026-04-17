@@ -8,8 +8,9 @@
  *   (regime change may invalidate mean-reversion assumption)
  * - Weighted aggregation: spread_anomaly has highest weight
  */
-import type { AlertType } from "@/types/domain";
+import type { AlertType, AlertCategory } from "@/types/domain";
 import type { TriggerResult } from "./base";
+import { getSignalHitRates, type SignalHitRate } from "./signal-quality";
 
 interface EvaluatorResult {
   type: AlertType;
@@ -40,7 +41,10 @@ const SIGNAL_WEIGHTS: Record<string, number> = {
  * Run ensemble logic on collected trigger results.
  * Call this instead of creating alerts per-evaluator.
  */
-export function ensembleSignals(results: EvaluatorResult[]): EnsembleOutput {
+export function ensembleSignals(
+  results: EvaluatorResult[],
+  hitRates?: SignalHitRate[]
+): EnsembleOutput {
   const triggered = results.filter((r) => r.result.triggered);
   const suppressed: EnsembleOutput["suppressed"] = [];
 
@@ -84,6 +88,9 @@ export function ensembleSignals(results: EvaluatorResult[]): EnsembleOutput {
 
   // ── Suppress low-confidence signals when stronger ones exist ──
   const output: EvaluatorResult[] = [];
+  if (finalAlerts.length === 0) {
+    return { alerts: [], suppressed, signalCount: triggered.length, ensembleConfidence: 0 };
+  }
   const maxConfidence = Math.max(...finalAlerts.map((r) => r.result.confidence));
 
   for (const alert of finalAlerts) {
@@ -98,13 +105,22 @@ export function ensembleSignals(results: EvaluatorResult[]): EnsembleOutput {
     }
   }
 
-  // ── Ensemble confidence: weighted average ──
+  // ── Ensemble confidence: weighted average with historical hit rates ──
+  const hitRateMap = new Map(
+    (hitRates ?? []).map((hr) => [hr.signalType, hr])
+  );
   let weightedSum = 0;
   let weightTotal = 0;
   for (const alert of output) {
     const w = SIGNAL_WEIGHTS[alert.type] ?? 0.5;
-    weightedSum += alert.result.confidence * w;
-    weightTotal += w;
+    // Adjust weight by historical hit rate if available (min 5 samples)
+    const hr = hitRateMap.get(alert.type);
+    const hitRateMultiplier = hr && hr.totalCount >= 5
+      ? 0.5 + hr.hitRate  // range [0.5, 1.5] — bad track record halves weight, good doubles
+      : 1.0;
+    const adjustedW = w * hitRateMultiplier;
+    weightedSum += alert.result.confidence * adjustedW;
+    weightTotal += adjustedW;
   }
   const ensembleConfidence = weightTotal > 0 ? weightedSum / weightTotal : 0;
 

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { buildPartialCloseDraft } from "@/lib/execution/lifecycle";
 import { serializeRecords } from "@/lib/serialize";
 import type { PositionGroup } from "@/types/domain";
+import { recordOutcome } from "@/lib/feedback/outcome-tracker";
 
 // POST /api/positions/[id]/close — create a partial/full close draft
 export async function POST(
@@ -45,6 +46,12 @@ export async function POST(
         legs: draft.legs,
       } as any).returning();
     });
+
+    // Feedback loop: record outcome to hypothesis memory (fire-and-forget)
+    const realizedPnl = position.unrealizedPnl ?? 0;
+    recordOutcome(id, realizedPnl).catch((err) =>
+      console.error("[close] outcome tracking failed:", err)
+    );
 
     return NextResponse.json({ success: true, data: created });
   } catch (error) {

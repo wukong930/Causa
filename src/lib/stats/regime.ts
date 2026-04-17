@@ -47,15 +47,19 @@ export function detectVolRegime(returns: number[]): VolRegimeResult {
   return { current, shortVol, longVol, ratio, confidence };
 }
 
-function ewmaVol(returns: number[], lambda: number): number {
+export function ewmaVol(returns: number[], lambda: number): number {
+  // Filter out NaN/Infinity values
+  const clean = returns.filter((r) => isFinite(r));
+  if (clean.length === 0) return 0;
+
   // Initialize with sample variance of first 10 observations (or all if fewer)
-  const initN = Math.min(10, returns.length);
+  const initN = Math.min(10, clean.length);
   let variance = 0;
-  for (let i = 0; i < initN; i++) variance += returns[i] ** 2;
+  for (let i = 0; i < initN; i++) variance += clean[i] ** 2;
   variance /= initN;
 
-  for (let i = initN; i < returns.length; i++) {
-    variance = lambda * variance + (1 - lambda) * returns[i] ** 2;
+  for (let i = initN; i < clean.length; i++) {
+    variance = lambda * variance + (1 - lambda) * clean[i] ** 2;
   }
   return Math.sqrt(variance);
 }

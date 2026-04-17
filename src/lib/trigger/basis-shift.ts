@@ -1,5 +1,6 @@
 import type { TriggerEvaluator, TriggerContext, TriggerResult } from "./base";
 import { buildTriggerStep, severityFromZScore, calculateVolumeChange } from "./base";
+import { getAdaptiveThresholds } from "./adaptive-threshold";
 
 /**
  * Basis Shift Detector
@@ -23,8 +24,11 @@ export class BasisShiftDetector implements TriggerEvaluator {
     const { currentZScore, spreadMean, spreadStdDev, halfLife } = spreadStats;
     const absZ = Math.abs(currentZScore);
 
-    // Check trigger condition: deviation > 1.5σ
-    const basisTriggered = absZ > 1.5;
+    // Adaptive thresholds
+    const thresholds = getAdaptiveThresholds(category, undefined, halfLife);
+
+    // Check trigger condition: deviation > adaptive basis threshold
+    const basisTriggered = absZ > thresholds.basisDeviation;
 
     if (!basisTriggered) {
       return null;

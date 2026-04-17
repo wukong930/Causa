@@ -34,6 +34,35 @@ function interpolateCritical(n: number): [number, number, number] {
   return ADF_CRITICAL[keys[keys.length - 1]];
 }
 
+// ── Engle-Granger two-variable critical values (MacKinnon 1990/2010) ──
+// More negative than standard ADF because residuals are from estimated regression
+const EG_CRITICAL: Record<number, [number, number, number]> = {
+  25:  [-4.37, -3.59, -3.23],
+  50:  [-4.12, -3.46, -3.13],
+  100: [-3.99, -3.39, -3.09],
+  250: [-3.89, -3.34, -3.05],
+  500: [-3.86, -3.33, -3.04],
+};
+
+function interpolateEGCritical(n: number): [number, number, number] {
+  const keys = Object.keys(EG_CRITICAL).map(Number).sort((a, b) => a - b);
+  if (n <= keys[0]) return EG_CRITICAL[keys[0]];
+  if (n >= keys[keys.length - 1]) return EG_CRITICAL[keys[keys.length - 1]];
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (n >= keys[i] && n <= keys[i + 1]) {
+      const t = (n - keys[i]) / (keys[i + 1] - keys[i]);
+      const lo = EG_CRITICAL[keys[i]];
+      const hi = EG_CRITICAL[keys[i + 1]];
+      return [
+        lo[0] + t * (hi[0] - lo[0]),
+        lo[1] + t * (hi[1] - lo[1]),
+        lo[2] + t * (hi[2] - lo[2]),
+      ];
+    }
+  }
+  return EG_CRITICAL[keys[keys.length - 1]];
+}
+
 export interface ADFResult {
   tStat: number;
   pValue: number;
@@ -176,12 +205,19 @@ export function engleGranger(
   const ols = olsRegress(y, X);
   const hedgeRatio = ols.coeffs[1];
 
-  // Step 2: ADF on residuals
+  // Step 2: ADF on residuals — use Engle-Granger specific critical values
   const adf = adfTest(ols.residuals);
 
-  // Cointegration critical values are slightly more negative than standard ADF
-  // Apply a small adjustment: multiply p-value by 1.2 (conservative)
-  const cointPValue = Math.min(0.999, adf.pValue * 1.2);
+  // Engle-Granger two-variable critical values (MacKinnon 1990/2010)
+  // These are MORE negative than standard ADF because residuals are estimated
+  const egCrit = interpolateEGCritical(ols.residuals.length);
+  let cointPValue: number;
+  if (adf.tStat <= egCrit[0]) cointPValue = 0.005;
+  else if (adf.tStat <= egCrit[1]) cointPValue = 0.025;
+  else if (adf.tStat <= egCrit[2]) cointPValue = 0.075;
+  else cointPValue = 0.15 + 0.85 * Math.min(1, (adf.tStat - egCrit[2]) / (0 - egCrit[2]));
+
+  cointPValue = Math.max(0.001, Math.min(0.999, cointPValue));
 
   return {
     cointPValue,

@@ -20,6 +20,9 @@ export interface OLSResult {
  */
 export function olsRegress(y: number[], X: number[][]): OLSResult {
   const n = y.length;
+  if (n === 0 || X.length === 0 || !X[0]) {
+    return { coeffs: [], residuals: [], tStats: [], rSquared: 0, sigma: 0 };
+  }
   const k = X[0].length;
 
   // X'X (k×k)

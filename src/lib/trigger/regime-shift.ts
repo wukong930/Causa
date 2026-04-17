@@ -3,6 +3,7 @@ import { buildTriggerStep } from "./base";
 import { detectVolRegime } from "@/lib/stats/regime";
 import { detectCorrelationBreak } from "@/lib/stats/regime";
 import { hurstExponent } from "@/lib/stats/cointegration";
+import { getAdaptiveThresholds } from "./adaptive-threshold";
 
 /**
  * Regime Shift Detector
@@ -16,11 +17,13 @@ export class RegimeShiftDetector implements TriggerEvaluator {
   type = "regime_shift" as const;
 
   async evaluate(context: TriggerContext): Promise<TriggerResult | null> {
-    const { symbol1, symbol2, marketData, spreadStats } = context;
+    const { symbol1, symbol2, marketData, spreadStats, category } = context;
 
     if (marketData.length < 30) {
       return null;
     }
+
+    const thresholds = getAdaptiveThresholds(category);
 
     // Sort by timestamp ascending
     const sorted = [...marketData].sort(
@@ -64,7 +67,7 @@ export class RegimeShiftDetector implements TriggerEvaluator {
     const recentHurst = returns.length > 30
       ? hurstExponent(recentReturns)
       : hurst;
-    const hurstShift = Math.abs(recentHurst - hurst) > 0.15;
+    const hurstShift = Math.abs(recentHurst - hurst) > thresholds.hurstShift;
 
     // Overall regime shift detection
     const regimeShiftTriggered = volRegimeChanged || hurstShift || corrBreak.broken;

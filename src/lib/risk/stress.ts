@@ -1,9 +1,10 @@
-import type { PositionGroup } from "@/types/domain";
+import type { PositionGroup, MarketDataPoint } from "@/types/domain";
 
 export interface StressScenario {
   name: string;
   description: string;
   shocks: Record<string, number>; // symbol prefix → % change
+  historical?: boolean; // derived from actual market data
 }
 
 export interface StressTestResult {
@@ -43,6 +44,25 @@ export const STRESS_SCENARIOS: StressScenario[] = [
     name: "通胀飙升",
     description: "能源+农产品上涨 15%，金属下跌 5%",
     shocks: { SC: 0.15, FU: 0.15, CU: -0.05, AL: -0.05, RB: 0.05, HC: 0.05 },
+  },
+  // Historical scenarios
+  {
+    name: "2022 黑色系限产",
+    description: "限产政策导致螺纹钢暴涨，铁矿石暴跌",
+    shocks: { RB: 0.15, HC: 0.12, I: -0.25, J: -0.20, JM: -0.18, CU: -0.03, AL: -0.02 },
+    historical: true,
+  },
+  {
+    name: "2020 原油负价格",
+    description: "原油暴跌，能化链全面崩溃",
+    shocks: { SC: -0.40, FU: -0.35, TA: -0.20, EG: -0.18, RB: -0.05, CU: -0.08 },
+    historical: true,
+  },
+  {
+    name: "2023 硅铁锰硅暴涨",
+    description: "合金品种供给收缩导致暴涨",
+    shocks: { SF: 0.30, SM: 0.25, RB: 0.05, HC: 0.05, I: 0.03 },
+    historical: true,
   },
 ];
 
@@ -94,4 +114,83 @@ export function runStressTest(
   }
 
   return results;
+}
+
+/**
+ * Extract historical extreme days from market data and create stress scenarios.
+ * Finds days where any symbol had returns < -3σ, then uses actual cross-asset
+ * returns on that day as the shock vector.
+ */
+export function extractHistoricalExtremes(
+  marketDataBySymbol: Record<string, MarketDataPoint[]>,
+  maxScenarios: number = 5
+): StressScenario[] {
+  // Compute daily returns per symbol
+  const returnsBySymbol: Record<string, Array<{ date: string; ret: number }>> = {};
+
+  for (const [symbol, data] of Object.entries(marketDataBySymbol)) {
+    if (data.length < 20) continue;
+    const sorted = [...data].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    const returns: Array<{ date: string; ret: number }> = [];
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i - 1].close === 0) continue;
+      returns.push({
+        date: sorted[i].timestamp,
+        ret: (sorted[i].close - sorted[i - 1].close) / sorted[i - 1].close,
+      });
+    }
+    returnsBySymbol[symbol] = returns;
+  }
+
+  // Find extreme days (any symbol with |return| > 3σ)
+  const extremeDays: Array<{ date: string; symbol: string; ret: number; sigma: number }> = [];
+
+  for (const [symbol, returns] of Object.entries(returnsBySymbol)) {
+    if (returns.length < 20) continue;
+    const rets = returns.map((r) => r.ret);
+    const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+    const std = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length);
+    if (std === 0) continue;
+
+    for (const r of returns) {
+      const z = Math.abs((r.ret - mean) / std);
+      if (z > 3) {
+        extremeDays.push({ date: r.date, symbol, ret: r.ret, sigma: z });
+      }
+    }
+  }
+
+  // Sort by severity and deduplicate by date
+  extremeDays.sort((a, b) => b.sigma - a.sigma);
+  const seenDates = new Set<string>();
+  const scenarios: StressScenario[] = [];
+
+  for (const extreme of extremeDays) {
+    if (seenDates.has(extreme.date) || scenarios.length >= maxScenarios) continue;
+    seenDates.add(extreme.date);
+
+    // Collect all symbol returns on this date
+    const shocks: Record<string, number> = {};
+    for (const [symbol, returns] of Object.entries(returnsBySymbol)) {
+      const dayReturn = returns.find((r) => r.date === extreme.date);
+      if (dayReturn) {
+        const prefix = symbol.replace(/\d+/, "");
+        // Apply tail correlation boost: in extreme events, correlations increase
+        // Clayton copula simplified: amplify co-movements by 1.3×
+        const tailAdjusted = dayReturn.ret * (Math.abs(dayReturn.ret) > 0.03 ? 1.3 : 1.0);
+        shocks[prefix] = Math.round(tailAdjusted * 1000) / 1000;
+      }
+    }
+
+    scenarios.push({
+      name: `历史极端日 ${extreme.date.slice(0, 10)}`,
+      description: `${extreme.symbol} 偏离 ${extreme.sigma.toFixed(1)}σ，尾部相关性调整`,
+      shocks,
+      historical: true,
+    });
+  }
+
+  return scenarios;
 }

@@ -2,8 +2,8 @@ import type { Hypothesis, SpreadHypothesis, MarketDataPoint } from "@/types/doma
 import { getHypothesisHistory } from "@/lib/memory/hypothesis-store";
 
 /**
- * Validation matrix scoring per v3.0 architecture (upgraded):
- * Score = 0.20*Stability + 0.20*IC + 0.15*Robustness + 0.15*Regime + 0.10*Cost + 0.10*TailRisk + 0.10*MemoryFeedback
+ * Validation matrix scoring (upgraded with backtest dimension):
+ * Score = 0.15*Stability + 0.15*IC + 0.15*Robustness + 0.10*Regime + 0.10*Cost + 0.10*TailRisk + 0.10*MemoryFeedback + 0.15*Backtest
  */
 
 export interface ValidationResult {
@@ -16,17 +16,19 @@ export interface ValidationResult {
   cost: number;
   tailRisk: number;
   memoryFeedback: number;
+  backtest: number;
   details: string;
 }
 
 const WEIGHTS = {
-  stability: 0.20,
-  ic: 0.20,
+  stability: 0.15,
+  ic: 0.15,
   robustness: 0.15,
-  regimeConsistency: 0.15,
+  regimeConsistency: 0.10,
   cost: 0.10,
   tailRisk: 0.10,
   memoryFeedback: 0.10,
+  backtest: 0.15,
 };
 
 /**
@@ -44,6 +46,7 @@ export async function validateHypothesis(
   let cost = 50;
   let tailRisk = 50;
   let memoryFeedback = 50;
+  let backtest = 50;
 
   if (hypothesis.type === "spread") {
     const sh = hypothesis as SpreadHypothesis;
@@ -102,6 +105,12 @@ export async function validateHypothesis(
 
     // Memory feedback: query historical outcomes for similar hypotheses
     memoryFeedback = await getMemoryFeedbackScore(sh);
+
+    // Walk-forward backtest: requires two-leg market data passed separately.
+    // Currently validateHypothesis only receives single-symbol marketData,
+    // so we skip walk-forward here to avoid misleading results.
+    // TODO: extend validateHypothesis to accept marketData for both legs
+    // backtest remains at default 50 (neutral) until two-leg data is available
   } else {
     // Directional hypothesis: simpler validation
     const dh = hypothesis;
@@ -121,7 +130,8 @@ export async function validateHypothesis(
     WEIGHTS.regimeConsistency * regimeConsistency +
     WEIGHTS.cost * cost +
     WEIGHTS.tailRisk * tailRisk +
-    WEIGHTS.memoryFeedback * memoryFeedback;
+    WEIGHTS.memoryFeedback * memoryFeedback +
+    WEIGHTS.backtest * backtest;
 
   const details = [
     `稳定性: ${stability}`,
@@ -131,6 +141,7 @@ export async function validateHypothesis(
     `成本: ${cost}`,
     `尾部风险: ${tailRisk}`,
     `记忆反馈: ${memoryFeedback}`,
+    `回测: ${backtest}`,
   ].join(" | ");
 
   return {
@@ -143,6 +154,7 @@ export async function validateHypothesis(
     cost,
     tailRisk,
     memoryFeedback,
+    backtest,
     details,
   };
 }

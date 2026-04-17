@@ -11,6 +11,7 @@ import { ensembleSignals } from '@/lib/trigger/ensemble';
 import { serializeRecord } from '@/lib/serialize';
 import { verifyCronSecret } from '@/lib/auth';
 import { engleGranger, ouHalfLife, hurstExponent as calcHurst } from '@/lib/stats/cointegration';
+import { recordSignal } from '@/lib/trigger/signal-quality';
 
 // Cron watchlist: symbol pairs and categories to monitor
 const CRON_WATCHLIST: Array<{ symbol1: string; symbol2?: string; category: AlertCategory }> = [
@@ -253,7 +254,7 @@ async function triggerForPair(
       const now = new Date();
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-      await db.insert(alerts).values({
+      const [inserted] = await db.insert(alerts).values({
         title: alert.result.title,
         summary: alert.result.summary,
         severity: alert.result.severity,
@@ -269,7 +270,16 @@ async function triggerForPair(
         triggerChain: alert.result.triggerChain,
         riskItems: [...alert.result.riskItems, ...filterResult.riskItems],
         manualCheckItems: alert.result.manualCheckItems,
-      });
+      }).returning({ id: alerts.id });
+
+      // Track signal for historical hit rate analysis
+      recordSignal({
+        alertId: inserted.id,
+        signalType: alert.type,
+        category,
+        confidence: alert.result.confidence,
+        zScore: spreadStats?.currentZScore,
+      }).catch((err) => console.error(`Signal tracking failed:`, err));
 
       alertCount++;
       console.log(`[cron] Triggered ${alert.type} alert for ${symbol1}/${symbol2}: ${alert.result.title} (ensemble: ${ensemble.signalCount} signals, conf: ${ensemble.ensembleConfidence.toFixed(2)})`);
