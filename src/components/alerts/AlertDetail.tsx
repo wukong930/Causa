@@ -4,6 +4,7 @@ import type { Alert } from "@/types/domain";
 import { ALERT_STATUS_LABEL, ALERT_TYPE_LABEL, getCommodityName } from "@/lib/constants";
 import { SeverityBadge, CategoryBadge } from "@/components/shared/Badges";
 import { formatRelativeTime, formatConfidence } from "@/lib/utils";
+import { useAlertNews } from "@/hooks/useAlertNews";
 
 interface AlertDetailProps {
   alert: Alert;
@@ -70,6 +71,7 @@ export function AlertDetail({
   alert,
 }: AlertDetailProps) {
   const si = alert.spreadInfo;
+  const { news, loading: newsLoading } = useAlertNews(alert.relatedAssets);
 
   return (
     <div className="p-5">
@@ -243,6 +245,44 @@ export function AlertDetail({
               <RiskItem key={r} text={r} />
             ))}
           </div>
+        </Section>
+      )}
+
+      {/* Related news */}
+      {(newsLoading || news.length > 0) && (
+        <Section title="相关资讯">
+          {newsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse rounded-lg p-3" style={{ background: "var(--surface-raised)" }}>
+                  <div className="h-4 rounded w-3/4 mb-2" style={{ background: "var(--border)" }} />
+                  <div className="h-3 rounded w-1/3" style={{ background: "var(--border)" }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {news.map((item) => (
+                <a
+                  key={item.url}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-lg px-3 py-2.5 transition-colors hover:opacity-80"
+                  style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
+                >
+                  <div className="text-sm font-medium leading-snug mb-1" style={{ color: "var(--foreground)" }}>
+                    {item.title}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs" style={{ color: "var(--foreground-subtle)" }}>
+                    <span>{item.source}</span>
+                    <span>·</span>
+                    <span>{formatRelativeTime(item.publishedAt)}</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
         </Section>
       )}
 

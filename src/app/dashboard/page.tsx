@@ -22,6 +22,7 @@ import {
   STRATEGY_STATUS_LABEL,
   STRATEGY_STATUS_COLOR,
   RECOMMENDED_ACTION_LABEL,
+  getCommodityName,
 } from "@/lib/constants";
 import { formatRelativeTime, formatConfidence, clsx, formatNumber } from "@/lib/utils";
 import Link from "next/link";
@@ -228,7 +229,7 @@ function AlertCard({ alert }: { alert: Alert }) {
               className="text-xs px-1.5 py-0.5 rounded font-mono"
               style={{ background: "var(--surface-overlay)", color: "var(--accent-primary)" }}
             >
-              {a}
+              {getCommodityName(a)}
             </span>
           ))}
         </div>
@@ -260,7 +261,7 @@ function StrategyRow({ strategy }: { strategy: StrategyPoolItem }) {
           <span>·</span>
           <span className="flex gap-1">
             {assets.map((a) => (
-              <span key={a} className="font-mono" style={{ color: "var(--accent-primary)" }}>{a}</span>
+              <span key={a} className="font-mono" style={{ color: "var(--accent-primary)" }}>{getCommodityName(a)}</span>
             ))}
           </span>
         </div>
@@ -280,7 +281,7 @@ function StrategyRow({ strategy }: { strategy: StrategyPoolItem }) {
 // ─── Recommendation Row (compact) ────────────────────────────────────────────
 
 function RecommendationRow({ rec }: { rec: Recommendation }) {
-  const assets = rec.legs.map((l) => l.asset).join(" / ");
+  const assets = rec.legs.map((l) => getCommodityName(l.asset)).join(" / ");
   return (
     <div
       className="flex items-center gap-3 py-3 border-b last:border-b-0"

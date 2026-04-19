@@ -21,17 +21,21 @@ SYMBOL_EXCHANGE: dict[str, str] = {
     # Ferrous
     "RB": "SHFE", "HC": "SHFE", "SS": "SHFE",
     "I": "DCE", "J": "DCE", "JM": "DCE",
+    "SF": "CZCE", "SM": "CZCE",
     # Non-ferrous
     "CU": "SHFE", "AL": "SHFE", "ZN": "SHFE", "PB": "SHFE",
     "NI": "SHFE", "SN": "SHFE", "AU": "SHFE", "AG": "SHFE",
+    "BC": "INE",
     # Energy
     "SC": "INE", "FU": "SHFE", "LU": "SHFE", "BU": "SHFE",
     "PP": "DCE", "TA": "CZCE", "MEG": "DCE", "MA": "CZCE",
-    "EB": "DCE", "PG": "DCE", "SA": "CZCE",
+    "EB": "DCE", "PG": "DCE", "SA": "CZCE", "UR": "CZCE",
+    "V": "DCE", "L": "DCE",
     # Agriculture
     "P": "DCE", "Y": "DCE", "M": "DCE", "OI": "CZCE", "RM": "CZCE",
     "CF": "CZCE", "SR": "CZCE", "AP": "CZCE", "C": "DCE", "CS": "DCE",
     "A": "DCE", "B": "DCE", "JD": "DCE", "LH": "DCE",
+    "SP": "SHFE", "PK": "CZCE",
 }
 
 
@@ -179,13 +183,15 @@ def _symbol_names() -> dict[str, str]:
     """Chinese names for common futures symbols."""
     return {
         "RB": "螺纹钢", "HC": "热卷", "SS": "不锈钢", "I": "铁矿石",
-        "J": "焦炭", "JM": "焦煤", "CU": "沪铜", "AL": "沪铝",
-        "ZN": "沪锌", "PB": "沪铅", "NI": "沪镍", "SN": "沪锡",
-        "AU": "沪金", "AG": "沪银", "SC": "原油", "FU": "燃料油",
-        "LU": "低硫燃油", "BU": "沥青", "PP": "聚丙烯", "TA": "PTA",
-        "MEG": "乙二醇", "MA": "甲醇", "EB": "苯乙烯", "PG": "液化气",
-        "SA": "纯碱", "P": "棕榈油", "Y": "豆油", "M": "豆粕",
-        "OI": "菜油", "RM": "菜粕", "CF": "棉花", "SR": "白糖",
-        "AP": "苹果", "C": "玉米", "CS": "淀粉", "A": "豆一",
-        "B": "豆二", "JD": "鸡蛋", "LH": "生猪",
+        "J": "焦炭", "JM": "焦煤", "SF": "硅铁", "SM": "锰硅",
+        "CU": "沪铜", "AL": "沪铝", "ZN": "沪锌", "PB": "沪铅",
+        "NI": "沪镍", "SN": "沪锡", "AU": "沪金", "AG": "沪银", "BC": "国际铜",
+        "SC": "原油", "FU": "燃料油", "LU": "低硫燃油", "BU": "沥青",
+        "PP": "聚丙烯", "TA": "PTA", "MEG": "乙二醇", "MA": "甲醇",
+        "EB": "苯乙烯", "PG": "液化气", "SA": "纯碱", "UR": "尿素",
+        "V": "PVC", "L": "塑料",
+        "P": "棕榈油", "Y": "豆油", "M": "豆粕", "OI": "菜油", "RM": "菜粕",
+        "CF": "棉花", "SR": "白糖", "AP": "苹果", "C": "玉米", "CS": "淀粉",
+        "A": "豆一", "B": "豆二", "JD": "鸡蛋", "LH": "生猪",
+        "SP": "纸浆", "PK": "花生",
     }

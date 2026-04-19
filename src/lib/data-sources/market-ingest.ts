@@ -8,25 +8,51 @@ const SYMBOLS = [
   // 黑色
   { symbol: 'RB', commodity: '螺纹钢', exchange: 'SHFE', market: 'SHFE' },
   { symbol: 'HC', commodity: '热卷', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'SS', commodity: '不锈钢', exchange: 'SHFE', market: 'SHFE' },
   { symbol: 'I', commodity: '铁矿石', exchange: 'DCE', market: 'DCE' },
   { symbol: 'J', commodity: '焦炭', exchange: 'DCE', market: 'DCE' },
   { symbol: 'JM', commodity: '焦煤', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'SF', commodity: '硅铁', exchange: 'CZCE', market: 'CZCE' },
+  { symbol: 'SM', commodity: '锰硅', exchange: 'CZCE', market: 'CZCE' },
   // 有色
   { symbol: 'CU', commodity: '铜', exchange: 'SHFE', market: 'SHFE' },
   { symbol: 'AL', commodity: '铝', exchange: 'SHFE', market: 'SHFE' },
   { symbol: 'ZN', commodity: '锌', exchange: 'SHFE', market: 'SHFE' },
   { symbol: 'NI', commodity: '镍', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'SN', commodity: '锡', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'PB', commodity: '铅', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'BC', commodity: '国际铜', exchange: 'INE', market: 'INE' },
   // 能化
   { symbol: 'SC', commodity: '原油', exchange: 'INE', market: 'INE' },
+  { symbol: 'FU', commodity: '燃料油', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'LU', commodity: '低硫燃油', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'BU', commodity: '沥青', exchange: 'SHFE', market: 'SHFE' },
   { symbol: 'PP', commodity: '聚丙烯', exchange: 'DCE', market: 'DCE' },
   { symbol: 'TA', commodity: 'PTA', exchange: 'CZCE', market: 'CZCE' },
   { symbol: 'MEG', commodity: '乙二醇', exchange: 'DCE', market: 'DCE' },
   { symbol: 'MA', commodity: '甲醇', exchange: 'CZCE', market: 'CZCE' },
+  { symbol: 'EB', commodity: '苯乙烯', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'PG', commodity: '液化气', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'SA', commodity: '纯碱', exchange: 'CZCE', market: 'CZCE' },
+  { symbol: 'UR', commodity: '尿素', exchange: 'CZCE', market: 'CZCE' },
+  { symbol: 'V', commodity: 'PVC', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'L', commodity: '塑料', exchange: 'DCE', market: 'DCE' },
   // 农产品
   { symbol: 'P', commodity: '棕榈油', exchange: 'DCE', market: 'DCE' },
   { symbol: 'Y', commodity: '豆油', exchange: 'DCE', market: 'DCE' },
   { symbol: 'M', commodity: '豆粕', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'OI', commodity: '菜油', exchange: 'CZCE', market: 'CZCE' },
+  { symbol: 'RM', commodity: '菜粕', exchange: 'CZCE', market: 'CZCE' },
   { symbol: 'CF', commodity: '棉花', exchange: 'CZCE', market: 'CZCE' },
+  { symbol: 'SR', commodity: '白糖', exchange: 'CZCE', market: 'CZCE' },
+  { symbol: 'AP', commodity: '苹果', exchange: 'CZCE', market: 'CZCE' },
+  { symbol: 'C', commodity: '玉米', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'CS', commodity: '淀粉', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'A', commodity: '豆一', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'JD', commodity: '鸡蛋', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'LH', commodity: '生猪', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'SP', commodity: '纸浆', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'PK', commodity: '花生', exchange: 'CZCE', market: 'CZCE' },
   // 贵金属
   { symbol: 'AU', commodity: '黄金', exchange: 'SHFE', market: 'SHFE' },
   { symbol: 'AG', commodity: '白银', exchange: 'SHFE', market: 'SHFE' },
@@ -34,10 +60,11 @@ const SYMBOLS = [
 
 // Fallback base prices when AkShare is unavailable
 const BASE_PRICES: Record<string, number> = {
-  RB: 3650, HC: 3850, I: 880, J: 2150, JM: 1580,
-  CU: 72000, AL: 20500, ZN: 22800, NI: 128000,
-  SC: 560, PP: 7800, TA: 5900, MEG: 4600, MA: 2650,
-  P: 8200, Y: 7900, M: 3200, CF: 14500, AU: 580, AG: 7200,
+  RB: 3650, HC: 3850, SS: 14200, I: 880, J: 2150, JM: 1580, SF: 7800, SM: 6500,
+  CU: 72000, AL: 20500, ZN: 22800, NI: 128000, SN: 220000, PB: 16500, BC: 65000,
+  SC: 560, FU: 3200, LU: 4100, BU: 3800, PP: 7800, TA: 5900, MEG: 4600, MA: 2650, EB: 8500, PG: 4200, SA: 1800, UR: 1900, V: 6200, L: 7800,
+  P: 8200, Y: 7900, M: 3200, OI: 9500, RM: 2800, CF: 14500, SR: 6200, AP: 8500, C: 2600, CS: 3100, A: 4800, JD: 4200, LH: 15000, SP: 5800, PK: 9500,
+  AU: 580, AG: 7200,
 };
 
 async function seedSymbolFallback(symbol: string, commodity: string, exchange: string, market: string): Promise<number> {
