@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { commodityNodes } from '@/db/schema';
+import { commodityNodes, marketData } from '@/db/schema';
 import { alerts as alertsTable } from '@/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, desc } from 'drizzle-orm';
 import type { ApiListResponse } from '@/types/api';
 import type { CommodityNode } from '@/types/domain';
 import { serializeRecords } from '@/lib/serialize';
@@ -58,6 +58,22 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Compute 24h price change from marketData (latest 2 bars per symbol)
+      const priceChanges: Record<string, number> = {};
+      const symbols = Object.keys(COMMODITY_NAME_MAP);
+      for (const sym of symbols) {
+        try {
+          const bars = await db.select({ close: marketData.close })
+            .from(marketData)
+            .where(eq(marketData.symbol, sym))
+            .orderBy(desc(marketData.timestamp))
+            .limit(2);
+          if (bars.length === 2 && bars[1].close > 0) {
+            priceChanges[sym] = ((bars[0].close - bars[1].close) / bars[1].close) * 100;
+          }
+        } catch { /* skip */ }
+      }
+
       data = Object.entries(COMMODITY_NAME_MAP).map(([sym, name]) => ({
         id: sym.toLowerCase(),
         name,
@@ -67,7 +83,7 @@ export async function GET(request: NextRequest) {
         status: alertCount[sym] ? "alert" as const : "normal" as const,
         activeAlertCount: alertCount[sym] ?? 0,
         regime: "unknown" as const,
-        priceChange24h: 0,
+        priceChange24h: priceChanges[sym] ?? 0,
       }));
 
       if (cluster) data = data.filter((n) => n.cluster === cluster);

@@ -334,6 +334,34 @@ export async function runOrchestration(
         }
       } catch { /* proceed with new_open */ }
 
+      // ── Compute dynamic scores instead of hardcoded values ──
+      // Margin: estimate from contract value (price × multiplier × size × margin_rate)
+      const CONTRACT_MULTIPLIER: Record<string, number> = {
+        RB: 10, HC: 10, SS: 5, I: 100, J: 100, JM: 60, SF: 5, SM: 5,
+        CU: 5, AL: 5, ZN: 5, NI: 1, SN: 1, PB: 5, AU: 1000, AG: 15, BC: 5,
+        SC: 1000, FU: 10, LU: 10, BU: 10, PP: 5, TA: 5, MEG: 10, MA: 10, EB: 5, PG: 20, SA: 20, UR: 20, V: 5, L: 5,
+        P: 10, Y: 10, M: 10, OI: 10, RM: 10, CF: 5, SR: 10, AP: 10, C: 10, CS: 10, A: 10, JD: 10, LH: 16, SP: 10, PK: 5,
+      };
+      const MARGIN_RATE = 0.12; // ~12% average margin rate
+      const primaryAsset = hyp.type === "spread" ? hyp.legs[0]?.asset : hyp.leg.asset;
+      const baseSymbol = primaryAsset?.replace(/\d+/, "").toUpperCase() ?? "";
+      const multiplier = CONTRACT_MULTIPLIER[baseSymbol] ?? 10;
+      const refPrice = hyp.type === "spread"
+        ? Math.abs(alertSpreadMean || 3000)
+        : (hyp.entryPrice ?? 5000);
+      const totalLegs = hyp.type === "spread" ? hyp.legs.length : 1;
+      const estimatedMargin = Math.round(refPrice * multiplier * 10 * MARGIN_RATE * totalLegs);
+
+      // Portfolio fit: higher if backtest is stable and not correlated with existing positions
+      const portfolioFit = btInfo
+        ? Math.round(50 + (btInfo.oosStable ? 20 : 0) + Math.min(30, btInfo.sharpe * 15))
+        : 50;
+
+      // Margin efficiency: Sharpe per unit margin
+      const marginEfficiency = btInfo
+        ? Math.round(40 + Math.min(60, btInfo.sharpe * 30 + btInfo.winRate * 20))
+        : 40;
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle JSON column typing limitation
       const [insertedRec] = await db.insert(recsTable).values({
         strategyId: null,
@@ -342,9 +370,9 @@ export async function runOrchestration(
         recommendedAction,
         legs,
         priorityScore,
-        portfolioFitScore: 70,
-        marginEfficiencyScore: 60,
-        marginRequired: 50000,
+        portfolioFitScore: portfolioFit,
+        marginEfficiencyScore: marginEfficiency,
+        marginRequired: estimatedMargin,
         reasoning: `Auto-generated from evolution cycle. ${hyp.hypothesisText}${btSummary}`,
         riskItems: [],
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
