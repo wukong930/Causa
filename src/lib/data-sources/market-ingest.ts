@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { marketData } from '@/db/schema';
-import { count, eq, desc, max } from 'drizzle-orm';
+import { count, eq, desc, max, sql } from 'drizzle-orm';
 
 const BACKTEST_URL = process.env.BACKTEST_SERVICE_URL || 'http://localhost:8100';
 
@@ -107,10 +107,16 @@ export async function seedHistoricalData(): Promise<number> {
 
   for (const { symbol, commodity, exchange, market } of SYMBOLS) {
     try {
+      // Skip fallback if real data already exists for this symbol
+      const existing = await db.select({ count: sql<number>`count(*)` }).from(marketData).where(eq(marketData.symbol, symbol));
+      const hasData = (existing[0]?.count ?? 0) > 30;
+
       const res = await fetch(`${BACKTEST_URL}/market-data/${symbol}?days=750`, { signal: AbortSignal.timeout(30000) });
       if (!res.ok) {
-        console.warn(`[market-ingest] AkShare unavailable for ${symbol}, using fallback`);
-        totalInserted += await seedSymbolFallback(symbol, commodity, exchange, market);
+        if (!hasData) {
+          console.warn(`[market-ingest] AkShare unavailable for ${symbol}, using fallback`);
+          totalInserted += await seedSymbolFallback(symbol, commodity, exchange, market);
+        }
         continue;
       }
       const bars: AkShareBar[] = await res.json();
@@ -132,7 +138,11 @@ export async function seedHistoricalData(): Promise<number> {
       totalInserted += rows.length;
     } catch (err) {
       console.warn(`[market-ingest] Failed to fetch ${symbol} from AkShare:`, err);
-      totalInserted += await seedSymbolFallback(symbol, commodity, exchange, market);
+      // Only use fallback if no real data exists yet
+      const existing = await db.select({ count: sql<number>`count(*)` }).from(marketData).where(eq(marketData.symbol, symbol));
+      if ((existing[0]?.count ?? 0) <= 30) {
+        totalInserted += await seedSymbolFallback(symbol, commodity, exchange, market);
+      }
     }
   }
 
