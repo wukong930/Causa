@@ -154,11 +154,17 @@ async function triggerForPair(
     closes2.reverse();
 
     if (closes1.length >= WINDOW) {
-      // Engle-Granger cointegration test
+      // Raw spread statistics (for display: historicalMean, sigma bands)
+      const rawSpreads = closes1.map((c, i) => c - closes2[i]);
+      const rawN = rawSpreads.length;
+      const rawMean = rawSpreads.reduce((a, b) => a + b, 0) / rawN;
+      const rawStdDev = Math.sqrt(rawSpreads.reduce((a, b) => a + (b - rawMean) ** 2, 0) / rawN);
+
+      // Engle-Granger cointegration test (residuals for z-score / stationarity)
       const eg = engleGranger(closes1, closes2);
       const spreads = eg.residuals.length > 0
         ? eg.residuals
-        : closes1.map((c, i) => c - closes2[i]);
+        : rawSpreads;
 
       const n = spreads.length;
       const mean = spreads.reduce((a, b) => a + b, 0) / n;
@@ -186,6 +192,8 @@ async function triggerForPair(
         hurstExponent: hurst,
         hedgeRatio: eg.hedgeRatio,
         cointPValue: eg.cointPValue,
+        rawSpreadMean: rawMean,
+        rawSpreadStdDev: rawStdDev,
       };
     }
   }

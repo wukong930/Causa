@@ -383,7 +383,7 @@ export interface SpreadStatistics {
   symbol1: string;
   symbol2: string;
   window: number;
-  spreadMean: number;
+  spreadMean: number;       // residual mean (≈0 for cointegrated pairs)
   spreadStdDev: number;
   currentZScore: number;
   halfLife: number;      // days, simple EWM estimate
@@ -392,4 +392,6 @@ export interface SpreadStatistics {
   hurstExponent?: number;
   hedgeRatio?: number;
   cointPValue?: number;
+  rawSpreadMean?: number;   // raw price spread mean (leg1 - leg2)
+  rawSpreadStdDev?: number; // raw price spread std dev
 }

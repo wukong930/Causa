@@ -21,8 +21,10 @@ export class BasisShiftDetector implements TriggerEvaluator {
       return null;
     }
 
-    const { currentZScore, spreadMean, spreadStdDev, halfLife } = spreadStats;
+    const { currentZScore, spreadMean, spreadStdDev, halfLife, rawSpreadMean, rawSpreadStdDev } = spreadStats;
     const absZ = Math.abs(currentZScore);
+    const displayMean = rawSpreadMean ?? spreadMean;
+    const displayStdDev = rawSpreadStdDev ?? spreadStdDev;
 
     // Adaptive thresholds
     const thresholds = getAdaptiveThresholds(category, undefined, halfLife);
@@ -84,10 +86,10 @@ export class BasisShiftDetector implements TriggerEvaluator {
     const spreadInfo = {
       leg1: symbol1,
       leg2: symbol2,
-      currentSpread: spreadMean + currentZScore * spreadStdDev,
-      historicalMean: spreadMean,
-      sigma1Upper: spreadMean + spreadStdDev,
-      sigma1Lower: spreadMean - spreadStdDev,
+      currentSpread: displayMean + currentZScore * displayStdDev,
+      historicalMean: displayMean,
+      sigma1Upper: displayMean + displayStdDev,
+      sigma1Lower: displayMean - displayStdDev,
       zScore: currentZScore,
       halfLife,
       adfPValue: spreadStats.adfPValue,

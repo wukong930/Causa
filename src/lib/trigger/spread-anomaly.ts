@@ -21,8 +21,11 @@ export class SpreadAnomalyDetector implements TriggerEvaluator {
       return null;
     }
 
-    const { adfPValue, halfLife, spreadMean, spreadStdDev, currentZScore } = spreadStats;
+    const { adfPValue, halfLife, spreadMean, spreadStdDev, currentZScore, rawSpreadMean, rawSpreadStdDev } = spreadStats;
     const absZ = Math.abs(currentZScore);
+    // Use raw spread values for display (historicalMean, sigma bands, currentSpread)
+    const displayMean = rawSpreadMean ?? spreadMean;
+    const displayStdDev = rawSpreadStdDev ?? spreadStdDev;
 
     // Adaptive thresholds based on category, regime, and half-life
     const thresholds = getAdaptiveThresholds(category, undefined, halfLife);
@@ -47,7 +50,7 @@ export class SpreadAnomalyDetector implements TriggerEvaluator {
       buildTriggerStep(
         2,
         "价差扩张确认",
-        `当前价差 ${(spreadMean + currentZScore * spreadStdDev).toFixed(2)}，历史均值 ${spreadMean.toFixed(2)}，标准差 ${spreadStdDev.toFixed(2)}`,
+        `当前价差 ${(displayMean + currentZScore * displayStdDev).toFixed(2)}，历史均值 ${displayMean.toFixed(2)}，标准差 ${displayStdDev.toFixed(2)}`,
         0.8
       ),
       buildTriggerStep(
@@ -74,10 +77,10 @@ export class SpreadAnomalyDetector implements TriggerEvaluator {
     const spreadInfo = {
       leg1: symbol1,
       leg2: symbol2,
-      currentSpread: spreadMean + currentZScore * spreadStdDev,
-      historicalMean: spreadMean,
-      sigma1Upper: spreadMean + spreadStdDev,
-      sigma1Lower: spreadMean - spreadStdDev,
+      currentSpread: displayMean + currentZScore * displayStdDev,
+      historicalMean: displayMean,
+      sigma1Upper: displayMean + displayStdDev,
+      sigma1Lower: displayMean - displayStdDev,
       zScore: currentZScore,
       halfLife,
       adfPValue,

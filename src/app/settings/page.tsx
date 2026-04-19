@@ -86,7 +86,7 @@ export default function SettingsPage() {
   const fetchJobs = useCallback(async () => {
     try {
       const res = await fetch("/api/scheduler");
-      if (res.ok) { const data = await res.json(); setJobs(data.jobs || []); }
+      if (res.ok) { const data = await res.json(); setJobs(data.data?.jobs || data.jobs || []); }
     } catch {}
   }, []);
 

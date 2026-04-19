@@ -92,7 +92,7 @@ export async function runOrchestration(
         status: "active",
         recommendedAction: "new_open",
         legs,
-        priorityScore: Math.round(validation.totalScore * 100),
+        priorityScore: Math.min(100, Math.max(0, Math.round(validation.totalScore))),
         portfolioFitScore: 70,
         marginEfficiencyScore: 60,
         marginRequired: 50000,
@@ -119,7 +119,7 @@ export async function runOrchestration(
     try {
       await db.insert(hypTable).values({
         title: hyp.hypothesisText.slice(0, 200),
-        description: `${hyp.hypothesisText}\n\n验证得分: ${(validation.totalScore * 100).toFixed(0)}分\n${validation.details}`,
+        description: `${hyp.hypothesisText}\n\n验证得分: ${Math.round(validation.totalScore)}分\n${validation.details}`,
         confidence: validation.totalScore,
         status: "monitoring",
       });

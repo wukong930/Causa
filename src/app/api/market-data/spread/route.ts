@@ -85,11 +85,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Raw spread statistics (for display)
+    const rawSpreads = closes1.map((c, i) => c - closes2[i]);
+    const rawMean = rawSpreads.reduce((a, b) => a + b, 0) / rawSpreads.length;
+    const rawStdDev = Math.sqrt(rawSpreads.reduce((a, b) => a + (b - rawMean) ** 2, 0) / rawSpreads.length);
+
     // Engle-Granger cointegration test
     const eg = engleGranger(closes1, closes2);
     const spreads = eg.residuals.length > 0
       ? eg.residuals
-      : closes1.map((c, i) => c - closes2[i]);
+      : rawSpreads;
 
     const n = spreads.length;
     const mean = spreads.reduce((a, b) => a + b, 0) / n;
@@ -117,6 +122,8 @@ export async function GET(request: NextRequest) {
       hurstExponent: hurst,
       hedgeRatio: eg.hedgeRatio,
       cointPValue: eg.cointPValue,
+      rawSpreadMean: rawMean,
+      rawSpreadStdDev: rawStdDev,
     };
 
     const response: ApiResponse<SpreadStatistics> = {
