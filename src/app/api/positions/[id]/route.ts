@@ -53,7 +53,34 @@ export async function GET(
   }
 }
 
-// PATCH /api/positions/[id]
+// DELETE /api/positions/[id]
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const deleted = await db
+      .delete(positions)
+      .where(eq(positions.id, id))
+      .returning();
+
+    if (deleted.length === 0) {
+      return NextResponse.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Position not found' } },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('DELETE /api/positions/[id] error:', error);
+    return NextResponse.json(
+      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to delete position' } },
+      { status: 500 }
+    );
+  }
+}
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

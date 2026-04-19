@@ -125,15 +125,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/account/snapshot - Reset all snapshots
+// DELETE /api/account/snapshot - Reset all snapshots and positions
 export async function DELETE(request: NextRequest) {
   try {
     await db.delete(accountSnapshots).where(sql`1=1`);
+    await db.delete(positions).where(sql`1=1`);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/account/snapshot error:', error);
     return NextResponse.json(
-      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to reset snapshots' } },
+      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to reset data' } },
       { status: 500 }
     );
   }

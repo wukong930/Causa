@@ -4,32 +4,22 @@ import type { TriggerContext, RiskParameters } from "./base";
 
 /** Commodity → category mapping (simple heuristic based on symbol prefix) */
 const CATEGORY_MAP: Record<string, AlertCategory> = {
-  RB: "ferrous",
-  HC: "ferrous",
-  I: "ferrous",
-  J: "ferrous",
-  JM: "energy",
- 焦炭: "energy",
- 焦煤: "energy",
-  CU: "nonferrous",
-  AL: "nonferrous",
-  ZN: "nonferrous",
-  NI: "nonferrous",
-  AU: "nonferrous",
-  AG: "nonferrous",
-  SC: "energy",
- 原油: "energy",
-  FU: "energy",
-  螺纹: "ferrous",
-  热卷: "ferrous",
-  铁矿: "ferrous",
-  沪铜: "nonferrous",
-  沪铝: "nonferrous",
+  // 黑色
+  RB: "ferrous", HC: "ferrous", I: "ferrous", J: "ferrous", JM: "ferrous",
+  // 有色
+  CU: "nonferrous", AL: "nonferrous", ZN: "nonferrous", NI: "nonferrous",
+  SN: "nonferrous", PB: "nonferrous", AU: "nonferrous", AG: "nonferrous",
+  // 能化
+  SC: "energy", FU: "energy", LU: "energy", PP: "energy", TA: "energy",
+  MEG: "energy", MA: "energy", EB: "energy", PG: "energy",
+  // 农产品
+  P: "agriculture", Y: "agriculture", M: "agriculture", OI: "agriculture", RM: "agriculture",
+  CF: "agriculture", SR: "agriculture", AP: "agriculture", C: "agriculture", CS: "agriculture",
 };
 
 function inferCategory(symbol: string): AlertCategory {
-  const prefix = symbol.replace(/\d+/, "");
-  return CATEGORY_MAP[prefix] ?? "ferrous";
+  const prefix = symbol.replace(/\d+/, "").toUpperCase();
+  return CATEGORY_MAP[prefix] ?? "energy";
 }
 
 const DEFAULTS: RiskParameters = {

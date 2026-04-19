@@ -110,7 +110,7 @@ function generateRecPlainSummary(rec: Recommendation): string {
 }
 
 const SCORE_TOOLTIPS = {
-  priority: "综合信号强度、时效性、历史胜率的加权得分。\n≥80 强烈建议关注\n60-79 值得考虑\n<60 仅供参考",
+  priority: "综合 Z-Score 偏离度、半衰期回归速度、ADF 平稳性、置信度的加权得分。\n≥80 强烈建议关注\n60-79 值得考虑\n<60 仅供参考",
   portfolioFit: "与现有持仓的相关性、分散度、方向冲突评估。\n≥80 与组合高度互补\n<60 可能增加集中度风险",
   marginEfficiency: "预期收益与保证金占用的比值。\n≥80 资金利用率高\n<60 资金效率偏低",
 };

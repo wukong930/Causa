@@ -237,9 +237,11 @@ function ZScoreMiniBar({
 function PositionRow({
   position,
   onClick,
+  onDelete,
 }: {
   position: PositionGroup;
   onClick: () => void;
+  onDelete: (id: string) => void;
 }) {
   const health = calculatePositionHealth(position);
   const healthColor =
@@ -330,6 +332,15 @@ function PositionRow({
         >
           {health.status === "healthy" ? "健康" : health.status === "warning" ? "警告" : "危险"}
         </span>
+      </td>
+      <td className="px-4 py-3 text-right">
+        <button
+          onClick={(e) => { e.stopPropagation(); if (confirm("确定删除此持仓？")) onDelete(position.id); }}
+          className="text-xs px-2 py-0.5 rounded transition-colors"
+          style={{ color: "var(--negative)", background: "var(--negative-muted)" }}
+        >
+          删除
+        </button>
       </td>
     </tr>
   );
@@ -484,7 +495,7 @@ export default function PositionsPage() {
   const [stressResults, setStressResults] = useState<StressTestResult[]>([]);
   const [correlationMatrix, setCorrelationMatrix] = useState<CorrelationMatrix | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
-  const [newPos, setNewPos] = useState({ leg1: "RB2506", leg2: "HC2506", direction: "long" as "long" | "short", size: 10, entrySpread: 0 });
+  const [newPos, setNewPos] = useState({ leg1: "RB2506", leg2: "HC2506", direction: "long" as "long" | "short", size: 10, entrySpread: 0, marginPerLeg: 50000 });
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -514,10 +525,10 @@ export default function PositionsPage() {
     try {
       const legs = newPos.leg2
         ? [
-            { asset: newPos.leg1, direction: newPos.direction, size: newPos.size },
-            { asset: newPos.leg2, direction: newPos.direction === "long" ? "short" as const : "long" as const, size: newPos.size },
+            { asset: newPos.leg1, direction: newPos.direction, size: newPos.size, marginUsed: newPos.marginPerLeg },
+            { asset: newPos.leg2, direction: newPos.direction === "long" ? "short" as const : "long" as const, size: newPos.size, marginUsed: newPos.marginPerLeg },
           ]
-        : [{ asset: newPos.leg1, direction: newPos.direction, size: newPos.size }];
+        : [{ asset: newPos.leg1, direction: newPos.direction, size: newPos.size, marginUsed: newPos.marginPerLeg }];
 
       const res = await fetch("/api/positions", {
         method: "POST",
@@ -641,7 +652,7 @@ export default function PositionsPage() {
       {showNewForm && (
         <div className="px-5 py-4 border-b" style={{ borderColor: "var(--border)", background: "var(--surface-raised)" }}>
           <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>新建持仓</h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <div>
               <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>品种1</label>
               <select className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.leg1} onChange={(e) => setNewPos((p) => ({ ...p, leg1: e.target.value }))}>
@@ -669,6 +680,10 @@ export default function PositionsPage() {
             <div>
               <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>开仓价差</label>
               <input type="number" className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.entrySpread} onChange={(e) => setNewPos((p) => ({ ...p, entrySpread: parseFloat(e.target.value) || 0 }))} />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>每腿保证金 (¥)</label>
+              <input type="number" className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.marginPerLeg} onChange={(e) => setNewPos((p) => ({ ...p, marginPerLeg: parseInt(e.target.value) || 0 }))} min={0} step={10000} />
             </div>
           </div>
           <div className="flex gap-2 mt-3">
@@ -827,6 +842,9 @@ export default function PositionsPage() {
                       <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
                         健康
                       </th>
+                      <th className="px-4 py-2.5 text-right text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>
+                        操作
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -835,11 +853,15 @@ export default function PositionsPage() {
                         key={pos.id}
                         position={pos}
                         onClick={() => openPosition(pos.id)}
+                        onDelete={async (id) => {
+                          const res = await fetch(`/api/positions/${id}`, { method: "DELETE" });
+                          if (res.ok) setPositions((prev) => prev.filter((p) => p.id !== id));
+                        }}
                       />
                     ))}
                     {!loading && openPositions.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-sm" style={{ color: "var(--foreground-subtle)" }}>
+                        <td colSpan={6} className="px-4 py-8 text-center text-sm" style={{ color: "var(--foreground-subtle)" }}>
                           暂无活跃持仓
                         </td>
                       </tr>

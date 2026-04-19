@@ -485,7 +485,7 @@ export default function SettingsPage() {
               className="px-3 py-1.5 rounded text-xs"
               style={{ background: "var(--surface-overlay)", color: "var(--negative)", border: "1px solid var(--border)" }}
               onClick={async () => {
-                if (!confirm("确定要重置账户数据吗？这将清除所有历史快照。")) return;
+                if (!confirm("确定要重置账户数据吗？这将清除所有历史快照和持仓记录。")) return;
                 try {
                   const res = await fetch("/api/account/snapshot", { method: "DELETE" });
                   if (res.ok) toast("账户数据已重置", "success");
@@ -496,7 +496,7 @@ export default function SettingsPage() {
               重置模拟数据
             </button>
             <p className="text-xs mt-1" style={{ color: "var(--foreground-subtle)" }}>
-              清除所有历史账户快照，下次访问持仓页时将使用新设置的金额
+              清除所有历史账户快照和持仓记录，下次访问持仓页时将使用新设置的金额
             </p>
           </div>
         </div>
