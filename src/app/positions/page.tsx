@@ -495,7 +495,7 @@ export default function PositionsPage() {
   const [stressResults, setStressResults] = useState<StressTestResult[]>([]);
   const [correlationMatrix, setCorrelationMatrix] = useState<CorrelationMatrix | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
-  const [newPos, setNewPos] = useState({ leg1: "RB2506", leg2: "HC2506", direction: "long" as "long" | "short", size: 10, entrySpread: 0, marginPerLeg: 50000 });
+  const [newPos, setNewPos] = useState({ leg1: "RB", leg2: "HC", direction: "long" as "long" | "short", size: 10, entrySpread: 0, marginPerLeg: 50000 });
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -656,14 +656,14 @@ export default function PositionsPage() {
             <div>
               <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>品种1</label>
               <select className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.leg1} onChange={(e) => setNewPos((p) => ({ ...p, leg1: e.target.value }))}>
-                {Object.entries(COMMODITY_NAME_MAP).map(([k, v]) => <option key={k} value={`${k}2506`}>{v} {k}2506</option>)}
+                {Object.entries(COMMODITY_NAME_MAP).map(([k, v]) => <option key={k} value={k}>{v} ({k})</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>品种2（可选）</label>
               <select className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.leg2} onChange={(e) => setNewPos((p) => ({ ...p, leg2: e.target.value }))}>
                 <option value="">无（单品种）</option>
-                {Object.entries(COMMODITY_NAME_MAP).map(([k, v]) => <option key={k} value={`${k}2506`}>{v} {k}2506</option>)}
+                {Object.entries(COMMODITY_NAME_MAP).map(([k, v]) => <option key={k} value={k}>{v} ({k})</option>)}
               </select>
             </div>
             <div>

@@ -17,45 +17,45 @@ import { generateOneLiner } from '@/lib/reasoning/one-liner';
 // Cron watchlist: symbol pairs and categories to monitor
 const CRON_WATCHLIST: Array<{ symbol1: string; symbol2?: string; category: AlertCategory }> = [
   // 黑色 — 套利对
-  { symbol1: 'RB2506', symbol2: 'HC2506', category: 'ferrous' },
-  { symbol1: 'I2506', symbol2: 'J2506', category: 'ferrous' },
-  { symbol1: 'JM2506', symbol2: 'J2506', category: 'ferrous' },
+  { symbol1: 'RB', symbol2: 'HC', category: 'ferrous' },
+  { symbol1: 'I', symbol2: 'J', category: 'ferrous' },
+  { symbol1: 'JM', symbol2: 'J', category: 'ferrous' },
   // 黑色 — 单品种
-  { symbol1: 'RB2506', category: 'ferrous' },
-  { symbol1: 'HC2506', category: 'ferrous' },
-  { symbol1: 'I2506', category: 'ferrous' },
-  { symbol1: 'J2506', category: 'ferrous' },
-  { symbol1: 'JM2506', category: 'ferrous' },
+  { symbol1: 'RB', category: 'ferrous' },
+  { symbol1: 'HC', category: 'ferrous' },
+  { symbol1: 'I', category: 'ferrous' },
+  { symbol1: 'J', category: 'ferrous' },
+  { symbol1: 'JM', category: 'ferrous' },
   // 有色 — 套利对
-  { symbol1: 'CU2506', symbol2: 'AL2506', category: 'nonferrous' },
-  { symbol1: 'CU2506', symbol2: 'ZN2506', category: 'nonferrous' },
+  { symbol1: 'CU', symbol2: 'AL', category: 'nonferrous' },
+  { symbol1: 'CU', symbol2: 'ZN', category: 'nonferrous' },
   // 有色 — 单品种
-  { symbol1: 'CU2506', category: 'nonferrous' },
-  { symbol1: 'AL2506', category: 'nonferrous' },
-  { symbol1: 'ZN2506', category: 'nonferrous' },
-  { symbol1: 'NI2506', category: 'nonferrous' },
+  { symbol1: 'CU', category: 'nonferrous' },
+  { symbol1: 'AL', category: 'nonferrous' },
+  { symbol1: 'ZN', category: 'nonferrous' },
+  { symbol1: 'NI', category: 'nonferrous' },
   // 能化 — 套利对
-  { symbol1: 'SC2506', symbol2: 'PP2506', category: 'energy' },
-  { symbol1: 'TA2506', symbol2: 'MEG2506', category: 'energy' },
+  { symbol1: 'SC', symbol2: 'PP', category: 'energy' },
+  { symbol1: 'TA', symbol2: 'MEG', category: 'energy' },
   // 能化 — 单品种
-  { symbol1: 'SC2506', category: 'energy' },
-  { symbol1: 'PP2506', category: 'energy' },
-  { symbol1: 'TA2506', category: 'energy' },
-  { symbol1: 'MEG2506', category: 'energy' },
-  { symbol1: 'MA2506', category: 'energy' },
+  { symbol1: 'SC', category: 'energy' },
+  { symbol1: 'PP', category: 'energy' },
+  { symbol1: 'TA', category: 'energy' },
+  { symbol1: 'MEG', category: 'energy' },
+  { symbol1: 'MA', category: 'energy' },
   // 农产品 — 套利对
-  { symbol1: 'P2506', symbol2: 'Y2506', category: 'agriculture' },
-  { symbol1: 'M2506', symbol2: 'Y2506', category: 'agriculture' },
+  { symbol1: 'P', symbol2: 'Y', category: 'agriculture' },
+  { symbol1: 'M', symbol2: 'Y', category: 'agriculture' },
   // 农产品 — 单品种
-  { symbol1: 'P2506', category: 'agriculture' },
-  { symbol1: 'Y2506', category: 'agriculture' },
-  { symbol1: 'M2506', category: 'agriculture' },
-  { symbol1: 'CF2506', category: 'agriculture' },
+  { symbol1: 'P', category: 'agriculture' },
+  { symbol1: 'Y', category: 'agriculture' },
+  { symbol1: 'M', category: 'agriculture' },
+  { symbol1: 'CF', category: 'agriculture' },
   // 贵金属 — 套利对
-  { symbol1: 'AU2506', symbol2: 'AG2506', category: 'nonferrous' },
+  { symbol1: 'AU', symbol2: 'AG', category: 'nonferrous' },
   // 贵金属 — 单品种
-  { symbol1: 'AU2506', category: 'nonferrous' },
-  { symbol1: 'AG2506', category: 'nonferrous' },
+  { symbol1: 'AU', category: 'nonferrous' },
+  { symbol1: 'AG', category: 'nonferrous' },
 ];
 
 const WINDOW = 60;

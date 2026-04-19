@@ -9,7 +9,8 @@ import { eq, desc, inArray } from "drizzle-orm";
 import { buildFullContext } from "@/lib/context/builder";
 import { runEvolutionCycle } from "@/lib/reasoning/pipeline";
 import { generateOneLiner } from "@/lib/reasoning/one-liner";
-import { checkHealth as checkBacktestHealth } from "@/lib/backtest/client";
+import { checkHealth as checkBacktestHealth, runBacktest } from "@/lib/backtest/client";
+import type { BacktestLeg } from "@/lib/backtest/client";
 import { serializeRecords } from "@/lib/serialize";
 import type { Alert } from "@/types/domain";
 
@@ -64,8 +65,58 @@ export async function runOrchestration(
     { topN: 5 }
   );
 
-  // 4. Attempt backtest (graceful degradation)
-  const backtestRan = await checkBacktestHealth();
+  // 4. Attempt backtest for spread hypotheses (graceful degradation)
+  let backtestRan = false;
+  const backtestHealthy = await checkBacktestHealth();
+  const backtestResults: Record<string, { sharpe: number; maxDD: number; winRate: number }> = {};
+
+  if (backtestHealthy) {
+    const BACKTEST_URL = process.env.BACKTEST_SERVICE_URL ?? "http://localhost:8100";
+    for (const { hypothesis: hyp } of evolutionResult.selected) {
+      try {
+        const assets = hyp.type === "spread"
+          ? hyp.legs.map((l) => l.asset)
+          : [hyp.leg.asset];
+
+        if (assets.length < 2) continue;
+
+        // Fetch market data from AkShare
+        const [r1, r2] = await Promise.all(
+          assets.slice(0, 2).map((sym) =>
+            fetch(`${BACKTEST_URL}/market-data/${sym}?days=250`, { signal: AbortSignal.timeout(15000) })
+              .then((r) => r.ok ? r.json() : [])
+              .catch(() => [])
+          )
+        );
+        if (!r1.length || !r2.length) continue;
+
+        // Align dates
+        const dateSet2 = new Set(r2.map((b: { date: string }) => b.date));
+        const a1 = r1.filter((b: { date: string }) => dateSet2.has(b.date));
+        const dateSet1 = new Set(a1.map((b: { date: string }) => b.date));
+        const a2 = r2.filter((b: { date: string }) => dateSet1.has(b.date));
+
+        const btLegs: BacktestLeg[] = hyp.type === "spread"
+          ? hyp.legs.map((l) => ({ asset: l.asset, direction: l.direction as "long" | "short", ratio: l.ratio }))
+          : [{ asset: assets[0], direction: "long", ratio: 1.0 }, { asset: assets[1] || assets[0], direction: "short", ratio: 1.0 }];
+
+        const result = await runBacktest({
+          hypothesis_id: hyp.id,
+          legs: btLegs,
+          prices: { [assets[0]]: a1.map((b: { close: number }) => b.close), [assets[1]]: a2.map((b: { close: number }) => b.close) },
+          dates: a1.map((b: { date: string }) => b.date),
+          entry_threshold: 2.0,
+          exit_threshold: 0.5,
+          window: 60,
+        });
+
+        backtestResults[hyp.id] = { sharpe: result.sharpe_ratio, maxDD: result.max_drawdown, winRate: result.win_rate };
+        backtestRan = true;
+      } catch (err) {
+        console.error(`[orchestrator] Backtest failed for ${hyp.id}:`, err);
+      }
+    }
+  }
 
   // 5. Generate recommendations from selected hypotheses
   let recsCreated = 0;
@@ -85,6 +136,11 @@ export async function runOrchestration(
             unit: "手",
           }];
 
+      const btInfo = backtestResults[hyp.id];
+      const btSummary = btInfo
+        ? `\n回测: Sharpe ${btInfo.sharpe.toFixed(2)}, 最大回撤 ${(btInfo.maxDD * 100).toFixed(1)}%, 胜率 ${(btInfo.winRate * 100).toFixed(0)}%`
+        : "";
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle JSON column typing limitation
       const [insertedRec] = await db.insert(recsTable).values({
         strategyId: null,
@@ -96,7 +152,7 @@ export async function runOrchestration(
         portfolioFitScore: 70,
         marginEfficiencyScore: 60,
         marginRequired: 50000,
-        reasoning: `Auto-generated from evolution cycle. ${hyp.hypothesisText}`,
+        reasoning: `Auto-generated from evolution cycle. ${hyp.hypothesisText}${btSummary}`,
         riskItems: [],
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       } as any).returning({ id: recsTable.id });

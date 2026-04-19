@@ -223,7 +223,7 @@ function CreateStrategyModal({
                     type="text"
                     value={leg.asset}
                     onChange={(e) => setLeg(i, "asset", e.target.value)}
-                    placeholder="如 RB2506"
+                    placeholder="如 RB"
                     className="flex-1 px-2 py-1.5 rounded text-sm font-mono"
                     style={{
                       background: "var(--surface-raised)",

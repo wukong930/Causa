@@ -78,7 +78,7 @@ function RecommendationCard({
         <div className="flex-1 grid grid-cols-3 gap-2">
           <div className="text-center">
             <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>优先级</div>
-            <div className="text-sm font-semibold font-mono" style={{ color: rec.priorityScore >= 80 ? "var(--positive)" : "var(--foreground)" }}>
+            <div className="text-sm font-semibold font-mono" style={{ color: scoreColor(rec.priorityScore) }}>
               {rec.priorityScore}
             </div>
           </div>
@@ -115,6 +115,12 @@ const SCORE_TOOLTIPS = {
   marginEfficiency: "预期收益与保证金占用的比值。\n≥80 资金利用率高\n<60 资金效率偏低",
 };
 
+function scoreColor(value: number): string {
+  if (value >= 80) return "var(--positive)";
+  if (value >= 60) return "var(--accent-primary)";
+  return "var(--foreground-muted)";
+}
+
 function RecommendationDetail({
   rec,
 }: {
@@ -122,8 +128,9 @@ function RecommendationDetail({
 }) {
   const [openTooltip, setOpenTooltip] = useState<string | null>(null);
 
-  function ScoreCard({ label, value, tooltipKey, color }: { label: string; value: number; tooltipKey: keyof typeof SCORE_TOOLTIPS; color?: string }) {
+  function ScoreCard({ label, value, tooltipKey }: { label: string; value: number; tooltipKey: keyof typeof SCORE_TOOLTIPS }) {
     const isOpen = openTooltip === tooltipKey;
+    const color = scoreColor(value);
     return (
       <div className="rounded-lg p-3 text-center relative" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
         <div
@@ -133,8 +140,11 @@ function RecommendationDetail({
         >
           {label} <span style={{ color: "var(--accent-primary)" }}>ⓘ</span>
         </div>
-        <div className="text-xl font-semibold font-mono" style={{ color: color || "var(--foreground)" }}>
+        <div className="text-xl font-semibold font-mono" style={{ color }}>
           {value}
+        </div>
+        <div className="text-[10px] mt-0.5" style={{ color: "var(--foreground-subtle)" }}>
+          {value >= 80 ? "优" : value >= 60 ? "良" : "低"}
         </div>
         {isOpen && (
           <div
@@ -243,7 +253,7 @@ function RecommendationDetail({
           综合评分
         </h3>
         <div className="grid grid-cols-3 gap-3">
-          <ScoreCard label="优先级" value={rec.priorityScore} tooltipKey="priority" color={rec.priorityScore >= 80 ? "var(--positive)" : undefined} />
+          <ScoreCard label="优先级" value={rec.priorityScore} tooltipKey="priority" />
           <ScoreCard label="组合适配" value={rec.portfolioFitScore} tooltipKey="portfolioFit" />
           <ScoreCard label="保证金效率" value={rec.marginEfficiencyScore} tooltipKey="marginEfficiency" />
         </div>
