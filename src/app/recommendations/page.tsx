@@ -269,24 +269,24 @@ function RecommendationDetail({
                 {leg.suggestedSize} {leg.unit}
               </span>
               <div className="ml-auto flex items-center gap-2">
-                {leg.entryZone && (
+                {leg.entryZone && Math.abs(leg.entryZone[0]) >= 10 && (
                   <span className="text-xs font-mono" style={{ color: "var(--accent-primary)" }}>
-                    入场 {leg.entryZone[0]}–{leg.entryZone[1]}
+                    入场 {leg.entryZone[0].toLocaleString()}–{leg.entryZone[1].toLocaleString()}
                   </span>
                 )}
-                {leg.stopLoss && (
+                {leg.stopLoss != null && Math.abs(leg.stopLoss) >= 10 && (
                   <span className="text-xs font-mono" style={{ color: "var(--negative)" }}>
-                    止损 {leg.stopLoss}
+                    止损 {leg.stopLoss.toLocaleString()}
                   </span>
                 )}
-                {leg.takeProfit && (
+                {leg.takeProfit != null && Math.abs(leg.takeProfit) >= 10 && (
                   <span className="text-xs font-mono" style={{ color: "var(--positive)" }}>
-                    目标 {leg.takeProfit}
+                    目标 {leg.takeProfit.toLocaleString()}
                   </span>
                 )}
-                {!leg.entryZone && leg.entryPriceRef && (
+                {!leg.entryZone && leg.entryPriceRef && Math.abs(leg.entryPriceRef) >= 10 && (
                   <span className="text-xs font-mono" style={{ color: "var(--foreground-subtle)" }}>
-                    参考价 {leg.entryPriceRef}
+                    参考价 {leg.entryPriceRef.toLocaleString()}
                   </span>
                 )}
               </div>

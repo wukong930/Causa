@@ -253,6 +253,30 @@ export default function ResearchPage() {
 
   const activeReport = reports.find((r) => r.id === activeReportId) ?? null;
 
+  // Group reports by date, limit to 7 most recent dates
+  const reportsByDate = useMemo(() => {
+    const grouped: Record<string, ResearchReport[]> = {};
+    for (const r of reports) {
+      const date = r.publishedAt.slice(0, 10);
+      if (!grouped[date]) grouped[date] = [];
+      grouped[date].push(r);
+    }
+    return Object.entries(grouped)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .slice(0, 7);
+  }, [reports]);
+
+  const [activeDate, setActiveDate] = useState<string>("");
+  useEffect(() => {
+    if (reportsByDate.length > 0 && !activeDate) {
+      setActiveDate(reportsByDate[0][0]);
+    }
+  }, [reportsByDate, activeDate]);
+
+  const reportsForActiveDate = useMemo(() => {
+    return reportsByDate.find(([d]) => d === activeDate)?.[1] ?? [];
+  }, [reportsByDate, activeDate]);
+
   const filteredHypotheses = hypFilter === "all"
     ? hypotheses
     : hypotheses.filter((h) => h.status === hypFilter);
@@ -308,38 +332,46 @@ export default function ResearchPage() {
 
           {/* Left — Reports */}
           <div>
-            {/* Report tabs */}
+            {/* Date tabs — max 7 days, scrollable */}
             <div
-              className="flex gap-1 mb-4 p-1 rounded-lg"
-              style={{ background: "var(--surface-overlay)", width: "fit-content" }}
+              className="flex gap-1 mb-4 p-1 rounded-lg overflow-x-auto"
+              style={{ background: "var(--surface-overlay)", maxWidth: "100%" }}
             >
-              {reports.map((r) => (
+              {reportsByDate.map(([date, dateReports]) => (
                 <button
-                  key={r.id}
-                  onClick={() => setActiveReportId(r.id)}
-                  className="text-xs px-3 py-1.5 rounded-md transition-colors"
+                  key={date}
+                  onClick={() => setActiveDate(date)}
+                  className="text-xs px-3 py-1.5 rounded-md transition-colors whitespace-nowrap shrink-0"
                   style={{
-                    background: activeReportId === r.id ? "var(--surface)" : "transparent",
-                    color: activeReportId === r.id ? "var(--foreground)" : "var(--foreground-muted)",
-                    boxShadow: activeReportId === r.id ? "0 1px 3px rgba(0,0,0,0.3)" : "none",
+                    background: activeDate === date ? "var(--surface)" : "transparent",
+                    color: activeDate === date ? "var(--foreground)" : "var(--foreground-muted)",
+                    boxShadow: activeDate === date ? "0 1px 3px rgba(0,0,0,0.3)" : "none",
                   }}
                 >
-                  {REPORT_TYPE_LABEL[r.type] ?? r.type} · {r.publishedAt.slice(0, 10)}
+                  {date.slice(5)} ({dateReports.length})
                 </button>
               ))}
             </div>
 
-            {activeReport && (
-              <div>
-                <h2
-                  className="text-base font-semibold mb-3"
-                  style={{ color: "var(--foreground)" }}
-                >
-                  {activeReport.title}
-                </h2>
-                <ReportViewer report={activeReport} />
-              </div>
-            )}
+            {/* Reports for selected date — stacked vertically */}
+            <div className="flex flex-col gap-6">
+              {reportsForActiveDate.map((report, idx) => (
+                <div key={report.id}>
+                  <h2
+                    className="text-base font-semibold mb-3"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    {reportsForActiveDate.length > 1 && (
+                      <span className="text-xs font-normal mr-2 px-1.5 py-0.5 rounded" style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)" }}>
+                        #{idx + 1}
+                      </span>
+                    )}
+                    {report.title}
+                  </h2>
+                  <ReportViewer report={report} />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Right — Hypotheses */}
