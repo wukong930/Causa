@@ -58,7 +58,7 @@ export function NetValueChart({ baseValue }: { baseValue: number }) {
               onClick={() => setWindow(w)}
               className="text-xs px-2 py-0.5 rounded transition-colors"
               style={{
-                background: window === w ? "var(--accent-blue)" : "var(--surface-overlay)",
+                background: window === w ? "var(--accent-primary)" : "var(--surface-overlay)",
                 color: window === w ? "#fff" : "var(--foreground-muted)",
               }}
             >
@@ -80,16 +80,16 @@ export function NetValueChart({ baseValue }: { baseValue: number }) {
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ display: "block", overflow: "visible" }}>
         <defs>
           <linearGradient id="netValueGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent-blue)" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="var(--accent-blue)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <line key={t} x1={PAD} y1={PAD + t * (H - PAD * 2)} x2={W - PAD} y2={PAD + t * (H - PAD * 2)} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="3,3" />
         ))}
         <path d={areaPath} fill="url(#netValueGrad)" />
-        <polyline points={pts} fill="none" stroke="var(--accent-blue)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={x(values.length - 1)} cy={y(values[values.length - 1])} r="3" fill="var(--accent-blue)" />
+        <polyline points={pts} fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+        <circle cx={x(values.length - 1)} cy={y(values[values.length - 1])} r="3" fill="var(--accent-primary)" />
         {labelIndices.map((i) => (
           <text key={i} x={x(i)} y={H - 1} textAnchor="middle" fontSize="9" fill="var(--foreground-subtle)">
             {data[i].date.slice(5)}

@@ -1,0 +1,138 @@
+"""AkShare data ingestion for Chinese commodity futures."""
+
+import akshare as ak
+import pandas as pd
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime, timedelta
+
+# Exchange → AkShare function mapping
+EXCHANGE_MAP = {
+    "SHFE": "上期所",
+    "DCE": "大商所",
+    "CZCE": "郑商所",
+    "CFFEX": "中金所",
+    "INE": "上期能源",
+    "GFEX": "广期所",
+}
+
+# Symbol → exchange mapping (major contracts)
+SYMBOL_EXCHANGE: dict[str, str] = {
+    # Ferrous
+    "RB": "SHFE", "HC": "SHFE", "SS": "SHFE",
+    "I": "DCE", "J": "DCE", "JM": "DCE",
+    # Non-ferrous
+    "CU": "SHFE", "AL": "SHFE", "ZN": "SHFE", "PB": "SHFE",
+    "NI": "SHFE", "SN": "SHFE", "AU": "SHFE", "AG": "SHFE",
+    # Energy
+    "SC": "INE", "FU": "SHFE", "LU": "SHFE", "BU": "SHFE",
+    "PP": "DCE", "TA": "CZCE", "MEG": "DCE", "MA": "CZCE",
+    "EB": "DCE", "PG": "DCE", "SA": "CZCE",
+    # Agriculture
+    "P": "DCE", "Y": "DCE", "M": "DCE", "OI": "CZCE", "RM": "CZCE",
+    "CF": "CZCE", "SR": "CZCE", "AP": "CZCE", "C": "DCE", "CS": "DCE",
+    "A": "DCE", "B": "DCE", "JD": "DCE", "LH": "DCE",
+}
+
+
+class MarketBar(BaseModel):
+    date: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+    open_interest: float
+    symbol: str
+
+
+class SymbolInfo(BaseModel):
+    symbol: str
+    name: str
+    exchange: str
+
+
+def get_main_contract(symbol: str) -> str:
+    """Get the main (dominant) contract code for a symbol."""
+    return f"{symbol.lower()}0"  # AkShare convention: rb0 = main contract
+
+
+def fetch_futures_daily(
+    symbol: str, days: int = 250
+) -> list[MarketBar]:
+    """Fetch daily OHLCV for a futures symbol's main contract."""
+    sym_upper = symbol.upper()
+    if sym_upper not in SYMBOL_EXCHANGE:
+        raise ValueError(f"Unknown symbol: {symbol}")
+
+    try:
+        df = ak.futures_main_sina(symbol=sym_upper.lower() + "0")
+        if df is None or df.empty:
+            return []
+
+        df = df.tail(days).reset_index(drop=True)
+        bars: list[MarketBar] = []
+        for _, row in df.iterrows():
+            bars.append(MarketBar(
+                date=str(row.get("日期", row.get("date", ""))),
+                open=float(row.get("开盘价", row.get("open", 0))),
+                high=float(row.get("最高价", row.get("high", 0))),
+                low=float(row.get("最低价", row.get("low", 0))),
+                close=float(row.get("收盘价", row.get("close", 0))),
+                volume=float(row.get("成交量", row.get("volume", 0))),
+                open_interest=float(row.get("持仓量", row.get("hold", 0))),
+                symbol=sym_upper,
+            ))
+        return bars
+    except Exception as e:
+        print(f"[akshare] Error fetching {symbol}: {e}")
+        return []
+
+
+def fetch_all_symbols() -> list[SymbolInfo]:
+    """Return all supported symbols with exchange info."""
+    results: list[SymbolInfo] = []
+    names = _symbol_names()
+    for sym, exch in SYMBOL_EXCHANGE.items():
+        results.append(SymbolInfo(
+            symbol=sym,
+            name=names.get(sym, sym),
+            exchange=exch,
+        ))
+    return sorted(results, key=lambda s: s.exchange + s.symbol)
+
+
+def fetch_spread_data(
+    sym1: str, sym2: str, days: int = 250
+) -> list[dict]:
+    """Fetch daily spread (sym1 - sym2) for two symbols."""
+    bars1 = fetch_futures_daily(sym1, days)
+    bars2 = fetch_futures_daily(sym2, days)
+    if not bars1 or not bars2:
+        return []
+
+    df1 = pd.DataFrame([b.model_dump() for b in bars1]).set_index("date")
+    df2 = pd.DataFrame([b.model_dump() for b in bars2]).set_index("date")
+    merged = df1[["close"]].join(df2[["close"]], lsuffix="_1", rsuffix="_2", how="inner")
+    merged["spread"] = merged["close_1"] - merged["close_2"]
+
+    return [
+        {"date": idx, "close1": row["close_1"], "close2": row["close_2"], "spread": row["spread"]}
+        for idx, row in merged.iterrows()
+    ]
+
+
+def _symbol_names() -> dict[str, str]:
+    """Chinese names for common futures symbols."""
+    return {
+        "RB": "螺纹钢", "HC": "热卷", "SS": "不锈钢", "I": "铁矿石",
+        "J": "焦炭", "JM": "焦煤", "CU": "沪铜", "AL": "沪铝",
+        "ZN": "沪锌", "PB": "沪铅", "NI": "沪镍", "SN": "沪锡",
+        "AU": "沪金", "AG": "沪银", "SC": "原油", "FU": "燃料油",
+        "LU": "低硫燃油", "BU": "沥青", "PP": "聚丙烯", "TA": "PTA",
+        "MEG": "乙二醇", "MA": "甲醇", "EB": "苯乙烯", "PG": "液化气",
+        "SA": "纯碱", "P": "棕榈油", "Y": "豆油", "M": "豆粕",
+        "OI": "菜油", "RM": "菜粕", "CF": "棉花", "SR": "白糖",
+        "AP": "苹果", "C": "玉米", "CS": "淀粉", "A": "豆一",
+        "B": "豆二", "JD": "鸡蛋", "LH": "生猪",
+    }

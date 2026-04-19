@@ -178,7 +178,7 @@ export default function AnalyticsPage() {
                       <tr key={s.id} style={{ borderBottom: "1px solid var(--border-subtle, var(--border))" }}>
                         <td className="px-4 py-2.5 max-w-[200px] truncate">
                           {s.alertId ? (
-                            <Link href={`/alerts?selected=${s.alertId}`} className="hover:underline" style={{ color: "var(--accent-blue)" }}>
+                            <Link href={`/alerts?selected=${s.alertId}`} className="hover:underline" style={{ color: "var(--accent-primary)" }}>
                               {s.alertTitle || "查看预警"}
                             </Link>
                           ) : (

@@ -70,7 +70,7 @@ function ConcentrationBar({
 }) {
   const pct = total > 0 ? (amount / total) * 100 : 0;
   const colorMap: Record<string, string> = {
-    黑色: "var(--accent-blue)",
+    黑色: "var(--accent-primary)",
     有色: "var(--accent-orange)",
     能化: "var(--accent-purple)",
     农产品: "var(--accent-green)",

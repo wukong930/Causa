@@ -371,7 +371,7 @@ export function StrategyDetail({
                 className="h-full rounded-full"
                 style={{
                   width: `${(v.hitRate * 100)}%`,
-                  background: v.hitRate > 0.7 ? "var(--positive)" : "var(--accent-blue)",
+                  background: v.hitRate > 0.7 ? "var(--positive)" : "var(--accent-primary)",
                 }}
               />
             </div>
@@ -391,7 +391,7 @@ export function StrategyDetail({
                 className="h-full rounded-full"
                 style={{
                   width: `${Math.min((v.sharpeRatio ?? 0) / 2 * 100, 100)}%`,
-                  background: (v.sharpeRatio ?? 0) > 1.5 ? "var(--positive)" : "var(--accent-blue)",
+                  background: (v.sharpeRatio ?? 0) > 1.5 ? "var(--positive)" : "var(--accent-primary)",
                 }}
               />
             </div>
@@ -450,7 +450,7 @@ export function StrategyDetail({
             disabled={backtestLoading}
             className="text-xs px-3 py-1.5 rounded transition-colors"
             style={{
-              background: backtestLoading ? "var(--surface-overlay)" : "var(--accent-blue)",
+              background: backtestLoading ? "var(--surface-overlay)" : "var(--accent-primary)",
               color: backtestLoading ? "var(--foreground-subtle)" : "#fff",
               border: "1px solid var(--border)",
             }}
@@ -636,7 +636,7 @@ export function StrategyDetail({
           onClick={() => router.push("/positions")}
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded transition-colors"
           style={{
-            background: hasPositions ? "var(--accent-blue)" : "var(--surface-overlay)",
+            background: hasPositions ? "var(--accent-primary)" : "var(--surface-overlay)",
             color: hasPositions ? "#fff" : "var(--foreground-muted)",
             border: "1px solid var(--border)",
           }}

@@ -41,19 +41,6 @@ function saveRiskParams(params: RiskParameters) {
   localStorage.setItem("causa-risk-params", JSON.stringify(params));
 }
 
-type ThemeMode = "dark" | "light" | "system";
-
-function loadTheme(): ThemeMode {
-  if (typeof window === "undefined") return "dark";
-  return (localStorage.getItem("causa-theme") as ThemeMode) || "dark";
-}
-
-function applyTheme(mode: ThemeMode) {
-  localStorage.setItem("causa-theme", mode);
-  document.documentElement.dataset.theme = mode;
-  document.documentElement.style.colorScheme = mode === "light" ? "light" : mode === "system" ? "light dark" : "dark";
-}
-
 export default function SettingsPage() {
   const { toast } = useToast();
   const [config, setConfig] = useState<NotificationConfig>({ webhookUrl: "", enabled: false });
@@ -61,7 +48,6 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [riskParams, setRiskParams] = useState<RiskParameters>(DEFAULT_RISK_PARAMS);
   const [riskSaved, setRiskSaved] = useState(false);
-  const [theme, setTheme] = useState<ThemeMode>("dark");
 
   // LLM config state
   const [llmProvider, setLlmProvider] = useState<LLMProviderName>("openai");
@@ -107,7 +93,6 @@ export default function SettingsPage() {
     const loaded = loadNotificationConfig();
     setConfig(loaded);
     setRiskParams(loadRiskParams());
-    setTheme(loadTheme());
     fetchJobs();
     const interval = setInterval(fetchJobs, 10000);
     // Load LLM config
@@ -265,7 +250,7 @@ export default function SettingsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{job.name}</span>
-                      {job.running && <span className="inline-block h-2 w-2 rounded-full animate-pulse" style={{ background: "var(--accent-blue)" }} />}
+                      {job.running && <span className="inline-block h-2 w-2 rounded-full animate-pulse" style={{ background: "var(--accent-primary)" }} />}
                       {job.lastRun && (
                         <span className="text-xs" style={{ color: job.lastResult === "error" ? "var(--negative)" : "var(--foreground-subtle)" }}>
                           {new Date(job.lastRun).toLocaleTimeString()} {job.lastResult === "error" ? "失败" : "成功"}
@@ -277,7 +262,7 @@ export default function SettingsPage() {
                     onClick={() => schedulerAction("run", job.id)}
                     disabled={job.running || runningAction === `run-${job.id}`}
                     className="px-3 py-1.5 rounded text-xs font-medium shrink-0"
-                    style={{ background: "var(--accent-blue)", color: "#fff", opacity: job.running ? 0.5 : 1 }}
+                    style={{ background: "var(--accent-primary)", color: "#fff", opacity: job.running ? 0.5 : 1 }}
                   >
                     {job.running ? "运行中..." : "立即执行"}
                   </button>
@@ -393,7 +378,7 @@ export default function SettingsPage() {
               onClick={handleSave}
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               style={{
-                background: saved ? "var(--positive)" : "var(--accent-blue)",
+                background: saved ? "var(--positive)" : "var(--accent-primary)",
                 color: "#fff",
               }}
             >
@@ -456,7 +441,7 @@ export default function SettingsPage() {
               <button
                 disabled={accountSaving}
                 className="px-4 py-2 rounded text-sm font-medium"
-                style={{ background: "var(--accent-blue)", color: "#fff", opacity: accountSaving ? 0.6 : 1 }}
+                style={{ background: "var(--accent-primary)", color: "#fff", opacity: accountSaving ? 0.6 : 1 }}
                 onClick={async () => {
                   const val = parseFloat(accountNetValue);
                   if (!val || val <= 0) { toast("请输入有效金额", "error"); return; }
@@ -618,7 +603,7 @@ export default function SettingsPage() {
               onClick={handleLlmSave}
               disabled={llmSaving}
               className="px-4 py-2 rounded-lg text-sm font-medium"
-              style={{ background: "var(--accent-blue)", color: "#fff", opacity: llmSaving ? 0.6 : 1 }}
+              style={{ background: "var(--accent-primary)", color: "#fff", opacity: llmSaving ? 0.6 : 1 }}
             >
               {llmSaving ? "保存中..." : "保存配置"}
             </button>
@@ -692,7 +677,7 @@ export default function SettingsPage() {
             <button
               onClick={() => { saveRiskParams(riskParams); setRiskSaved(true); setTimeout(() => setRiskSaved(false), 2000); toast("风险参数已保存", "success"); }}
               className="px-4 py-2 rounded-lg text-sm font-medium"
-              style={{ background: "var(--accent-blue)", color: "#fff" }}
+              style={{ background: "var(--accent-primary)", color: "#fff" }}
             >
               {riskSaved ? "已保存" : "保存参数"}
             </button>
@@ -707,35 +692,6 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Theme */}
-      <section
-        className="rounded-lg p-5"
-        style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-      >
-        <h2 className="text-base font-semibold mb-4" style={{ color: "var(--foreground)" }}>
-          外观
-        </h2>
-        <div className="flex gap-2">
-          {([
-            { value: "dark" as ThemeMode, label: "暗色" },
-            { value: "light" as ThemeMode, label: "亮色" },
-            { value: "system" as ThemeMode, label: "跟随系统" },
-          ]).map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => { setTheme(opt.value); applyTheme(opt.value); }}
-              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
-              style={{
-                background: theme === opt.value ? "var(--accent-blue)" : "var(--surface-overlay)",
-                color: theme === opt.value ? "#fff" : "var(--foreground-muted)",
-                border: `1px solid ${theme === opt.value ? "var(--accent-blue)" : "var(--border)"}`,
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

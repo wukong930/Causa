@@ -226,7 +226,7 @@ function AlertCard({ alert }: { alert: Alert }) {
             <span
               key={a}
               className="text-xs px-1.5 py-0.5 rounded font-mono"
-              style={{ background: "var(--surface-overlay)", color: "var(--accent-blue)" }}
+              style={{ background: "var(--surface-overlay)", color: "var(--accent-primary)" }}
             >
               {a}
             </span>
@@ -260,7 +260,7 @@ function StrategyRow({ strategy }: { strategy: StrategyPoolItem }) {
           <span>·</span>
           <span className="flex gap-1">
             {assets.map((a) => (
-              <span key={a} className="font-mono" style={{ color: "var(--accent-blue)" }}>{a}</span>
+              <span key={a} className="font-mono" style={{ color: "var(--accent-primary)" }}>{a}</span>
             ))}
           </span>
         </div>
@@ -416,7 +416,7 @@ export default function DashboardPage() {
               <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
                 风控概览
               </h2>
-              <Link href="/positions" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+              <Link href="/positions" className="text-xs" style={{ color: "var(--accent-primary)" }}>
                 详情 →
               </Link>
             </div>
@@ -464,7 +464,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
               实时预警流
             </h2>
-            <Link href="/alerts" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+            <Link href="/alerts" className="text-xs" style={{ color: "var(--accent-primary)" }}>
               查看全部 →
             </Link>
           </div>
@@ -547,7 +547,7 @@ export default function DashboardPage() {
                 <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
                   账户状态
                 </h3>
-                <Link href="/positions" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+                <Link href="/positions" className="text-xs" style={{ color: "var(--accent-primary)" }}>
                   持仓 →
                 </Link>
               </div>
@@ -589,7 +589,7 @@ export default function DashboardPage() {
                       background:
                         marginPct >= 70 ? "var(--alert-critical)" :
                         marginPct >= 50 ? "var(--alert-high)" :
-                        "var(--accent-blue)",
+                        "var(--accent-primary)",
                     }}
                   />
                 </div>
@@ -616,7 +616,7 @@ export default function DashboardPage() {
               <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
                 待确认推荐
               </h2>
-              <Link href="/recommendations" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+              <Link href="/recommendations" className="text-xs" style={{ color: "var(--accent-primary)" }}>
                 查看全部 →
               </Link>
             </div>
@@ -637,7 +637,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
               机会队列
             </h2>
-            <Link href="/strategies" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+            <Link href="/strategies" className="text-xs" style={{ color: "var(--accent-primary)" }}>
               策略池 →
             </Link>
           </div>
@@ -661,7 +661,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
               研究摘要
             </h2>
-            <Link href="/research" className="text-xs" style={{ color: "var(--accent-blue)" }}>
+            <Link href="/research" className="text-xs" style={{ color: "var(--accent-primary)" }}>
               研究页 →
             </Link>
           </div>

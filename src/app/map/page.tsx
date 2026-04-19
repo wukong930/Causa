@@ -116,7 +116,7 @@ function NodeMarker({
         <circle
           r={NODE_RADIUS + 4}
           fill="none"
-          stroke="var(--accent-blue)"
+          stroke="var(--accent-primary)"
           strokeWidth="2"
         />
       )}
@@ -339,7 +339,7 @@ function NodeDetailPanel({
               const edge = relatedEdges.find((e) => (e.source === node.id && e.target === n.id) || (e.source === n.id && e.target === node.id));
               return (
                 <div key={n.id} className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-medium" style={{ color: "var(--accent-blue)" }}>
+                  <span className="font-mono text-xs font-medium" style={{ color: "var(--accent-primary)" }}>
                     {n.symbol}
                   </span>
                   <span className="text-xs" style={{ color: "var(--foreground-muted)" }}>
@@ -366,7 +366,7 @@ function NodeDetailPanel({
         <button
           onClick={() => onNavigate("alerts")}
           className="flex-1 text-xs py-2 rounded-lg font-medium"
-          style={{ background: "var(--accent-blue)", color: "#fff" }}
+          style={{ background: "var(--accent-primary)", color: "#fff" }}
         >
           查看预警
         </button>
@@ -457,9 +457,9 @@ function Legend({
             onClick={() => onToggleCluster(null)}
             className="text-xs px-2 py-1 rounded border transition-colors"
             style={{
-              background: selectedCluster === null ? "var(--accent-blue)" : "var(--surface-overlay)",
+              background: selectedCluster === null ? "var(--accent-primary)" : "var(--surface-overlay)",
               color: selectedCluster === null ? "#fff" : "var(--foreground-muted)",
-              borderColor: selectedCluster === null ? "var(--accent-blue)" : "var(--border)",
+              borderColor: selectedCluster === null ? "var(--accent-primary)" : "var(--border)",
             }}
           >
             全部
@@ -470,9 +470,9 @@ function Legend({
               onClick={() => onToggleCluster(selectedCluster === c ? null : c)}
               className="text-xs px-2 py-1 rounded border transition-colors"
               style={{
-                background: selectedCluster === c ? "var(--accent-blue)" : "var(--surface-overlay)",
+                background: selectedCluster === c ? "var(--accent-primary)" : "var(--surface-overlay)",
                 color: selectedCluster === c ? "#fff" : "var(--foreground-muted)",
-                borderColor: selectedCluster === c ? "var(--accent-blue)" : "var(--border)",
+                borderColor: selectedCluster === c ? "var(--accent-primary)" : "var(--border)",
               }}
             >
               {CLUSTER_CONFIGS[c].label}
@@ -635,7 +635,7 @@ export default function MapPage() {
             <div className="flex flex-col items-center gap-3">
               <div
                 className="w-8 h-8 rounded-full border-2"
-                style={{ borderColor: "var(--border)", borderTopColor: "var(--accent-blue)", animation: "spin 0.8s linear infinite" }}
+                style={{ borderColor: "var(--border)", borderTopColor: "var(--accent-primary)", animation: "spin 0.8s linear infinite" }}
               />
               <span className="text-sm" style={{ color: "var(--foreground-muted)" }}>加载市场图谱...</span>
             </div>

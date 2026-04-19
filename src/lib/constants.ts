@@ -170,6 +170,7 @@ export const NAV_ITEMS = [
   { id: "positions",       label: "持仓跟踪", href: "/positions",       icon: "briefcase" },
   { id: "research",        label: "研究",     href: "/research",        icon: "file-text" },
   { id: "analytics",       label: "分析",     href: "/analytics",       icon: "bar-chart" },
+  { id: "backtest",        label: "回测",     href: "/backtest",        icon: "activity" },
   { id: "settings",        label: "设置",     href: "/settings",        icon: "settings" },
 ] as const;
 

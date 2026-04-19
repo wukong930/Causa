@@ -39,7 +39,7 @@ function MarginBar({ rate }: { rate: number }) {
   const color =
     pct >= 70 ? "var(--alert-critical)" :
     pct >= 50 ? "var(--alert-high)" :
-    "var(--accent-blue)";
+    "var(--accent-primary)";
 
   return (
     <div className="flex items-center gap-3">
@@ -206,7 +206,7 @@ function ZScoreMiniBar({
       ? "var(--alert-critical)"
       : Math.abs(current) > 1.5
       ? "var(--alert-high)"
-      : "var(--accent-blue)";
+      : "var(--accent-primary)";
 
   return (
     <div className="w-16">
@@ -370,7 +370,7 @@ function PositionDetail({
         <h2 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
           {position.strategyName}
         </h2>
-        <div className="text-sm font-mono mt-0.5" style={{ color: "var(--accent-blue)" }}>
+        <div className="text-sm font-mono mt-0.5" style={{ color: "var(--accent-primary)" }}>
           {position.legs.map((l) => l.asset).join(" / ")}
         </div>
       </div>
@@ -629,7 +629,7 @@ export default function PositionsPage() {
                 {tab.count != null && tab.count > 0 && (
                   <span
                     className="text-xs px-1 py-0.5 rounded-full"
-                    style={{ background: "var(--accent-blue)", color: "#fff" }}
+                    style={{ background: "var(--accent-primary)", color: "#fff" }}
                   >
                     {tab.count}
                   </span>
@@ -640,7 +640,7 @@ export default function PositionsPage() {
             <button
               onClick={() => setShowNewForm(true)}
               className="px-3 py-1.5 rounded text-xs font-medium"
-              style={{ background: "var(--accent-blue)", color: "#fff" }}
+              style={{ background: "var(--accent-primary)", color: "#fff" }}
             >
               + 新建持仓
             </button>
@@ -687,7 +687,7 @@ export default function PositionsPage() {
             </div>
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={handleCreatePosition} disabled={creating} className="px-4 py-1.5 rounded text-xs font-medium" style={{ background: "var(--accent-blue)", color: "#fff", opacity: creating ? 0.6 : 1 }}>
+            <button onClick={handleCreatePosition} disabled={creating} className="px-4 py-1.5 rounded text-xs font-medium" style={{ background: "var(--accent-primary)", color: "#fff", opacity: creating ? 0.6 : 1 }}>
               {creating ? "创建中..." : "确认创建"}
             </button>
             <button onClick={() => setShowNewForm(false)} className="px-4 py-1.5 rounded text-xs" style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}>
@@ -767,14 +767,14 @@ export default function PositionsPage() {
                           <tr>
                             <th className="px-2 py-1" />
                             {correlationMatrix.symbols.map((s) => (
-                              <th key={s} className="px-2 py-1 font-mono text-center" style={{ color: "var(--accent-blue)" }}>{s}</th>
+                              <th key={s} className="px-2 py-1 font-mono text-center" style={{ color: "var(--accent-primary)" }}>{s}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {correlationMatrix.symbols.map((row, i) => (
                             <tr key={row}>
-                              <td className="px-2 py-1 font-mono font-medium" style={{ color: "var(--accent-blue)" }}>{row}</td>
+                              <td className="px-2 py-1 font-mono font-medium" style={{ color: "var(--accent-primary)" }}>{row}</td>
                               {(correlationMatrix.matrix[i] ?? []).map((val, j) => {
                                 const abs = Math.abs(val);
                                 const bg = i === j ? "transparent"

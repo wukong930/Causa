@@ -75,7 +75,7 @@ export function MobileNav() {
             key={item.id}
             href={item.href}
             className="flex flex-1 flex-col items-center justify-center gap-0.5 relative"
-            style={{ color: isActive ? "var(--accent-blue)" : "var(--foreground-muted)" }}
+            style={{ color: isActive ? "var(--accent-primary)" : "var(--foreground-muted)" }}
           >
             <span className="relative">
               {icons[item.icon]}

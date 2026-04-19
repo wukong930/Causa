@@ -1,102 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0d0f12;
-  --surface: #161b22;
-  --surface-raised: #1c2330;
-  --surface-overlay: #232d3b;
-  --border: #2a3444;
-  --border-subtle: #1e2a38;
+  --background: #080808;
+  --surface: #111111;
+  --surface-raised: #1a1a1a;
+  --surface-overlay: #222222;
+  --border: #2a2a2a;
+  --border-subtle: #1f1f1f;
 
-  --foreground: #e6edf3;
-  --foreground-muted: #8b949e;
-  --foreground-subtle: #4d5966;
+  --foreground: #e5e5e5;
+  --foreground-muted: #a3a3a3;
+  --foreground-subtle: #737373;
 
-  --accent-blue: #388bfd;
-  --accent-blue-muted: #1f3a5f;
+  --accent-primary: #d97706;
+  --accent-primary-muted: rgba(217, 119, 6, 0.15);
 
-  --alert-critical: #f85149;
-  --alert-critical-muted: #3d1a1a;
-  --alert-high: #e3b341;
-  --alert-high-muted: #3d2e0a;
-  --alert-medium: #388bfd;
-  --alert-medium-muted: #1f3a5f;
-  --alert-low: #3fb950;
-  --alert-low-muted: #1a3d22;
+  --alert-critical: #ef4444;
+  --alert-critical-muted: #3b1111;
+  --alert-high: #eab308;
+  --alert-high-muted: #3b2e08;
+  --alert-medium: #d97706;
+  --alert-medium-muted: rgba(217, 119, 6, 0.15);
+  --alert-low: #22c55e;
+  --alert-low-muted: #0f2e1a;
 
-  --positive: #3fb950;
-  --positive-muted: #1a3d22;
-  --negative: #f85149;
-  --negative-muted: #3d1a1a;
-  --neutral: #8b949e;
+  --positive: #22c55e;
+  --positive-muted: #0f2e1a;
+  --negative: #ef4444;
+  --negative-muted: #3b1111;
+  --neutral: #a3a3a3;
 
   --nav-width: 220px;
   --topnav-height: 56px;
   --mobile-nav-height: 60px;
-}
-
-[data-theme="light"] {
-  --background: #f6f8fa;
-  --surface: #ffffff;
-  --surface-raised: #f0f3f6;
-  --surface-overlay: #e8ecf0;
-  --border: #d0d7de;
-  --border-subtle: #e1e7ed;
-
-  --foreground: #1f2328;
-  --foreground-muted: #57606a;
-  --foreground-subtle: #8b949e;
-
-  --accent-blue: #0969da;
-  --accent-blue-muted: #ddf4ff;
-
-  --alert-critical: #cf222e;
-  --alert-critical-muted: #ffebe9;
-  --alert-high: #bf8700;
-  --alert-high-muted: #fff8c5;
-  --alert-medium: #0969da;
-  --alert-medium-muted: #ddf4ff;
-  --alert-low: #1a7f37;
-  --alert-low-muted: #dafbe1;
-
-  --positive: #1a7f37;
-  --positive-muted: #dafbe1;
-  --positive-subtle: #dafbe1;
-  --negative: #cf222e;
-  --negative-muted: #ffebe9;
-  --negative-subtle: #ffebe9;
-  --neutral: #57606a;
-}
-
-@media (prefers-color-scheme: light) {
-  [data-theme="system"] {
-    --background: #f6f8fa;
-    --surface: #ffffff;
-    --surface-raised: #f0f3f6;
-    --surface-overlay: #e8ecf0;
-    --border: #d0d7de;
-    --border-subtle: #e1e7ed;
-    --foreground: #1f2328;
-    --foreground-muted: #57606a;
-    --foreground-subtle: #8b949e;
-    --accent-blue: #0969da;
-    --accent-blue-muted: #ddf4ff;
-    --alert-critical: #cf222e;
-    --alert-critical-muted: #ffebe9;
-    --alert-high: #bf8700;
-    --alert-high-muted: #fff8c5;
-    --alert-medium: #0969da;
-    --alert-medium-muted: #ddf4ff;
-    --alert-low: #1a7f37;
-    --alert-low-muted: #dafbe1;
-    --positive: #1a7f37;
-    --positive-muted: #dafbe1;
-    --positive-subtle: #dafbe1;
-    --negative: #cf222e;
-    --negative-muted: #ffebe9;
-    --negative-subtle: #ffebe9;
-    --neutral: #57606a;
-  }
 }
 
 @theme inline {
@@ -109,7 +45,7 @@
   --color-foreground: var(--foreground);
   --color-foreground-muted: var(--foreground-muted);
   --color-foreground-subtle: var(--foreground-subtle);
-  --color-accent-blue: var(--accent-blue);
+  --color-accent-primary: var(--accent-primary);
   --color-alert-critical: var(--alert-critical);
   --color-alert-high: var(--alert-high);
   --color-alert-medium: var(--alert-medium);
@@ -133,18 +69,10 @@ html {
   color-scheme: dark;
 }
 
-html[data-theme="light"] {
-  color-scheme: light;
-}
-
-html[data-theme="system"] {
-  color-scheme: light dark;
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Helvetica, Arial, sans-serif;
+  font-family: "Consolas", "SF Mono", "Fira Code", "JetBrains Mono", monospace;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;

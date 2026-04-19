@@ -30,7 +30,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const colors: Record<Toast["type"], { bg: string; color: string }> = {
     success: { bg: "var(--positive-muted)", color: "var(--positive)" },
     error: { bg: "var(--negative-muted)", color: "var(--negative)" },
-    info: { bg: "var(--accent-blue-muted)", color: "var(--accent-blue)" },
+    info: { bg: "var(--accent-primary-muted)", color: "var(--accent-primary)" },
   };
 
   return (

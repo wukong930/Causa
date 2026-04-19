@@ -198,7 +198,7 @@ function CreateStrategyModal({
                 type="button"
                 onClick={addLeg}
                 className="text-xs px-2 py-1 rounded transition-colors"
-                style={{ background: "var(--surface-overlay)", color: "var(--accent-blue)", border: "1px solid var(--border)" }}
+                style={{ background: "var(--surface-overlay)", color: "var(--accent-primary)", border: "1px solid var(--border)" }}
               >
                 + 添加腿
               </button>
@@ -300,7 +300,7 @@ function CreateStrategyModal({
             <button
               type="submit"
               className="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
-              style={{ background: "var(--accent-blue)", color: "#fff" }}
+              style={{ background: "var(--accent-primary)", color: "#fff" }}
             >
               创建策略
             </button>
@@ -375,9 +375,9 @@ function FilterPill({ label, active, onClick }: { label: string; active: boolean
       onClick={onClick}
       className="text-xs px-3 py-1.5 rounded-full border transition-colors"
       style={{
-        background: active ? "var(--accent-blue)" : "var(--surface)",
+        background: active ? "var(--accent-primary)" : "var(--surface)",
         color: active ? "#fff" : "var(--foreground-muted)",
-        borderColor: active ? "var(--accent-blue)" : "var(--border)",
+        borderColor: active ? "var(--accent-primary)" : "var(--border)",
       }}
     >
       {label}
@@ -490,7 +490,7 @@ function StrategyCard({
                   ? "var(--alert-critical)"
                   : Math.abs(h.currentZScore) > 1.5
                   ? "var(--alert-high)"
-                  : "var(--accent-blue)",
+                  : "var(--accent-primary)",
             }}
           />
         </div>
@@ -776,7 +776,7 @@ export default function StrategiesPage() {
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors"
-              style={{ background: "var(--accent-blue)", color: "#fff" }}
+              style={{ background: "var(--accent-primary)", color: "#fff" }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>

@@ -27,9 +27,9 @@ function FilterPill({
       onClick={onClick}
       className="text-xs px-3 py-1.5 rounded-full border transition-colors"
       style={{
-        background: active ? "var(--accent-blue)" : "var(--surface)",
+        background: active ? "var(--accent-primary)" : "var(--surface)",
         color: active ? "#fff" : "var(--foreground-muted)",
-        borderColor: active ? "var(--accent-blue)" : "var(--border)",
+        borderColor: active ? "var(--accent-primary)" : "var(--border)",
       }}
     >
       {label}
@@ -131,7 +131,7 @@ function RecommendationDetail({
           style={{ color: "var(--foreground-subtle)" }}
           onClick={(e) => { e.stopPropagation(); setOpenTooltip(isOpen ? null : tooltipKey); }}
         >
-          {label} <span style={{ color: "var(--accent-blue)" }}>ⓘ</span>
+          {label} <span style={{ color: "var(--accent-primary)" }}>ⓘ</span>
         </div>
         <div className="text-xl font-semibold font-mono" style={{ color: color || "var(--foreground)" }}>
           {value}
@@ -166,7 +166,7 @@ function RecommendationDetail({
             {RECOMMENDED_ACTION_LABEL[rec.recommendedAction]}
           </span>
           {rec.strategyId && (
-            <span className="text-xs font-mono" style={{ color: "var(--accent-blue)" }}>
+            <span className="text-xs font-mono" style={{ color: "var(--accent-primary)" }}>
               {rec.strategyId}
             </span>
           )}
@@ -186,10 +186,10 @@ function RecommendationDetail({
           style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.3)" }}
         >
           <div className="flex items-center gap-2 mb-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-blue)" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-primary)" }}>
               <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
             </svg>
-            <span className="text-xs font-semibold" style={{ color: "var(--accent-blue)" }}>通俗建议</span>
+            <span className="text-xs font-semibold" style={{ color: "var(--accent-primary)" }}>通俗建议</span>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)" }}>
             {rec.oneLiner && (

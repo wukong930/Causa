@@ -24,6 +24,21 @@ class BacktestRequest(BaseModel):
     window: int = 60
 
 
+class EquityPoint(BaseModel):
+    date: str
+    equity: float
+    drawdown: float
+
+
+class Trade(BaseModel):
+    entry_date: str
+    exit_date: str
+    direction: str
+    pnl: float
+    return_pct: float
+    holding_days: int
+
+
 class BacktestResult(BaseModel):
     hypothesis_id: str
     sharpe_ratio: float
@@ -35,6 +50,14 @@ class BacktestResult(BaseModel):
     ic: float  # information coefficient
     calmar_ratio: float
     profit_factor: float
+    # Advanced metrics
+    sortino_ratio: float = 0.0
+    omega_ratio: float = 0.0
+    max_drawdown_duration: int = 0  # days
+    recovery_factor: float = 0.0
+    tail_ratio: float = 0.0
+    equity_curve: list[EquityPoint] = []
+    trades: list[Trade] = []
 
 
 def _build_spread_series(
@@ -61,6 +84,8 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
             sharpe_ratio=0, max_drawdown=0, win_rate=0,
             total_return=0, avg_holding_days=0, trade_count=0,
             ic=0, calmar_ratio=0, profit_factor=0,
+            sortino_ratio=0, omega_ratio=0, max_drawdown_duration=0,
+            recovery_factor=0, tail_ratio=0,
         )
 
     spread = _build_spread_series(req.prices, req.legs, dates)
@@ -107,6 +132,20 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
     calmar = abs(total_ret / max_dd) if max_dd != 0 else 0.0
     profit_factor = float(stats.get("Profit Factor", 0) or 0)
 
+    # Advanced metrics
+    from advanced_metrics import (
+        calculate_sortino, calculate_omega, calculate_tail_ratio,
+        build_equity_curve, extract_trades, max_drawdown_duration,
+    )
+    daily_returns = pf.returns()
+    sortino = calculate_sortino(daily_returns)
+    omega = calculate_omega(daily_returns)
+    tail = calculate_tail_ratio(daily_returns)
+    equity = build_equity_curve(pf)
+    trade_list = extract_trades(pf)
+    dd_duration = max_drawdown_duration(pf)
+    recovery = abs(total_ret / max_dd) if max_dd != 0 else 0.0
+
     return BacktestResult(
         hypothesis_id=req.hypothesis_id,
         sharpe_ratio=round(sharpe, 3),
@@ -118,4 +157,11 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
         ic=round(ic, 4),
         calmar_ratio=round(calmar, 3),
         profit_factor=round(profit_factor, 3),
+        sortino_ratio=round(sortino, 3),
+        omega_ratio=round(omega, 3),
+        max_drawdown_duration=dd_duration,
+        recovery_factor=round(recovery, 3),
+        tail_ratio=round(tail, 3),
+        equity_curve=equity,
+        trades=trade_list,
     )

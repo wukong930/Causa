@@ -5,7 +5,7 @@ interface ProgressBarProps {
   showPercent?: boolean;
 }
 
-export function ProgressBar({ value, color = "var(--accent-blue)", label, showPercent = true }: ProgressBarProps) {
+export function ProgressBar({ value, color = "var(--accent-primary)", label, showPercent = true }: ProgressBarProps) {
   const pct = Math.round(value * 100);
   return (
     <div className="flex items-center gap-2">

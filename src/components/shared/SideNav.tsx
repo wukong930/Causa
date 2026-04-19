@@ -103,7 +103,7 @@ export function SideNav() {
       >
         <div
           className="w-7 h-7 rounded flex items-center justify-center text-xs font-bold"
-          style={{ background: "var(--accent-blue)", color: "#fff" }}
+          style={{ background: "var(--accent-primary)", color: "#fff" }}
         >
           C
         </div>

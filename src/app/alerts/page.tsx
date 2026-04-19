@@ -29,9 +29,9 @@ function FilterPill({
       onClick={onClick}
       className="text-xs px-3 py-1.5 rounded-full border transition-colors"
       style={{
-        background: active ? "var(--accent-blue)" : "var(--surface)",
+        background: active ? "var(--accent-primary)" : "var(--surface)",
         color: active ? "#fff" : "var(--foreground-muted)",
-        borderColor: active ? "var(--accent-blue)" : "var(--border)",
+        borderColor: active ? "var(--accent-primary)" : "var(--border)",
       }}
     >
       {label}
@@ -92,7 +92,7 @@ function AlertRow({
               <span
                 key={a}
                 className="text-xs font-mono"
-                style={{ color: "var(--accent-blue)" }}
+                style={{ color: "var(--accent-primary)" }}
               >
                 {getCommodityName(a)}
               </span>

@@ -104,7 +104,7 @@ export function TopBar() {
   useEffect(() => { doSearch(query); }, [query, doSearch]);
 
   const TYPE_COLORS: Record<string, string> = {
-    commodity: "var(--accent-blue)",
+    commodity: "var(--accent-primary)",
     alert: "var(--alert-high)",
     strategy: "var(--positive)",
     recommendation: "var(--alert-medium)",

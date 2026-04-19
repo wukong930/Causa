@@ -105,10 +105,10 @@ export function AlertDetail({
         style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.3)" }}
       >
         <div className="flex items-center gap-2 mb-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-blue)" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-primary)" }}>
             <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
           </svg>
-          <span className="text-xs font-semibold" style={{ color: "var(--accent-blue)" }}>简单来说</span>
+          <span className="text-xs font-semibold" style={{ color: "var(--accent-primary)" }}>简单来说</span>
         </div>
         <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)" }}>
           {alert.oneLiner && (
@@ -124,7 +124,7 @@ export function AlertDetail({
           <span
             key={a}
             className="text-sm px-2 py-1 rounded font-mono font-medium"
-            style={{ background: "var(--surface-overlay)", color: "var(--accent-blue)", border: "1px solid var(--border)" }}
+            style={{ background: "var(--surface-overlay)", color: "var(--accent-primary)", border: "1px solid var(--border)" }}
           >
             {getCommodityName(a)}
           </span>
@@ -210,8 +210,8 @@ export function AlertDetail({
               <div
                 className="absolute -left-2.5 top-1 w-2 h-2 rounded-full border-2 shrink-0"
                 style={{
-                  background: i === alert.triggerChain.length - 1 ? "var(--accent-blue)" : "var(--surface-raised)",
-                  borderColor: i === alert.triggerChain.length - 1 ? "var(--accent-blue)" : "var(--border)",
+                  background: i === alert.triggerChain.length - 1 ? "var(--accent-primary)" : "var(--surface-raised)",
+                  borderColor: i === alert.triggerChain.length - 1 ? "var(--accent-primary)" : "var(--border)",
                 }}
               />
               <div className="pl-2 flex-1">
@@ -256,7 +256,7 @@ export function AlertDetail({
                 style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
               >
                 <span style={{ color: "var(--foreground-muted)" }}>关联策略</span>
-                <span className="font-mono text-xs" style={{ color: "var(--accent-blue)" }}>
+                <span className="font-mono text-xs" style={{ color: "var(--accent-primary)" }}>
                   {alert.relatedStrategyId}
                 </span>
               </div>
@@ -267,7 +267,7 @@ export function AlertDetail({
                 style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
               >
                 <span style={{ color: "var(--foreground-muted)" }}>关联推荐</span>
-                <span className="font-mono text-xs" style={{ color: "var(--accent-blue)" }}>
+                <span className="font-mono text-xs" style={{ color: "var(--accent-primary)" }}>
                   {alert.relatedRecommendationId}
                 </span>
               </div>

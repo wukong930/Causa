@@ -1,132 +1,156 @@
 import { db } from '@/db';
 import { marketData } from '@/db/schema';
-import { eq, desc, count } from 'drizzle-orm';
+import { count } from 'drizzle-orm';
+
+const BACKTEST_URL = process.env.BACKTEST_SERVICE_URL || 'http://localhost:8100';
 
 const SYMBOLS = [
   // 黑色
-  { symbol: 'RB2506', commodity: '螺纹钢', exchange: 'SHFE', market: 'SHFE' },
-  { symbol: 'HC2506', commodity: '热卷', exchange: 'SHFE', market: 'SHFE' },
-  { symbol: 'I2506', commodity: '铁矿石', exchange: 'DCE', market: 'DCE' },
-  { symbol: 'J2506', commodity: '焦炭', exchange: 'DCE', market: 'DCE' },
-  { symbol: 'JM2506', commodity: '焦煤', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'RB', commodity: '螺纹钢', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'HC', commodity: '热卷', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'I', commodity: '铁矿石', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'J', commodity: '焦炭', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'JM', commodity: '焦煤', exchange: 'DCE', market: 'DCE' },
   // 有色
-  { symbol: 'CU2506', commodity: '铜', exchange: 'SHFE', market: 'SHFE' },
-  { symbol: 'AL2506', commodity: '铝', exchange: 'SHFE', market: 'SHFE' },
-  { symbol: 'ZN2506', commodity: '锌', exchange: 'SHFE', market: 'SHFE' },
-  { symbol: 'NI2506', commodity: '镍', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'CU', commodity: '铜', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'AL', commodity: '铝', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'ZN', commodity: '锌', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'NI', commodity: '镍', exchange: 'SHFE', market: 'SHFE' },
   // 能化
-  { symbol: 'SC2506', commodity: '原油', exchange: 'INE', market: 'INE' },
-  { symbol: 'PP2506', commodity: '聚丙烯', exchange: 'DCE', market: 'DCE' },
-  { symbol: 'TA2506', commodity: 'PTA', exchange: 'ZCE', market: 'ZCE' },
-  { symbol: 'MEG2506', commodity: '乙二醇', exchange: 'DCE', market: 'DCE' },
-  { symbol: 'MA2506', commodity: '甲醇', exchange: 'ZCE', market: 'ZCE' },
+  { symbol: 'SC', commodity: '原油', exchange: 'INE', market: 'INE' },
+  { symbol: 'PP', commodity: '聚丙烯', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'TA', commodity: 'PTA', exchange: 'CZCE', market: 'CZCE' },
+  { symbol: 'MEG', commodity: '乙二醇', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'MA', commodity: '甲醇', exchange: 'CZCE', market: 'CZCE' },
   // 农产品
-  { symbol: 'P2506', commodity: '棕榈油', exchange: 'DCE', market: 'DCE' },
-  { symbol: 'Y2506', commodity: '豆油', exchange: 'DCE', market: 'DCE' },
-  { symbol: 'M2506', commodity: '豆粕', exchange: 'DCE', market: 'DCE' },
-  { symbol: 'CF2506', commodity: '棉花', exchange: 'ZCE', market: 'ZCE' },
+  { symbol: 'P', commodity: '棕榈油', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'Y', commodity: '豆油', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'M', commodity: '豆粕', exchange: 'DCE', market: 'DCE' },
+  { symbol: 'CF', commodity: '棉花', exchange: 'CZCE', market: 'CZCE' },
   // 贵金属
-  { symbol: 'AU2506', commodity: '黄金', exchange: 'SHFE', market: 'SHFE' },
-  { symbol: 'AG2506', commodity: '白银', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'AU', commodity: '黄金', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'AG', commodity: '白银', exchange: 'SHFE', market: 'SHFE' },
 ];
 
-// Base prices per symbol (realistic CNY levels)
+// Fallback base prices when AkShare is unavailable
 const BASE_PRICES: Record<string, number> = {
-  RB2506: 3650, HC2506: 3850, I2506: 880, J2506: 2150, JM2506: 1580,
-  CU2506: 72000, AL2506: 20500, ZN2506: 22800, NI2506: 128000,
-  SC2506: 560, PP2506: 7800, TA2506: 5900, MEG2506: 4600, MA2506: 2650,
-  P2506: 8200, Y2506: 7900, M2506: 3200, CF2506: 14500,
-  AU2506: 580, AG2506: 7200,
+  RB: 3650, HC: 3850, I: 880, J: 2150, JM: 1580,
+  CU: 72000, AL: 20500, ZN: 22800, NI: 128000,
+  SC: 560, PP: 7800, TA: 5900, MEG: 4600, MA: 2650,
+  P: 8200, Y: 7900, M: 3200, CF: 14500, AU: 580, AG: 7200,
 };
 
-function generateOHLCV(basePrice: number) {
-  const change = (Math.random() - 0.48) * basePrice * 0.02; // slight upward bias, ±1%
-  const open = basePrice;
-  const close = basePrice + change;
-  const high = Math.max(open, close) + Math.random() * basePrice * 0.005;
-  const low = Math.min(open, close) - Math.random() * basePrice * 0.005;
-  const settle = close + (Math.random() - 0.5) * basePrice * 0.002;
-  const volume = Math.floor(50000 + Math.random() * 100000);
-  const openInterest = Math.floor(200000 + Math.random() * 300000);
-  return { open: Math.round(open), high: Math.round(high), low: Math.round(low), close: Math.round(close), settle: Math.round(settle), volume, openInterest };
-}
-
-/**
- * Seed 60 days of historical data for all watched symbols.
- * Called once on startup if market_data is empty.
- */
-export async function seedHistoricalData(): Promise<number> {
+async function seedSymbolFallback(symbol: string, commodity: string, exchange: string, market: string): Promise<number> {
   const rows: any[] = [];
   const now = new Date();
-  const DAYS = 90; // ~63 trading days after removing weekends, need ≥60
-
-  for (const { symbol, commodity, exchange, market } of SYMBOLS) {
-    let price = BASE_PRICES[symbol] || 3500;
-
-    for (let i = DAYS - 1; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      // Skip weekends
-      if (date.getDay() === 0 || date.getDay() === 6) continue;
-      date.setHours(15, 0, 0, 0);
-
-      const bar = generateOHLCV(price);
-      rows.push({
-        id: `${symbol}_${date.toISOString()}`,
-        market, exchange, commodity, symbol,
-        contractMonth: '2506',
-        timestamp: date,
-        ...bar,
-        currency: 'CNY',
-        timezone: 'Asia/Shanghai',
-      });
-      price = bar.close; // next day starts from previous close
-    }
+  let price = BASE_PRICES[symbol] || 3500;
+  for (let i = 89; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    if (date.getDay() === 0 || date.getDay() === 6) continue;
+    date.setHours(15, 0, 0, 0);
+    const change = (Math.random() - 0.48) * price * 0.02;
+    const close = price + change;
+    const high = Math.max(price, close) + Math.random() * price * 0.005;
+    const low = Math.min(price, close) - Math.random() * price * 0.005;
+    rows.push({
+      id: `${symbol}_${date.toISOString()}`, market, exchange, commodity, symbol,
+      contractMonth: 'main', timestamp: date,
+      open: Math.round(price), high: Math.round(high), low: Math.round(low),
+      close: Math.round(close), settle: Math.round(close),
+      volume: Math.floor(50000 + Math.random() * 100000),
+      openInterest: Math.floor(200000 + Math.random() * 300000),
+      currency: 'CNY', timezone: 'Asia/Shanghai',
+    });
+    price = close;
   }
-
-  // Batch insert
   const batchSize = 50;
   for (let i = 0; i < rows.length; i += batchSize) {
     await db.insert(marketData).values(rows.slice(i, i + batchSize)).onConflictDoNothing();
   }
-  console.log(`[market-ingest] Seeded ${rows.length} historical records for ${SYMBOLS.length} symbols`);
   return rows.length;
 }
 
 /**
- * Append today's OHLCV for all watched symbols.
- * Called daily by the ingest cron job.
+ * Seed historical data from AkShare for all watched symbols.
+ * Falls back to simulated data if backtest service is unavailable.
+ */
+export async function seedHistoricalData(): Promise<number> {
+  let totalInserted = 0;
+
+  for (const { symbol, commodity, exchange, market } of SYMBOLS) {
+    try {
+      const res = await fetch(`${BACKTEST_URL}/market-data/${symbol}?days=90`, { signal: AbortSignal.timeout(15000) });
+      if (!res.ok) {
+        console.warn(`[market-ingest] AkShare unavailable for ${symbol}, using fallback`);
+        totalInserted += await seedSymbolFallback(symbol, commodity, exchange, market);
+        continue;
+      }
+      const bars: AkShareBar[] = await res.json();
+      const rows = bars.map((bar) => ({
+        id: `${symbol}_${bar.date}`,
+        market, exchange, commodity, symbol,
+        contractMonth: 'main',
+        timestamp: new Date(bar.date),
+        open: bar.open, high: bar.high, low: bar.low, close: bar.close,
+        settle: bar.close,
+        volume: bar.volume, openInterest: bar.open_interest,
+        currency: 'CNY', timezone: 'Asia/Shanghai',
+      }));
+
+      const batchSize = 50;
+      for (let i = 0; i < rows.length; i += batchSize) {
+        await db.insert(marketData).values(rows.slice(i, i + batchSize) as any).onConflictDoNothing();
+      }
+      totalInserted += rows.length;
+    } catch (err) {
+      console.warn(`[market-ingest] Failed to fetch ${symbol} from AkShare:`, err);
+      totalInserted += await seedSymbolFallback(symbol, commodity, exchange, market);
+    }
+  }
+
+  console.log(`[market-ingest] Seeded ${totalInserted} records for ${SYMBOLS.length} symbols`);
+  return totalInserted;
+}
+
+interface AkShareBar {
+  date: string; open: number; high: number; low: number;
+  close: number; volume: number; open_interest: number; symbol: string;
+}
+
+/**
+ * Append today's data from AkShare for all watched symbols.
  */
 export async function ingestDailyData(): Promise<number> {
   const now = new Date();
-  // Skip weekends
   if (now.getDay() === 0 || now.getDay() === 6) return 0;
 
   let inserted = 0;
   for (const { symbol, commodity, exchange, market } of SYMBOLS) {
-    const ts = new Date(now);
-    ts.setHours(15, 0, 0, 0);
-    const id = `${symbol}_${ts.toISOString()}`;
+    try {
+      const res = await fetch(`${BACKTEST_URL}/market-data/${symbol}?days=5`, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) continue;
+      const bars: AkShareBar[] = await res.json();
+      if (!bars.length) continue;
 
-    // Get last close price as base
-    const last = await db.select({ close: marketData.close })
-      .from(marketData)
-      .where(eq(marketData.symbol, symbol))
-      .orderBy(desc(marketData.timestamp))
-      .limit(1);
+      const latest = bars[bars.length - 1];
+      const ts = new Date(latest.date);
+      ts.setHours(15, 0, 0, 0);
+      const id = `${symbol}_${ts.toISOString()}`;
 
-    const basePrice = last[0]?.close ?? (BASE_PRICES[symbol] || 3500);
-    const bar = generateOHLCV(basePrice);
-
-    await db.insert(marketData).values({
-      id, market, exchange, commodity, symbol,
-      contractMonth: '2506',
-      timestamp: ts,
-      ...bar,
-      currency: 'CNY',
-      timezone: 'Asia/Shanghai',
-    }).onConflictDoNothing();
-    inserted++;
+      await db.insert(marketData).values({
+        id, market, exchange, commodity, symbol,
+        contractMonth: 'main',
+        timestamp: ts,
+        open: latest.open, high: latest.high, low: latest.low,
+        close: latest.close, settle: latest.close,
+        volume: latest.volume, openInterest: latest.open_interest,
+        currency: 'CNY', timezone: 'Asia/Shanghai',
+      } as any).onConflictDoNothing();
+      inserted++;
+    } catch (err) {
+      console.warn(`[market-ingest] Daily ingest failed for ${symbol}:`, err);
+    }
   }
   console.log(`[market-ingest] Ingested ${inserted} daily records`);
   return inserted;

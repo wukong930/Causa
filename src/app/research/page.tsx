@@ -69,7 +69,7 @@ function HypothesisCard({ hyp, onStatusChange }: { hyp: ResearchHypothesis; onSt
                 width: `${Math.round(hyp.confidence * 100)}%`,
                 background:
                   hyp.confidence >= 0.8 ? "var(--positive)" :
-                  hyp.confidence >= 0.6 ? "var(--accent-blue)" :
+                  hyp.confidence >= 0.6 ? "var(--accent-primary)" :
                   "var(--alert-high)",
               }}
             />
@@ -154,10 +154,10 @@ function ReportViewer({ report }: { report: ResearchReport }) {
           style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.3)" }}
         >
           <div className="flex items-center gap-2 mb-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-blue)" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-primary)" }}>
               <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
             </svg>
-            <span className="text-xs font-semibold" style={{ color: "var(--accent-blue)" }}>通俗解读</span>
+            <span className="text-xs font-semibold" style={{ color: "var(--accent-primary)" }}>通俗解读</span>
           </div>
           <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)" }}>
             <span className="block font-semibold mb-1">
@@ -363,9 +363,9 @@ export default function ResearchPage() {
                     onClick={() => setHypFilter(f.value)}
                     className="text-xs px-2.5 py-1 rounded-full border transition-colors"
                     style={{
-                      background: active ? "var(--accent-blue)" : "var(--surface)",
+                      background: active ? "var(--accent-primary)" : "var(--surface)",
                       color: active ? "#fff" : "var(--foreground-muted)",
-                      borderColor: active ? "var(--accent-blue)" : "var(--border)",
+                      borderColor: active ? "var(--accent-primary)" : "var(--border)",
                     }}
                   >
                     {f.label}
