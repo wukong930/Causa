@@ -132,7 +132,8 @@ interface AkShareBar {
 }
 
 /**
- * Append today's data from AkShare for all watched symbols.
+ * Fetch latest data from AkShare for all watched symbols.
+ * Runs multiple times per trading day to keep prices fresh.
  */
 export async function ingestDailyData(): Promise<number> {
   const now = new Date();
@@ -148,8 +149,8 @@ export async function ingestDailyData(): Promise<number> {
 
       const latest = bars[bars.length - 1];
       const ts = new Date(latest.date);
-      ts.setHours(15, 0, 0, 0);
-      const id = `${symbol}_${ts.toISOString()}`;
+      ts.setHours(0, 0, 0, 0);
+      const id = `${symbol}_${latest.date}`;
 
       await db.insert(marketData).values({
         id, market, exchange, commodity, symbol,
@@ -159,7 +160,17 @@ export async function ingestDailyData(): Promise<number> {
         close: latest.close, settle: latest.close,
         volume: latest.volume, openInterest: latest.open_interest,
         currency: 'CNY', timezone: 'Asia/Shanghai',
-      } as any).onConflictDoNothing();
+      } as any).onConflictDoUpdate({
+        target: marketData.id,
+        set: {
+          high: latest.high,
+          low: latest.low,
+          close: latest.close,
+          settle: latest.close,
+          volume: latest.volume,
+          openInterest: latest.open_interest,
+        },
+      });
       inserted++;
     } catch (err) {
       console.warn(`[market-ingest] Daily ingest failed for ${symbol}:`, err);

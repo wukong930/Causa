@@ -14,7 +14,7 @@ export interface ScheduledJob {
 }
 
 const DEFAULT_JOBS: Omit<ScheduledJob, 'running'>[] = [
-  { id: 'ingest', name: '行情数据', cron: '0 15 * * 1-5', endpoint: '/api/cron/ingest', enabled: true },
+  { id: 'ingest', name: '行情数据', cron: '5 10,11,14,15 * * 1-5', endpoint: '/api/cron/ingest', enabled: true },
   { id: 'context', name: '上下文刷新', cron: '0 */4 * * *', endpoint: '/api/cron/context', enabled: true },
   { id: 'alerts', name: '预警触发', cron: '0 * * * *', endpoint: '/api/alerts/cron', enabled: true },
   { id: 'evolution', name: '假设演化', cron: '0 8 * * *', endpoint: '/api/cron/evolution', enabled: true },
