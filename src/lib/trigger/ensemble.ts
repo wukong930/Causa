@@ -32,7 +32,7 @@ const SIGNAL_WEIGHTS: Record<string, number> = {
   spread_anomaly: 1.0,
   basis_shift: 0.85,
   momentum: 0.7,
-  regime_shift: 0.9,
+  regime_shift: 0.5,
   inventory_shock: 0.75,
   event_driven: 0.6,
 };
@@ -99,6 +99,18 @@ export function ensembleSignals(
       suppressed.push({
         type: alert.type,
         reason: `置信度 ${(alert.result.confidence * 100).toFixed(0)}% 远低于最强信号 ${(maxConfidence * 100).toFixed(0)}%`,
+      });
+    // Single-signal minimum confidence: 0.65
+    } else if (finalAlerts.length === 1 && alert.result.confidence < 0.65) {
+      suppressed.push({
+        type: alert.type,
+        reason: `单信号置信度 ${(alert.result.confidence * 100).toFixed(0)}% 低于阈值 65%`,
+      });
+    // regime_shift cannot trigger alone — must resonate with other signal types
+    } else if (alert.type === "regime_shift" && types.size === 1) {
+      suppressed.push({
+        type: alert.type,
+        reason: `regime_shift 单独触发，需与其他信号共振`,
       });
     } else {
       output.push(alert);

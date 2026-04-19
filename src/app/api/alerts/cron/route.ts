@@ -65,7 +65,8 @@ const CRON_WATCHLIST: Array<{ symbol1: string; symbol2?: string; category: Alert
   { symbol1: 'AG', category: 'nonferrous' },
 ];
 
-const WINDOW = 60;
+const WINDOW = 250;
+const WINDOW_FALLBACK = 60;
 
 // POST /api/alerts/cron - Scheduled alert trigger (called by cron job)
 export async function POST(request: NextRequest) {
@@ -130,8 +131,9 @@ async function triggerForPair(
     .orderBy(desc(marketData.timestamp))
     .limit(WINDOW);
 
-  if (data1.length < WINDOW) {
-    return { triggered: false, count: 0, error: `Insufficient data for ${symbol1}` };
+  // Require at least WINDOW_FALLBACK data points (prefer WINDOW)
+  if (data1.length < WINDOW_FALLBACK) {
+    return { triggered: false, count: 0, error: `Insufficient data for ${symbol1} (${data1.length}/${WINDOW_FALLBACK})` };
   }
 
   // Query market data for symbol2 if provided
@@ -146,8 +148,8 @@ async function triggerForPair(
       .orderBy(desc(marketData.timestamp))
       .limit(WINDOW);
 
-    if (data2.length < WINDOW) {
-      return { triggered: false, count: 0, error: `Insufficient data for ${symbol2}` };
+    if (data2.length < WINDOW_FALLBACK) {
+      return { triggered: false, count: 0, error: `Insufficient data for ${symbol2} (${data2.length}/${WINDOW_FALLBACK})` };
     }
 
     // Calculate spread statistics with real cointegration tests
@@ -167,7 +169,7 @@ async function triggerForPair(
     closes1.reverse();
     closes2.reverse();
 
-    if (closes1.length >= WINDOW) {
+    if (closes1.length >= WINDOW_FALLBACK) {
       // Raw spread statistics (for display: historicalMean, sigma bands)
       const rawSpreads = closes1.map((c, i) => c - closes2[i]);
       const rawN = rawSpreads.length;
@@ -310,7 +312,26 @@ async function triggerForPair(
   for (const alert of ensemble.alerts) {
     try {
       const now = new Date();
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      // Dedup: skip if same type + same assets already active within 24h
+      const assetsKey = alert.result.relatedAssets.slice().sort().join(',');
+      const recentSameType = await db.select({ relatedAssets: alerts.relatedAssets }).from(alerts)
+        .where(and(
+          eq(alerts.type, alert.type),
+          eq(alerts.status, 'active'),
+          gte(alerts.triggeredAt, twentyFourHoursAgo),
+        ))
+        .limit(50);
+      const hasDuplicate = recentSameType.some((row) => {
+        const rowKey = (row.relatedAssets as string[]).slice().sort().join(',');
+        return rowKey === assetsKey;
+      });
+      if (hasDuplicate) {
+        console.log(`[cron] Skipped duplicate ${alert.type} alert for ${assetsKey}`);
+        continue;
+      }
 
       const [inserted] = await db.insert(alerts).values({
         title: alert.result.title,

@@ -7,7 +7,8 @@ import { signalTrack, alerts, marketData } from "@/db/schema";
 import { eq, and, lt, desc, sql } from "drizzle-orm";
 
 const MIN_CONFIDENCE = 0.7;
-const MIN_AGE_HOURS = 24;
+const MIN_AGE_HOURS = 72;
+const MAX_AGE_HOURS = 720; // 30 days — signals older than this are auto-miss
 
 export async function autoEvaluateSignals(): Promise<{
   evaluated: number;
@@ -16,8 +17,9 @@ export async function autoEvaluateSignals(): Promise<{
   misses: number;
 }> {
   const cutoff = new Date(Date.now() - MIN_AGE_HOURS * 60 * 60 * 1000);
+  const expiryCutoff = new Date(Date.now() - MAX_AGE_HOURS * 60 * 60 * 1000);
 
-  // Get pending signals older than 24h
+  // Get pending signals older than MIN_AGE_HOURS
   const pending = await db
     .select()
     .from(signalTrack)
@@ -33,6 +35,15 @@ export async function autoEvaluateSignals(): Promise<{
   let misses = 0;
 
   for (const signal of pending) {
+    // Auto-miss signals older than MAX_AGE_HOURS (never reverted)
+    if (signal.createdAt < expiryCutoff) {
+      await db.update(signalTrack)
+        .set({ outcome: "miss", resolvedAt: new Date() })
+        .where(eq(signalTrack.id, signal.id));
+      misses++;
+      evaluated++;
+      continue;
+    }
     // Skip low-confidence signals
     if (signal.confidence < MIN_CONFIDENCE) {
       await db.update(signalTrack)
@@ -117,14 +128,15 @@ export async function autoEvaluateSignals(): Promise<{
     const stdDev = (spreadInfo.sigma1Upper - mean) || 1;
     const currentZ = stdDev > 0 ? (currentSpread - mean) / stdDev : 0;
 
-    // Hit if z-score moved toward zero (mean reversion occurred)
-    const isHit = Math.abs(currentZ) < Math.abs(originalZ);
+    // Hit if z-score reverted ≥20% toward zero; partial_hit if 10-20%; miss if <10%
+    const revertRatio = 1 - Math.abs(currentZ) / Math.abs(originalZ);
+    const outcome = revertRatio >= 0.2 ? "hit" : revertRatio >= 0.1 ? "partial_hit" : "miss";
 
     await db.update(signalTrack)
-      .set({ outcome: isHit ? "hit" : "miss", resolvedAt: new Date() })
+      .set({ outcome, resolvedAt: new Date() })
       .where(eq(signalTrack.id, signal.id));
 
-    if (isHit) hits++; else misses++;
+    if (outcome === "hit") hits++; else misses++;
     evaluated++;
   }
 

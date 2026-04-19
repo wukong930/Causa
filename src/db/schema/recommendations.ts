@@ -1,5 +1,5 @@
-import { pgTable, uuid, text, timestamp, real, jsonb, varchar, index } from 'drizzle-orm/pg-core';
-import type { Recommendation, RecommendationLeg } from '@/types/domain';
+import { pgTable, uuid, text, timestamp, real, jsonb, varchar, integer, index } from 'drizzle-orm/pg-core';
+import type { Recommendation, RecommendationLeg, BacktestSummary } from '@/types/domain';
 import { strategies } from './strategies';
 import { alerts } from './alerts';
 
@@ -7,8 +7,8 @@ export const recommendations = pgTable('recommendations', {
   id: uuid('id').primaryKey().defaultRandom(),
   strategyId: uuid('strategy_id').references(() => strategies.id, { onDelete: 'set null' }),
   alertId: uuid('alert_id').references(() => alerts.id, { onDelete: 'set null' }),
-  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending' | 'confirmed' | 'deferred' | 'ignored' | 'backfilled' | 'expired'
-  recommendedAction: varchar('recommended_action', { length: 20 }).notNull(), // 'new_open' | 'add' | 'reduce' | 'close' | 'hedge' | 'replace' | 'watchlist_only'
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+  recommendedAction: varchar('recommended_action', { length: 20 }).notNull(),
   legs: jsonb('legs').$type<RecommendationLeg[]>().notNull(),
   priorityScore: real('priority_score').notNull(),
   portfolioFitScore: real('portfolio_fit_score').notNull(),
@@ -23,6 +23,10 @@ export const recommendations = pgTable('recommendations', {
   deferredUntil: timestamp('deferred_until', { withTimezone: true }),
   ignoredReason: text('ignored_reason'),
   executionFeedbackId: uuid('execution_feedback_id'),
+  maxHoldingDays: integer('max_holding_days'),
+  positionSizePct: real('position_size_pct'),
+  riskRewardRatio: real('risk_reward_ratio'),
+  backtestSummary: jsonb('backtest_summary').$type<BacktestSummary>(),
 }, (table) => ({
   statusIdx: index('recommendations_status_idx').on(table.status),
   strategyIdIdx: index('recommendations_strategy_id_idx').on(table.strategyId),

@@ -217,10 +217,22 @@ export type RecommendationStatus =
 
 export interface RecommendationLeg {
   asset: string;
+  contractMonth?: string;
   direction: Direction;
   suggestedSize: number;
   unit: string;
   entryPriceRef?: number;
+  entryZone?: [number, number];
+  stopLoss?: number;
+  takeProfit?: number;
+}
+
+export interface BacktestSummary {
+  sharpe: number;
+  winRate: number;
+  maxDrawdown: number;
+  oosStable: boolean;
+  sampleSize: number;
 }
 
 export interface Recommendation {
@@ -243,6 +255,10 @@ export interface Recommendation {
   updatedAt: string;
   deferredUntil?: string;
   ignoredReason?: string;
+  maxHoldingDays?: number;
+  positionSizePct?: number;      // % of account
+  riskRewardRatio?: number;
+  backtestSummary?: BacktestSummary;
 }
 
 // ─── PositionSnapshot ────────────────────────────────────────────────────────

@@ -13,16 +13,23 @@ function getLegKey(hyp: Hypothesis): string {
   return assets.join("|");
 }
 
+/** Minimum validation score to be considered for recommendation */
+const MIN_SCORE = 45;
+
 /**
  * Select top hypotheses by validation score.
  * Deduplicates by asset pair — keeps only the highest-scoring hypothesis per pair.
+ * Rejects hypotheses below MIN_SCORE.
  */
 export function selectTopHypotheses(
   candidates: Array<{ hypothesis: Hypothesis; validation: ValidationResult }>,
   limit: number = 5
 ): Array<{ hypothesis: Hypothesis; validation: ValidationResult }> {
+  // Filter out low-scoring hypotheses
+  const qualified = candidates.filter((c) => c.validation.totalScore >= MIN_SCORE);
+
   // Sort by score descending
-  const sorted = [...candidates].sort((a, b) => b.validation.totalScore - a.validation.totalScore);
+  const sorted = [...qualified].sort((a, b) => b.validation.totalScore - a.validation.totalScore);
 
   // Deduplicate: first occurrence of each leg key wins (highest score)
   const seen = new Set<string>();

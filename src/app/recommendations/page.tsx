@@ -96,6 +96,37 @@ function RecommendationCard({
           </div>
         </div>
       </div>
+
+      {/* Backtest + structured params summary */}
+      {(rec.backtestSummary || rec.riskRewardRatio || rec.maxHoldingDays) && (
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {rec.backtestSummary && (
+            <>
+              <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "var(--surface-overlay)", color: rec.backtestSummary.sharpe >= 1 ? "var(--positive)" : "var(--foreground-muted)" }}>
+                Sharpe {rec.backtestSummary.sharpe.toFixed(2)}
+              </span>
+              <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)" }}>
+                胜率 {(rec.backtestSummary.winRate * 100).toFixed(0)}%
+              </span>
+              {rec.backtestSummary.oosStable && (
+                <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--positive-muted)", color: "var(--positive)" }}>
+                  OOS稳定
+                </span>
+              )}
+            </>
+          )}
+          {rec.riskRewardRatio && (
+            <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)" }}>
+              盈亏比 {rec.riskRewardRatio.toFixed(1)}
+            </span>
+          )}
+          {rec.maxHoldingDays && (
+            <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)" }}>
+              ≤{rec.maxHoldingDays}天
+            </span>
+          )}
+        </div>
+      )}
     </button>
   );
 }
@@ -232,16 +263,33 @@ function RecommendationDetail({
                 {leg.direction === "long" ? "做多" : "做空"}
               </span>
               <span className="font-mono font-medium text-sm" style={{ color: "var(--foreground)" }}>
-                {getCommodityName(leg.asset)}
+                {getCommodityName(leg.asset)}{leg.contractMonth ? ` ${leg.contractMonth}` : ""}
               </span>
               <span className="text-xs" style={{ color: "var(--foreground-muted)" }}>
                 {leg.suggestedSize} {leg.unit}
               </span>
-              {leg.entryPriceRef && (
-                <span className="ml-auto text-xs font-mono" style={{ color: "var(--foreground-subtle)" }}>
-                  参考价 {leg.entryPriceRef}
-                </span>
-              )}
+              <div className="ml-auto flex items-center gap-2">
+                {leg.entryZone && (
+                  <span className="text-xs font-mono" style={{ color: "var(--accent-primary)" }}>
+                    入场 {leg.entryZone[0]}–{leg.entryZone[1]}
+                  </span>
+                )}
+                {leg.stopLoss && (
+                  <span className="text-xs font-mono" style={{ color: "var(--negative)" }}>
+                    止损 {leg.stopLoss}
+                  </span>
+                )}
+                {leg.takeProfit && (
+                  <span className="text-xs font-mono" style={{ color: "var(--positive)" }}>
+                    目标 {leg.takeProfit}
+                  </span>
+                )}
+                {!leg.entryZone && leg.entryPriceRef && (
+                  <span className="text-xs font-mono" style={{ color: "var(--foreground-subtle)" }}>
+                    参考价 {leg.entryPriceRef}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -267,6 +315,63 @@ function RecommendationDetail({
           </span>
         </div>
       </div>
+
+      {/* Backtest summary + structured params */}
+      {(rec.backtestSummary || rec.maxHoldingDays || rec.positionSizePct || rec.riskRewardRatio) && (
+        <div className="mb-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--foreground-subtle)" }}>
+            回测与参数
+          </h3>
+          <div className="grid grid-cols-2 gap-2">
+            {rec.backtestSummary && (
+              <>
+                <div className="rounded-lg px-3 py-2" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                  <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>Sharpe</div>
+                  <div className="text-sm font-semibold font-mono" style={{ color: rec.backtestSummary.sharpe >= 1 ? "var(--positive)" : "var(--foreground)" }}>
+                    {rec.backtestSummary.sharpe.toFixed(2)}
+                  </div>
+                </div>
+                <div className="rounded-lg px-3 py-2" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                  <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>胜率</div>
+                  <div className="text-sm font-semibold font-mono" style={{ color: "var(--foreground)" }}>
+                    {(rec.backtestSummary.winRate * 100).toFixed(0)}%
+                  </div>
+                </div>
+                <div className="rounded-lg px-3 py-2" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                  <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>最大回撤</div>
+                  <div className="text-sm font-semibold font-mono" style={{ color: "var(--negative)" }}>
+                    {(rec.backtestSummary.maxDrawdown * 100).toFixed(1)}%
+                  </div>
+                </div>
+                <div className="rounded-lg px-3 py-2" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                  <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>OOS 稳定性</div>
+                  <div className="text-sm font-semibold" style={{ color: rec.backtestSummary.oosStable ? "var(--positive)" : "var(--alert-high)" }}>
+                    {rec.backtestSummary.oosStable ? "稳定" : "不稳定"}
+                  </div>
+                </div>
+              </>
+            )}
+            {rec.riskRewardRatio && (
+              <div className="rounded-lg px-3 py-2" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>盈亏比</div>
+                <div className="text-sm font-semibold font-mono" style={{ color: "var(--foreground)" }}>{rec.riskRewardRatio.toFixed(2)}</div>
+              </div>
+            )}
+            {rec.maxHoldingDays && (
+              <div className="rounded-lg px-3 py-2" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>最大持有</div>
+                <div className="text-sm font-semibold font-mono" style={{ color: "var(--foreground)" }}>{rec.maxHoldingDays} 天</div>
+              </div>
+            )}
+            {rec.positionSizePct && (
+              <div className="rounded-lg px-3 py-2" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>建议仓位</div>
+                <div className="text-sm font-semibold font-mono" style={{ color: "var(--foreground)" }}>{rec.positionSizePct}%</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Risk items */}
       {rec.riskItems.length > 0 && (

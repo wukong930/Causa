@@ -34,7 +34,7 @@ const BASE: ThresholdProfile = {
   basisDeviation: 1.5,
   hurstShift: 0.15,
   corrBreak: 0.3,
-  minConfidence: 0.6,
+  minConfidence: 0.65,
   halfLifeCap: 30,
 };
 
@@ -134,7 +134,7 @@ export function getAdaptiveThresholds(
   profile.basisDeviation = clamp(profile.basisDeviation, 1.0, 2.5);
   profile.hurstShift = clamp(profile.hurstShift, 0.08, 0.25);
   profile.corrBreak = clamp(profile.corrBreak, 0.15, 0.5);
-  profile.minConfidence = clamp(profile.minConfidence, 0.4, 0.8);
+  profile.minConfidence = clamp(profile.minConfidence, 0.55, 0.8);
 
   return profile;
 }

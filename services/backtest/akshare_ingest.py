@@ -58,7 +58,7 @@ def get_main_contract(symbol: str) -> str:
 
 
 def fetch_futures_daily(
-    symbol: str, days: int = 250
+    symbol: str, days: int = 750
 ) -> list[MarketBar]:
     """Fetch daily OHLCV for a futures symbol's main contract."""
     sym_upper = symbol.upper()
@@ -103,7 +103,7 @@ def fetch_all_symbols() -> list[SymbolInfo]:
 
 
 def fetch_spread_data(
-    sym1: str, sym2: str, days: int = 250
+    sym1: str, sym2: str, days: int = 750
 ) -> list[dict]:
     """Fetch daily spread (sym1 - sym2) for two symbols."""
     bars1 = fetch_futures_daily(sym1, days)
@@ -120,6 +120,41 @@ def fetch_spread_data(
         {"date": idx, "close1": row["close_1"], "close2": row["close_2"], "spread": row["spread"]}
         for idx, row in merged.iterrows()
     ]
+
+
+class TermStructurePoint(BaseModel):
+    contract: str
+    price: float
+    volume: float
+    open_interest: float
+
+
+def fetch_term_structure(symbol: str) -> list[TermStructurePoint]:
+    """Fetch term structure (all active contract months) for a symbol."""
+    sym_upper = symbol.upper()
+    if sym_upper not in SYMBOL_EXCHANGE:
+        raise ValueError(f"Unknown symbol: {symbol}")
+
+    try:
+        # Get all contracts for this symbol via sina
+        df = ak.futures_zh_spot(symbol=sym_upper.lower(), market="CF", adjust="0")
+        if df is None or df.empty:
+            return []
+
+        points: list[TermStructurePoint] = []
+        for _, row in df.iterrows():
+            contract = str(row.get("symbol", row.get("合约代码", "")))
+            price = float(row.get("latest_price", row.get("最新价", 0)))
+            vol = float(row.get("volume", row.get("成交量", 0)))
+            oi = float(row.get("hold", row.get("持仓量", 0)))
+            if price > 0:
+                points.append(TermStructurePoint(
+                    contract=contract, price=price, volume=vol, open_interest=oi,
+                ))
+        return sorted(points, key=lambda p: p.contract)
+    except Exception as e:
+        print(f"[akshare] Term structure error for {symbol}: {e}")
+        return []
 
 
 def _symbol_names() -> dict[str, str]:

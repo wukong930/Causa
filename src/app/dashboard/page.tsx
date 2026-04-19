@@ -363,6 +363,7 @@ export default function DashboardPage() {
     .slice(0, 5);
 
   const pendingRecommendations = recommendations.filter((r) => r.status === "active");
+  const openPositions = positions.filter((p) => p.status === "open");
 
   const account = accountSnapshot;
   const marginPct = account ? Math.round(account.marginUtilizationRate * 100) : 0;
@@ -409,23 +410,62 @@ export default function DashboardPage() {
           <AlertTrendChart alerts={alerts} />
         </div>
 
-        {/* Risk overview */}
-        {(varResult || stressResults.length > 0) && (
-          <section className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
-                风控概览
-              </h2>
-              <Link href="/positions" className="text-xs" style={{ color: "var(--accent-primary)" }}>
-                详情 →
-              </Link>
+        {/* Risk overview — always show margin bar + VaR/stress when available */}
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+              风控概览
+            </h2>
+            <Link href="/positions" className="text-xs" style={{ color: "var(--accent-primary)" }}>
+              详情 →
+            </Link>
+          </div>
+
+          {/* Margin utilization bar */}
+          {account && (
+            <div
+              className="rounded-lg px-3 py-2.5 mb-3"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>保证金使用率</span>
+                <span
+                  className="text-xs font-mono font-semibold"
+                  style={{
+                    color: marginPct >= 70 ? "var(--alert-critical)" : marginPct >= 50 ? "var(--alert-high)" : "var(--positive)",
+                  }}
+                >
+                  {marginPct}%
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-overlay)" }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(marginPct, 100)}%`,
+                    background: marginPct >= 70 ? "var(--alert-critical)" : marginPct >= 50 ? "var(--alert-high)" : "var(--positive)",
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs font-mono" style={{ color: "var(--foreground-subtle)" }}>
+                  可用 ¥{formatNumber(account.availableMargin)}
+                </span>
+                <span className="text-xs font-mono" style={{ color: "var(--foreground-subtle)" }}>
+                  净值 ¥{formatNumber(account.netValue)}
+                </span>
+              </div>
             </div>
+          )}
+
+          {/* VaR cards */}
+          {varResult && (
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
               {[
-                { label: "VaR (95%)", value: varResult?.var95, color: "var(--alert-high)" },
-                { label: "VaR (99%)", value: varResult?.var99, color: "var(--alert-critical)" },
-                { label: "CVaR (95%)", value: varResult?.cvar95, color: "var(--alert-high)" },
-                { label: "CVaR (99%)", value: varResult?.cvar99, color: "var(--alert-critical)" },
+                { label: "VaR (95%)", value: varResult.var95, color: "var(--alert-high)" },
+                { label: "VaR (99%)", value: varResult.var99, color: "var(--alert-critical)" },
+                { label: "CVaR (95%)", value: varResult.cvar95, color: "var(--alert-high)" },
+                { label: "CVaR (99%)", value: varResult.cvar99, color: "var(--alert-critical)" },
               ].map((m) => (
                 <div
                   key={m.label}
@@ -439,24 +479,62 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-            {stressResults.length > 0 && (() => {
-              const worst = stressResults.reduce((w, s) => s.portfolioPnl < w.portfolioPnl ? s : w, stressResults[0]);
-              return (
-                <div
-                  className="rounded-lg px-3 py-2.5 flex items-center gap-2"
-                  style={{ background: "var(--alert-critical-muted)", border: "1px solid var(--alert-critical)" }}
-                >
-                  <span className="text-xs" style={{ color: "var(--alert-critical)" }}>
-                    最差场景：{worst.scenario}
-                  </span>
-                  <span className="text-xs font-mono font-semibold ml-auto" style={{ color: "var(--alert-critical)" }}>
-                    ¥{formatNumber(worst.portfolioPnl)}
-                  </span>
-                </div>
-              );
-            })()}
-          </section>
-        )}
+          )}
+
+          {/* Position concentration */}
+          {openPositions.length > 0 && (
+            <div
+              className="rounded-lg px-3 py-2.5 mb-3"
+              style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+            >
+              <div className="text-xs mb-2" style={{ color: "var(--foreground-subtle)" }}>持仓集中度</div>
+              <div className="flex gap-1.5 flex-wrap">
+                {(() => {
+                  const totalMargin = openPositions.reduce((s, p) => s + p.totalMarginUsed, 0);
+                  const byPrefix: Record<string, number> = {};
+                  for (const p of openPositions) {
+                    for (const l of p.legs) {
+                      const prefix = l.asset.replace(/\d+/, "");
+                      byPrefix[prefix] = (byPrefix[prefix] ?? 0) + l.marginUsed;
+                    }
+                  }
+                  const CONC_COLORS = ["var(--accent-primary)", "var(--alert-high)", "var(--positive)", "var(--alert-medium)", "var(--alert-low)"];
+                  return Object.entries(byPrefix)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([prefix, margin], i) => {
+                      const pct = totalMargin > 0 ? Math.round((margin / totalMargin) * 100) : 0;
+                      return (
+                        <span
+                          key={prefix}
+                          className="text-xs px-2 py-1 rounded font-mono"
+                          style={{ background: "var(--surface-overlay)", color: CONC_COLORS[i % CONC_COLORS.length] }}
+                        >
+                          {prefix} {pct}%
+                        </span>
+                      );
+                    });
+                })()}
+              </div>
+            </div>
+          )}
+
+          {stressResults.length > 0 && (() => {
+            const worst = stressResults.reduce((w, s) => s.portfolioPnl < w.portfolioPnl ? s : w, stressResults[0]);
+            return (
+              <div
+                className="rounded-lg px-3 py-2.5 flex items-center gap-2"
+                style={{ background: "var(--alert-critical-muted)", border: "1px solid var(--alert-critical)" }}
+              >
+                <span className="text-xs" style={{ color: "var(--alert-critical)" }}>
+                  最差场景：{worst.scenario}
+                </span>
+                <span className="text-xs font-mono font-semibold ml-auto" style={{ color: "var(--alert-critical)" }}>
+                  ¥{formatNumber(worst.portfolioPnl)}
+                </span>
+              </div>
+            );
+          })()}
+        </section>
 
         {/* Alert feed */}
         <section className="mb-6">

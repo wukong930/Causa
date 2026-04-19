@@ -6,7 +6,10 @@ from pydantic import BaseModel
 from typing import Optional
 from backtest import run_backtest, BacktestRequest, BacktestResult
 from causal import run_causal_validation, CausalRequest, CausalResult
-from akshare_ingest import fetch_futures_daily, fetch_all_symbols, fetch_spread_data
+from optimizer import run_optimize, OptimizeRequest, OptimizeResult
+from walk_forward import run_walk_forward, WalkForwardRequest, WalkForwardResult
+from akshare_ingest import fetch_futures_daily, fetch_all_symbols, fetch_spread_data, fetch_term_structure
+from industry_data import fetch_inventory, fetch_spot_price, fetch_basis
 
 app = FastAPI(title="Causa Backtest Service", version="1.0.0")
 
@@ -27,6 +30,22 @@ def health():
 def backtest(req: BacktestRequest):
     try:
         return run_backtest(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/optimize", response_model=OptimizeResult)
+def optimize(req: OptimizeRequest):
+    try:
+        return run_optimize(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/walk-forward", response_model=WalkForwardResult)
+def walk_forward(req: WalkForwardRequest):
+    try:
+        return run_walk_forward(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -69,3 +88,44 @@ def spread_data(sym1: str, sym2: str, days: int = Query(default=250, le=1000)):
         return data
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/term-structure/{symbol}")
+def term_structure(symbol: str):
+    """Get term structure (all active contract months) for a symbol."""
+    try:
+        points = fetch_term_structure(symbol)
+        if not points:
+            raise HTTPException(status_code=404, detail=f"No term structure for {symbol}")
+        return points
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# --- Industry data endpoints ---
+
+@app.get("/industry/inventory/{symbol}")
+def inventory(symbol: str, limit: int = Query(default=60, le=500)):
+    """Get exchange inventory / warehouse receipt data."""
+    data = fetch_inventory(symbol, limit)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"No inventory data for {symbol}")
+    return data
+
+
+@app.get("/industry/spot-price/{symbol}")
+def spot_price(symbol: str):
+    """Get current spot (cash) price."""
+    data = fetch_spot_price(symbol, limit=1)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"No spot price for {symbol}")
+    return data
+
+
+@app.get("/industry/basis/{symbol}")
+def basis(symbol: str):
+    """Get basis = spot - futures."""
+    result = fetch_basis(symbol)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Cannot calculate basis for {symbol}")
+    return result

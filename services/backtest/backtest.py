@@ -125,6 +125,12 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
     total_ret = float(stats.get("Total Return [%]", 0) or 0) / 100
     win_rate = float(stats.get("Win Rate [%]", 0) or 0) / 100
 
+    # Sanitize NaN/Inf from vectorbt
+    import math
+    def _s(v: float) -> float:
+        return 0.0 if (math.isnan(v) or math.isinf(v)) else v
+    sharpe, max_dd, total_ret, win_rate = _s(sharpe), _s(max_dd), _s(total_ret), _s(win_rate)
+
     avg_hold = 0.0
     if trade_count > 0 and "Duration" in trades.columns:
         avg_hold = float(trades["Duration"].dt.days.mean())
@@ -148,20 +154,20 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
 
     return BacktestResult(
         hypothesis_id=req.hypothesis_id,
-        sharpe_ratio=round(sharpe, 3),
-        max_drawdown=round(max_dd, 4),
-        win_rate=round(win_rate, 3),
-        total_return=round(total_ret, 4),
-        avg_holding_days=round(avg_hold, 1),
+        sharpe_ratio=round(_s(sharpe), 3),
+        max_drawdown=round(_s(max_dd), 4),
+        win_rate=round(_s(win_rate), 3),
+        total_return=round(_s(total_ret), 4),
+        avg_holding_days=round(_s(avg_hold), 1),
         trade_count=trade_count,
-        ic=round(ic, 4),
-        calmar_ratio=round(calmar, 3),
-        profit_factor=round(profit_factor, 3),
-        sortino_ratio=round(sortino, 3),
-        omega_ratio=round(omega, 3),
+        ic=round(_s(ic), 4),
+        calmar_ratio=round(_s(calmar), 3),
+        profit_factor=round(_s(profit_factor), 3),
+        sortino_ratio=round(_s(sortino), 3),
+        omega_ratio=round(_s(omega), 3),
         max_drawdown_duration=dd_duration,
-        recovery_factor=round(recovery, 3),
-        tail_ratio=round(tail, 3),
+        recovery_factor=round(_s(recovery), 3),
+        tail_ratio=round(_s(tail), 3),
         equity_curve=equity,
         trades=trade_list,
     )

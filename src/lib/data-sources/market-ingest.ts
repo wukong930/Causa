@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { marketData } from '@/db/schema';
-import { count } from 'drizzle-orm';
+import { count, eq, desc, max } from 'drizzle-orm';
 
 const BACKTEST_URL = process.env.BACKTEST_SERVICE_URL || 'http://localhost:8100';
 
@@ -80,7 +80,7 @@ export async function seedHistoricalData(): Promise<number> {
 
   for (const { symbol, commodity, exchange, market } of SYMBOLS) {
     try {
-      const res = await fetch(`${BACKTEST_URL}/market-data/${symbol}?days=90`, { signal: AbortSignal.timeout(15000) });
+      const res = await fetch(`${BACKTEST_URL}/market-data/${symbol}?days=750`, { signal: AbortSignal.timeout(30000) });
       if (!res.ok) {
         console.warn(`[market-ingest] AkShare unavailable for ${symbol}, using fallback`);
         totalInserted += await seedSymbolFallback(symbol, commodity, exchange, market);
@@ -158,8 +158,20 @@ export async function ingestDailyData(): Promise<number> {
 
 /**
  * Check if market_data table has enough data.
+ * Returns false if total count < 200 (needs full seed) or any symbol is stale (> 3 days old).
  */
 export async function hasEnoughData(): Promise<boolean> {
   const result = await db.select({ value: count() }).from(marketData);
-  return (result[0]?.value ?? 0) >= 60;
+  if ((result[0]?.value ?? 0) < 200) return false;
+
+  // Check per-symbol freshness
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  for (const { symbol } of SYMBOLS) {
+    const latest = await db.select({ maxTs: max(marketData.timestamp) })
+      .from(marketData)
+      .where(eq(marketData.symbol, symbol));
+    const ts = latest[0]?.maxTs;
+    if (!ts || new Date(ts) < threeDaysAgo) return false;
+  }
+  return true;
 }
