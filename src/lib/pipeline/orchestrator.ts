@@ -5,7 +5,7 @@
 
 import { db } from "@/db";
 import { alerts as alertsTable, recommendations as recsTable, hypotheses as hypTable, researchReports as reportsTable } from "@/db/schema";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, sql } from "drizzle-orm";
 import { buildFullContext } from "@/lib/context/builder";
 import { runEvolutionCycle } from "@/lib/reasoning/pipeline";
 import { generateOneLiner } from "@/lib/reasoning/one-liner";
@@ -36,7 +36,10 @@ export async function runOrchestration(
   } else {
     alertRows = await db.select().from(alertsTable)
       .where(eq(alertsTable.status, "active"))
-      .orderBy(desc(alertsTable.triggeredAt))
+      .orderBy(
+        sql`CASE ${alertsTable.severity} WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END`,
+        desc(alertsTable.triggeredAt)
+      )
       .limit(5);
   }
   const activeAlerts = serializeRecords<Alert>(alertRows);
