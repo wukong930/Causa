@@ -4,16 +4,19 @@ const BACKTEST_URL = process.env.BACKTEST_SERVICE_URL ?? "http://localhost:8100"
 
 /**
  * POST /api/backtest — run a backtest with AkShare data
- * Body: { strategy, sym1, sym2, entryZ, exitZ, window }
+ * Body: { strategy, sym1, sym2, entryZ, exitZ, window, strategy_type, strategy_params, action }
+ * action: "backtest" (default) | "optimize" | "walk-forward"
  */
 export async function POST(request: NextRequest) {
   try {
-    const { strategy, sym1, sym2, entryZ = 2.0, exitZ = 0.5, window = 60 } = await request.json();
+    const body = await request.json();
+    const { strategy, sym1, sym2, entryZ = 2.0, exitZ = 0.5, window = 60,
+            strategy_type, strategy_params, action = "backtest" } = body;
 
     // 1. Fetch market data from AkShare endpoints
     const [res1, res2] = await Promise.all([
-      fetch(`${BACKTEST_URL}/market-data/${sym1}?days=500`, { signal: AbortSignal.timeout(30000) }),
-      fetch(`${BACKTEST_URL}/market-data/${sym2}?days=500`, { signal: AbortSignal.timeout(30000) }),
+      fetch(`${BACKTEST_URL}/market-data/${sym1}?days=750`, { signal: AbortSignal.timeout(30000) }),
+      fetch(`${BACKTEST_URL}/market-data/${sym2}?days=750`, { signal: AbortSignal.timeout(30000) }),
     ]);
 
     if (!res1.ok || !res2.ok) {
@@ -35,21 +38,50 @@ export async function POST(request: NextRequest) {
       [sym2]: aligned2.map((b) => b.close),
     };
 
-    // 3. Send to backtest engine
+    const legs = [
+      { asset: sym1, direction: "long", ratio: 1.0 },
+      { asset: sym2, direction: "short", ratio: 1.0 },
+    ];
+
+    const resolvedStrategy = strategy_type || (strategy === "momentum" ? "momentum_breakout" : strategy === "spread_arbitrage" ? "mean_reversion" : strategy || "mean_reversion");
+
+    // 3. Route by action
+    if (action === "optimize") {
+      const optRes = await fetch(`${BACKTEST_URL}/optimize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ legs, prices, dates, strategy_type: resolvedStrategy }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!optRes.ok) return NextResponse.json({ success: false, error: await optRes.text() }, { status: 502 });
+      return NextResponse.json(await optRes.json());
+    }
+
+    if (action === "walk-forward") {
+      const wfRes = await fetch(`${BACKTEST_URL}/walk-forward`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          legs, prices, dates, strategy_type: resolvedStrategy,
+          strategy_params: strategy_params || {},
+          entry_threshold: entryZ, exit_threshold: exitZ, window, n_splits: 5,
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!wfRes.ok) return NextResponse.json({ success: false, error: await wfRes.text() }, { status: 502 });
+      return NextResponse.json(await wfRes.json());
+    }
+
+    // Default: run backtest
     const btRes = await fetch(`${BACKTEST_URL}/backtest`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        hypothesis_id: `${strategy}_${sym1}_${sym2}`,
-        legs: [
-          { asset: sym1, direction: "long", ratio: 1.0 },
-          { asset: sym2, direction: "short", ratio: 1.0 },
-        ],
-        prices,
-        dates,
-        entry_threshold: entryZ,
-        exit_threshold: exitZ,
-        window,
+        hypothesis_id: `${resolvedStrategy}_${sym1}_${sym2}`,
+        legs, prices, dates,
+        entry_threshold: entryZ, exit_threshold: exitZ, window,
+        strategy_type: resolvedStrategy,
+        strategy_params: strategy_params || {},
       }),
       signal: AbortSignal.timeout(120000),
     });
