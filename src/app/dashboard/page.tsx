@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   getAlerts,
   getStrategies,
@@ -28,6 +28,7 @@ import { formatRelativeTime, formatConfidence, clsx, formatNumber } from "@/lib/
 import Link from "next/link";
 import { NetValueChart } from "@/components/dashboard/NetValueChart";
 import { AlertTrendChart } from "@/components/dashboard/AlertTrendChart";
+import { useAlertStream } from "@/hooks/use-alert-stream";
 
 // ─── Commodity Heatmap ───────────────────────────────────────────────────────
 
@@ -351,6 +352,23 @@ export default function DashboardPage() {
       setLoading(false);
     });
   }, []);
+
+  // Auto-refresh when high/critical alerts arrive via SSE
+  const refreshDashboard = useCallback(() => {
+    Promise.all([getAlerts(), getRecommendations(), getPositions()])
+      .then(([a, r, p]) => { setAlerts(a); setRecommendations(r); setPositions(p); })
+      .catch(() => {});
+  }, []);
+
+  useAlertStream({
+    onAlerts: (newAlerts) => {
+      const hasHighSeverity = newAlerts.some(
+        (a) => a.severity === "high" || a.severity === "critical"
+      );
+      if (hasHighSeverity) refreshDashboard();
+    },
+    enabled: !loading,
+  });
 
   const activeAlerts = alerts
     .filter((a) => a.status === "active")

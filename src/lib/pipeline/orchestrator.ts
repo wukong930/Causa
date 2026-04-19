@@ -253,25 +253,26 @@ export async function runOrchestration(
       const stopZ = spreadInfo?.stopLossThreshold ?? -3.0;
 
       const legs = hyp.type === "spread"
-        ? hyp.legs.map((l) => {
+        ? hyp.legs.map((l, idx) => {
             const baseSymbol = l.asset.replace(/\d+/, "");
             const cm = contractMonthCache[baseSymbol] || l.contractMonth;
-            // Compute absolute price levels for the spread
+            // Compute absolute price levels for the spread (only on first leg)
             const sign = spreadInfo && spreadInfo.currentZScore > 0 ? 1 : -1;
             const entryLow = Math.round(alertSpreadMean + entryZ * sign * alertSpreadStdDev * 0.9);
             const entryHigh = Math.round(alertSpreadMean + entryZ * sign * alertSpreadStdDev * 1.1);
             const sl = Math.round(alertSpreadMean + stopZ * sign * alertSpreadStdDev);
             const tp = Math.round(alertSpreadMean);
+            const isFirstLeg = idx === 0;
             return {
               asset: l.asset,
               contractMonth: cm,
               direction: l.direction,
               suggestedSize: l.ratio * 10,
               unit: "手",
-              entryPriceRef: Math.round(alertSpreadMean + (spreadInfo?.currentZScore ?? 0) * alertSpreadStdDev),
-              entryZone: alertSpreadStdDev > 1 ? [Math.min(entryLow, entryHigh), Math.max(entryLow, entryHigh)] as [number, number] : undefined,
-              stopLoss: alertSpreadStdDev > 1 ? sl : undefined,
-              takeProfit: alertSpreadStdDev > 1 ? tp : undefined,
+              entryPriceRef: isFirstLeg ? Math.round(alertSpreadMean + (spreadInfo?.currentZScore ?? 0) * alertSpreadStdDev) : undefined,
+              entryZone: isFirstLeg && alertSpreadStdDev > 1 ? [Math.min(entryLow, entryHigh), Math.max(entryLow, entryHigh)] as [number, number] : undefined,
+              stopLoss: isFirstLeg && alertSpreadStdDev > 1 ? sl : undefined,
+              takeProfit: isFirstLeg && alertSpreadStdDev > 1 ? tp : undefined,
             };
           })
         : [{

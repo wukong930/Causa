@@ -166,7 +166,15 @@ function AlertsPageInner() {
     });
     setNewAlertCount((c) => c + newAlerts.length);
     setLastStreamedAt(new Date());
-  }, []);
+
+    // Auto-refresh full page when high/critical alerts arrive
+    const hasHighSeverity = newAlerts.some(
+      (a) => a.severity === "high" || a.severity === "critical"
+    );
+    if (hasHighSeverity) {
+      refresh();
+    }
+  }, [refresh]);
 
   // Subscribe to real-time alert stream
   useAlertStream({

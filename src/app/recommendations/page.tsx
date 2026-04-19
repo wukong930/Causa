@@ -244,7 +244,7 @@ function RecommendationDetail({
       {/* Leg details */}
       <div className="mb-6">
         <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--foreground-subtle)" }}>
-          套利腿
+          {rec.legs.length > 1 ? "套利腿" : "交易方向"}
         </h3>
         <div className="flex flex-col gap-2">
           {rec.legs.map((leg, i) => (
@@ -268,31 +268,72 @@ function RecommendationDetail({
               <span className="text-xs" style={{ color: "var(--foreground-muted)" }}>
                 {leg.suggestedSize} {leg.unit}
               </span>
-              <div className="ml-auto flex items-center gap-2">
-                {leg.entryZone && Math.abs(leg.entryZone[0]) >= 10 && (
-                  <span className="text-xs font-mono" style={{ color: "var(--accent-primary)" }}>
-                    入场 {leg.entryZone[0].toLocaleString()}–{leg.entryZone[1].toLocaleString()}
-                  </span>
-                )}
-                {leg.stopLoss != null && Math.abs(leg.stopLoss) >= 10 && (
-                  <span className="text-xs font-mono" style={{ color: "var(--negative)" }}>
-                    止损 {leg.stopLoss.toLocaleString()}
-                  </span>
-                )}
-                {leg.takeProfit != null && Math.abs(leg.takeProfit) >= 10 && (
-                  <span className="text-xs font-mono" style={{ color: "var(--positive)" }}>
-                    目标 {leg.takeProfit.toLocaleString()}
-                  </span>
-                )}
-                {!leg.entryZone && leg.entryPriceRef && Math.abs(leg.entryPriceRef) >= 10 && (
-                  <span className="text-xs font-mono" style={{ color: "var(--foreground-subtle)" }}>
-                    参考价 {leg.entryPriceRef.toLocaleString()}
-                  </span>
-                )}
-              </div>
+              {/* Single-leg: show entry/stop/target inline */}
+              {rec.legs.length === 1 && (
+                <div className="ml-auto flex items-center gap-2">
+                  {leg.entryZone && Math.abs(leg.entryZone[0]) >= 10 && (
+                    <span className="text-xs font-mono" style={{ color: "var(--accent-primary)" }}>
+                      入场 {leg.entryZone[0].toLocaleString()}–{leg.entryZone[1].toLocaleString()}
+                    </span>
+                  )}
+                  {leg.stopLoss != null && Math.abs(leg.stopLoss) >= 10 && (
+                    <span className="text-xs font-mono" style={{ color: "var(--negative)" }}>
+                      止损 {leg.stopLoss.toLocaleString()}
+                    </span>
+                  )}
+                  {leg.takeProfit != null && Math.abs(leg.takeProfit) >= 10 && (
+                    <span className="text-xs font-mono" style={{ color: "var(--positive)" }}>
+                      目标 {leg.takeProfit.toLocaleString()}
+                    </span>
+                  )}
+                  {!leg.entryZone && leg.entryPriceRef && Math.abs(leg.entryPriceRef) >= 10 && (
+                    <span className="text-xs font-mono" style={{ color: "var(--foreground-subtle)" }}>
+                      参考价 {leg.entryPriceRef.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
+        {/* Multi-leg spread: show spread parameters separately */}
+        {rec.legs.length > 1 && (() => {
+          const spreadLeg = rec.legs.find((l) => l.entryZone || l.stopLoss || l.takeProfit || l.entryPriceRef);
+          if (!spreadLeg) return null;
+          const hasValidEntry = spreadLeg.entryZone && Math.abs(spreadLeg.entryZone[0]) >= 10;
+          const hasValidStop = spreadLeg.stopLoss != null && Math.abs(spreadLeg.stopLoss) >= 10;
+          const hasValidTp = spreadLeg.takeProfit != null && Math.abs(spreadLeg.takeProfit) >= 10;
+          const hasValidRef = spreadLeg.entryPriceRef && Math.abs(spreadLeg.entryPriceRef) >= 10;
+          if (!hasValidEntry && !hasValidStop && !hasValidTp && !hasValidRef) return null;
+          return (
+            <div
+              className="mt-2 rounded-lg px-4 py-3 flex items-center gap-4 flex-wrap"
+              style={{ background: "var(--surface-overlay)", border: "1px solid var(--border)" }}
+            >
+              <span className="text-xs font-semibold" style={{ color: "var(--foreground-subtle)" }}>价差参数</span>
+              {hasValidEntry && (
+                <span className="text-xs font-mono" style={{ color: "var(--accent-primary)" }}>
+                  入场区间 {spreadLeg.entryZone![0].toLocaleString()}–{spreadLeg.entryZone![1].toLocaleString()}
+                </span>
+              )}
+              {hasValidStop && (
+                <span className="text-xs font-mono" style={{ color: "var(--negative)" }}>
+                  止损 {spreadLeg.stopLoss!.toLocaleString()}
+                </span>
+              )}
+              {hasValidTp && (
+                <span className="text-xs font-mono" style={{ color: "var(--positive)" }}>
+                  目标 {spreadLeg.takeProfit!.toLocaleString()}
+                </span>
+              )}
+              {hasValidRef && !hasValidEntry && (
+                <span className="text-xs font-mono" style={{ color: "var(--foreground-subtle)" }}>
+                  当前价差 {spreadLeg.entryPriceRef!.toLocaleString()}
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Scores */}
