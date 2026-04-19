@@ -84,7 +84,7 @@ export class BasisShiftDetector implements TriggerEvaluator {
     const spreadInfo = {
       leg1: symbol1,
       leg2: symbol2,
-      currentSpread: spreadMean,
+      currentSpread: spreadMean + currentZScore * spreadStdDev,
       historicalMean: spreadMean,
       sigma1Upper: spreadMean + spreadStdDev,
       sigma1Lower: spreadMean - spreadStdDev,

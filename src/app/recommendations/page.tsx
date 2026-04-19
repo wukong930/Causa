@@ -120,8 +120,37 @@ function RecommendationDetail({
 }: {
   rec: Recommendation;
 }) {
+  const [openTooltip, setOpenTooltip] = useState<string | null>(null);
+
+  function ScoreCard({ label, value, tooltipKey, color }: { label: string; value: number; tooltipKey: keyof typeof SCORE_TOOLTIPS; color?: string }) {
+    const isOpen = openTooltip === tooltipKey;
+    return (
+      <div className="rounded-lg p-3 text-center relative" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+        <div
+          className="text-xs mb-1 cursor-pointer select-none"
+          style={{ color: "var(--foreground-subtle)" }}
+          onClick={(e) => { e.stopPropagation(); setOpenTooltip(isOpen ? null : tooltipKey); }}
+        >
+          {label} <span style={{ color: "var(--accent-blue)" }}>ⓘ</span>
+        </div>
+        <div className="text-xl font-semibold font-mono" style={{ color: color || "var(--foreground)" }}>
+          {value}
+        </div>
+        {isOpen && (
+          <div
+            className="absolute left-0 right-0 top-full mt-1 z-10 rounded-lg p-3 text-left text-xs leading-relaxed shadow-lg"
+            style={{ background: "var(--surface-overlay)", border: "1px solid var(--border)", color: "var(--foreground-muted)", whiteSpace: "pre-line" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {SCORE_TOOLTIPS[tooltipKey]}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="p-5">
+    <div className="p-5" onClick={() => setOpenTooltip(null)}>
       <div className="mb-5">
         <div className="flex items-center gap-2 flex-wrap mb-2">
           <span
@@ -214,24 +243,9 @@ function RecommendationDetail({
           综合评分
         </h3>
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg p-3 text-center relative group" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-            <div className="text-xs mb-1 cursor-help" style={{ color: "var(--foreground-subtle)" }} title={SCORE_TOOLTIPS.priority}>优先级 ⓘ</div>
-            <div className="text-xl font-semibold font-mono" style={{ color: rec.priorityScore >= 80 ? "var(--positive)" : "var(--foreground)" }}>
-              {rec.priorityScore}
-            </div>
-          </div>
-          <div className="rounded-lg p-3 text-center relative group" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-            <div className="text-xs mb-1 cursor-help" style={{ color: "var(--foreground-subtle)" }} title={SCORE_TOOLTIPS.portfolioFit}>组合适配 ⓘ</div>
-            <div className="text-xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
-              {rec.portfolioFitScore}
-            </div>
-          </div>
-          <div className="rounded-lg p-3 text-center relative group" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-            <div className="text-xs mb-1 cursor-help" style={{ color: "var(--foreground-subtle)" }} title={SCORE_TOOLTIPS.marginEfficiency}>保证金效率 ⓘ</div>
-            <div className="text-xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
-              {rec.marginEfficiencyScore}
-            </div>
-          </div>
+          <ScoreCard label="优先级" value={rec.priorityScore} tooltipKey="priority" color={rec.priorityScore >= 80 ? "var(--positive)" : undefined} />
+          <ScoreCard label="组合适配" value={rec.portfolioFitScore} tooltipKey="portfolioFit" />
+          <ScoreCard label="保证金效率" value={rec.marginEfficiencyScore} tooltipKey="marginEfficiency" />
         </div>
         <div
           className="flex items-center justify-between rounded-lg px-4 py-3 mt-3"

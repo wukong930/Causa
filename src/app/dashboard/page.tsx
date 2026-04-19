@@ -41,6 +41,7 @@ const CLUSTER_LABEL: Record<string, string> = {
 
 function CommodityHeatmap() {
   const [nodes, setNodes] = useState<CommodityNode[]>([]);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   useEffect(() => {
     getCommodityNodes().then(setNodes);
@@ -55,6 +56,8 @@ function CommodityHeatmap() {
   );
 
   const totalAlerts = nodes.reduce((sum, n) => sum + n.activeAlertCount, 0);
+
+  const REGIME_LABEL: Record<string, string> = { trending: "趋势", ranging: "震荡", breakout: "突破", unknown: "未知" };
 
   return (
     <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -72,8 +75,8 @@ function CommodityHeatmap() {
 
       <div className="space-y-3">
         {CLUSTER_ORDER.map((cluster) => {
-          const nodes = byCluster[cluster];
-          if (!nodes || nodes.length === 0) return null;
+          const clusterNodes = byCluster[cluster];
+          if (!clusterNodes || clusterNodes.length === 0) return null;
 
           return (
             <div key={cluster}>
@@ -81,16 +84,17 @@ function CommodityHeatmap() {
                 {CLUSTER_LABEL[cluster]}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {nodes.map((node) => {
+                {clusterNodes.map((node) => {
                   const pct = node.priceChange24h ?? 0;
                   const isUp = pct >= 0;
                   const intensity = Math.min(Math.abs(pct) / 3, 1);
                   const hasAlert = node.activeAlertCount > 0;
+                  const isHovered = hoveredNode === node.id;
 
                   return (
                     <div
                       key={node.id}
-                      className="flex items-center gap-1 px-2 py-1 rounded cursor-default transition-opacity hover:opacity-80"
+                      className="relative flex items-center gap-1 px-2 py-1 rounded cursor-default transition-all"
                       style={{
                         background: isUp
                           ? `rgba(63, 185, 80, ${0.12 + intensity * 0.25})`
@@ -98,32 +102,42 @@ function CommodityHeatmap() {
                         border: hasAlert
                           ? "1px solid var(--alert-high)"
                           : `1px solid ${isUp ? "rgba(63,185,80,0.25)" : "rgba(248,81,73,0.25)"}`,
+                        animation: hasAlert ? "pulse 2s ease-in-out infinite" : undefined,
                       }}
-                      title={`${node.name} (${node.exchange}) · ${node.regime} · 预警: ${node.activeAlertCount}`}
+                      onMouseEnter={() => setHoveredNode(node.id)}
+                      onMouseLeave={() => setHoveredNode(null)}
                     >
-                      <span
-                        className="text-xs font-mono font-medium"
-                        style={{ color: "var(--foreground)" }}
-                      >
-                        {node.symbol}
+                      <span className="text-xs font-medium" style={{ color: "var(--foreground)" }}>
+                        {node.name}
                       </span>
-                      <span
-                        className="text-xs font-mono"
-                        style={{ color: isUp ? "var(--positive)" : "var(--negative)" }}
-                      >
+                      <span className="text-xs font-mono" style={{ color: isUp ? "var(--positive)" : "var(--negative)" }}>
                         {pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
                       </span>
                       {hasAlert && (
-                        <span
-                          className="text-xs px-1 rounded-full"
-                          style={{
-                            background: "var(--alert-high)",
-                            color: "#fff",
-                            fontSize: "8px",
-                          }}
-                        >
+                        <span className="text-xs px-1 rounded-full" style={{ background: "var(--alert-high)", color: "#fff", fontSize: "8px" }}>
                           {node.activeAlertCount}
                         </span>
+                      )}
+                      {/* Hover card */}
+                      {isHovered && (
+                        <div
+                          className="absolute left-0 bottom-full mb-2 z-20 rounded-lg p-3 shadow-lg min-w-[180px]"
+                          style={{ background: "var(--surface-overlay)", border: "1px solid var(--border)" }}
+                        >
+                          <div className="text-sm font-semibold mb-1" style={{ color: "var(--foreground)" }}>
+                            {node.name} <span className="font-mono text-xs" style={{ color: "var(--foreground-muted)" }}>{node.symbol}</span>
+                          </div>
+                          <div className="space-y-1 text-xs" style={{ color: "var(--foreground-muted)" }}>
+                            <div>交易所：{node.exchange}</div>
+                            <div>24h 涨跌：<span style={{ color: isUp ? "var(--positive)" : "var(--negative)" }}>{pct >= 0 ? "+" : ""}{pct.toFixed(2)}%</span></div>
+                            <div>市场状态：{REGIME_LABEL[node.regime] || node.regime}</div>
+                            {hasAlert && (
+                              <Link href={`/alerts?asset=${node.symbol}`} className="block mt-1 pt-1 border-t" style={{ borderColor: "var(--border)", color: "var(--alert-high)" }}>
+                                {node.activeAlertCount} 条活跃预警 →
+                              </Link>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                   );

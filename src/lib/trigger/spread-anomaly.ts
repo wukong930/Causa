@@ -47,7 +47,7 @@ export class SpreadAnomalyDetector implements TriggerEvaluator {
       buildTriggerStep(
         2,
         "价差扩张确认",
-        `当前价差 ${spreadStats.spreadMean.toFixed(2)}，历史均值 ${spreadMean.toFixed(2)}，标准差 ${spreadStdDev.toFixed(2)}`,
+        `当前价差 ${(spreadMean + currentZScore * spreadStdDev).toFixed(2)}，历史均值 ${spreadMean.toFixed(2)}，标准差 ${spreadStdDev.toFixed(2)}`,
         0.8
       ),
       buildTriggerStep(
@@ -74,7 +74,7 @@ export class SpreadAnomalyDetector implements TriggerEvaluator {
     const spreadInfo = {
       leg1: symbol1,
       leg2: symbol2,
-      currentSpread: spreadStats.spreadMean,
+      currentSpread: spreadMean + currentZScore * spreadStdDev,
       historicalMean: spreadMean,
       sigma1Upper: spreadMean + spreadStdDev,
       sigma1Lower: spreadMean - spreadStdDev,

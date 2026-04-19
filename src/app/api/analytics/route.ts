@@ -1,36 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { signalTrack } from "@/db/schema";
+import { signalTrack, alerts } from "@/db/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 
 export async function GET() {
   try {
-    // Overall stats
+    // Overall stats (exclude skipped)
     const [overall] = await db.select({
-      total: sql<number>`count(*)::int`,
+      total: sql<number>`count(*) filter (where ${signalTrack.outcome} != 'skipped')::int`,
       hits: sql<number>`count(*) filter (where ${signalTrack.outcome} = 'hit')::int`,
       misses: sql<number>`count(*) filter (where ${signalTrack.outcome} = 'miss')::int`,
       pending: sql<number>`count(*) filter (where ${signalTrack.outcome} = 'pending')::int`,
     }).from(signalTrack);
 
-    // By category
+    // By category (exclude skipped)
     const byCategory = await db.select({
       category: signalTrack.category,
-      total: sql<number>`count(*)::int`,
+      total: sql<number>`count(*) filter (where ${signalTrack.outcome} != 'skipped')::int`,
       hits: sql<number>`count(*) filter (where ${signalTrack.outcome} = 'hit')::int`,
       misses: sql<number>`count(*) filter (where ${signalTrack.outcome} = 'miss')::int`,
     }).from(signalTrack).groupBy(signalTrack.category);
 
-    // By signal type
+    // By signal type (exclude skipped)
     const byType = await db.select({
       signalType: signalTrack.signalType,
-      total: sql<number>`count(*)::int`,
+      total: sql<number>`count(*) filter (where ${signalTrack.outcome} != 'skipped')::int`,
       hits: sql<number>`count(*) filter (where ${signalTrack.outcome} = 'hit')::int`,
       misses: sql<number>`count(*) filter (where ${signalTrack.outcome} = 'miss')::int`,
     }).from(signalTrack).groupBy(signalTrack.signalType);
 
-    // Recent signals (last 50)
-    const recent = await db.select().from(signalTrack)
+    // Recent signals (last 50) with alert title
+    const recentRows = await db.select({
+      id: signalTrack.id,
+      alertId: signalTrack.alertId,
+      signalType: signalTrack.signalType,
+      category: signalTrack.category,
+      confidence: signalTrack.confidence,
+      zScore: signalTrack.zScore,
+      regime: signalTrack.regime,
+      outcome: signalTrack.outcome,
+      createdAt: signalTrack.createdAt,
+      resolvedAt: signalTrack.resolvedAt,
+      alertTitle: alerts.title,
+    }).from(signalTrack)
+      .leftJoin(alerts, eq(signalTrack.alertId, alerts.id))
       .orderBy(sql`${signalTrack.createdAt} desc`)
       .limit(50);
 
@@ -49,7 +62,7 @@ export async function GET() {
           const res = (t.hits ?? 0) + (t.misses ?? 0);
           return { ...t, hitRate: res > 0 ? (t.hits ?? 0) / res : 0 };
         }),
-        recent,
+        recent: recentRows,
       },
     });
   } catch (error) {

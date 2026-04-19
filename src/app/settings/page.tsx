@@ -76,6 +76,7 @@ export default function SettingsPage() {
   // Scheduler state
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [editingCron, setEditingCron] = useState<Record<string, string>>({});
+  const [customCronMode, setCustomCronMode] = useState<Record<string, boolean>>({});
   const [runningAction, setRunningAction] = useState<string | null>(null);
 
   // Account state
@@ -248,7 +249,7 @@ export default function SettingsPage() {
               { label: "每周日 3:00", value: "0 3 * * 0" },
             ];
             const currentCron = editingCron[job.id] ?? job.cron;
-            const isPreset = CRON_PRESETS.some((p) => p.value === currentCron);
+            const isPreset = CRON_PRESETS.some((p) => p.value === currentCron) && !customCronMode[job.id];
             const presetLabel = CRON_PRESETS.find((p) => p.value === currentCron)?.label;
 
             return (
@@ -288,7 +289,12 @@ export default function SettingsPage() {
                     value={isPreset ? currentCron : "__custom__"}
                     onChange={(e) => {
                       const v = e.target.value;
-                      if (v === "__custom__") return;
+                      if (v === "__custom__") {
+                        setCustomCronMode((p) => ({ ...p, [job.id]: true }));
+                        setEditingCron((p) => ({ ...p, [job.id]: job.cron }));
+                        return;
+                      }
+                      setCustomCronMode((p) => ({ ...p, [job.id]: false }));
                       setEditingCron((p) => ({ ...p, [job.id]: v }));
                       schedulerAction("updateCron", job.id, v);
                     }}
@@ -472,6 +478,25 @@ export default function SettingsPage() {
             </div>
             <p className="text-xs mt-1" style={{ color: "var(--foreground-subtle)" }}>
               设置后将用于持仓跟踪的保证金利用率和风险计算
+            </p>
+          </div>
+          <div className="pt-3 mt-3 border-t" style={{ borderColor: "var(--border)" }}>
+            <button
+              className="px-3 py-1.5 rounded text-xs"
+              style={{ background: "var(--surface-overlay)", color: "var(--negative)", border: "1px solid var(--border)" }}
+              onClick={async () => {
+                if (!confirm("确定要重置账户数据吗？这将清除所有历史快照。")) return;
+                try {
+                  const res = await fetch("/api/account/snapshot", { method: "DELETE" });
+                  if (res.ok) toast("账户数据已重置", "success");
+                  else toast("重置失败", "error");
+                } catch { toast("重置失败", "error"); }
+              }}
+            >
+              重置模拟数据
+            </button>
+            <p className="text-xs mt-1" style={{ color: "var(--foreground-subtle)" }}>
+              清除所有历史账户快照，下次访问持仓页时将使用新设置的金额
             </p>
           </div>
         </div>

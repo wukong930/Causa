@@ -5,6 +5,7 @@ import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { RefreshBar } from "@/components/shared/RefreshBar";
 import { CATEGORY_LABEL, ALERT_TYPE_LABEL } from "@/lib/constants";
 import { formatRelativeTime } from "@/lib/utils";
+import Link from "next/link";
 
 interface SignalRecord {
   id: string;
@@ -14,9 +15,10 @@ interface SignalRecord {
   confidence: number;
   zScore: number | null;
   regime: string | null;
-  outcome: "hit" | "miss" | "pending";
+  outcome: "hit" | "miss" | "pending" | "skipped";
   createdAt: string;
   resolvedAt: string | null;
+  alertTitle?: string;
 }
 
 interface AnalyticsData {
@@ -162,6 +164,7 @@ export default function AnalyticsPage() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                      <th className="text-left px-4 py-2 font-medium" style={{ color: "var(--foreground-subtle)" }}>预警</th>
                       <th className="text-left px-4 py-2 font-medium" style={{ color: "var(--foreground-subtle)" }}>类型</th>
                       <th className="text-left px-4 py-2 font-medium" style={{ color: "var(--foreground-subtle)" }}>品类</th>
                       <th className="text-left px-4 py-2 font-medium" style={{ color: "var(--foreground-subtle)" }}>置信度</th>
@@ -171,8 +174,17 @@ export default function AnalyticsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.recent.map((s) => (
+                    {data.recent.filter((s) => s.outcome !== "skipped").map((s) => (
                       <tr key={s.id} style={{ borderBottom: "1px solid var(--border-subtle, var(--border))" }}>
+                        <td className="px-4 py-2.5 max-w-[200px] truncate">
+                          {s.alertId ? (
+                            <Link href={`/alerts?selected=${s.alertId}`} className="hover:underline" style={{ color: "var(--accent-blue)" }}>
+                              {s.alertTitle || "查看预警"}
+                            </Link>
+                          ) : (
+                            <span style={{ color: "var(--foreground-subtle)" }}>—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5" style={{ color: "var(--foreground)" }}>{typeLabel(s.signalType)}</td>
                         <td className="px-4 py-2.5" style={{ color: "var(--foreground-muted)" }}>{catLabel(s.category)}</td>
                         <td className="px-4 py-2.5 font-mono" style={{ color: "var(--foreground-muted)" }}>{(s.confidence * 100).toFixed(0)}%</td>

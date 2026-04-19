@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { accountSnapshots } from '@/db/schema';
 import { positions } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import type { ApiResponse } from '@/types/api';
 import type { AccountSnapshot } from '@/types/domain';
 import { serializeRecord } from '@/lib/serialize';
@@ -120,6 +120,20 @@ export async function POST(request: NextRequest) {
     console.error('POST /api/account/snapshot error:', error);
     return NextResponse.json(
       { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to update account snapshot' } },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/account/snapshot - Reset all snapshots
+export async function DELETE(request: NextRequest) {
+  try {
+    await db.delete(accountSnapshots).where(sql`1=1`);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('DELETE /api/account/snapshot error:', error);
+    return NextResponse.json(
+      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to reset snapshots' } },
       { status: 500 }
     );
   }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { getPositions, getAccountSnapshot, getRiskVaR, getStressTest, getCorrelationMatrix } from "@/lib/api-client";
 import { formatRelativeTime, formatNumber } from "@/lib/utils";
+import { COMMODITY_NAME_MAP } from "@/lib/constants";
 import type { VaRResult } from "@/lib/risk/var";
 import type { StressTestResult } from "@/lib/risk/stress";
 import type { CorrelationMatrix } from "@/lib/risk/correlation";
@@ -482,6 +483,9 @@ export default function PositionsPage() {
   const [varResult, setVarResult] = useState<VaRResult | null>(null);
   const [stressResults, setStressResults] = useState<StressTestResult[]>([]);
   const [correlationMatrix, setCorrelationMatrix] = useState<CorrelationMatrix | null>(null);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newPos, setNewPos] = useState({ leg1: "RB2506", leg2: "HC2506", direction: "long" as "long" | "short", size: 10, entrySpread: 0 });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -504,6 +508,40 @@ export default function PositionsPage() {
       setLoading(false);
     });
   }, []);
+
+  async function handleCreatePosition() {
+    setCreating(true);
+    try {
+      const legs = newPos.leg2
+        ? [
+            { asset: newPos.leg1, direction: newPos.direction, size: newPos.size },
+            { asset: newPos.leg2, direction: newPos.direction === "long" ? "short" as const : "long" as const, size: newPos.size },
+          ]
+        : [{ asset: newPos.leg1, direction: newPos.direction, size: newPos.size }];
+
+      const res = await fetch("/api/positions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          legs,
+          entrySpread: newPos.entrySpread,
+          spreadUnit: "元/吨",
+          exitCondition: "z_score_revert",
+          strategyName: `手动建仓 ${newPos.leg1}${newPos.leg2 ? "/" + newPos.leg2 : ""}`,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setPositions((prev) => [data.data, ...prev]);
+          setShowNewForm(false);
+        }
+      }
+    } catch (err) {
+      console.error("Create position error:", err);
+    }
+    setCreating(false);
+  }
 
   const selectedPosition = selectedId
     ? positions.find((p) => p.id === selectedId)
@@ -588,9 +626,61 @@ export default function PositionsPage() {
               </button>
             ))}
           </div>
+            <button
+              onClick={() => setShowNewForm(true)}
+              className="px-3 py-1.5 rounded text-xs font-medium"
+              style={{ background: "var(--accent-blue)", color: "#fff" }}
+            >
+              + 新建持仓
+            </button>
           </div>
         </div>
       </div>
+
+      {/* New position form */}
+      {showNewForm && (
+        <div className="px-5 py-4 border-b" style={{ borderColor: "var(--border)", background: "var(--surface-raised)" }}>
+          <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>新建持仓</h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>品种1</label>
+              <select className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.leg1} onChange={(e) => setNewPos((p) => ({ ...p, leg1: e.target.value }))}>
+                {Object.entries(COMMODITY_NAME_MAP).map(([k, v]) => <option key={k} value={`${k}2506`}>{v} {k}2506</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>品种2（可选）</label>
+              <select className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.leg2} onChange={(e) => setNewPos((p) => ({ ...p, leg2: e.target.value }))}>
+                <option value="">无（单品种）</option>
+                {Object.entries(COMMODITY_NAME_MAP).map(([k, v]) => <option key={k} value={`${k}2506`}>{v} {k}2506</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>方向</label>
+              <select className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.direction} onChange={(e) => setNewPos((p) => ({ ...p, direction: e.target.value as "long" | "short" }))}>
+                <option value="long">做多</option>
+                <option value="short">做空</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>手数</label>
+              <input type="number" className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.size} onChange={(e) => setNewPos((p) => ({ ...p, size: parseInt(e.target.value) || 1 }))} min={1} />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>开仓价差</label>
+              <input type="number" className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.entrySpread} onChange={(e) => setNewPos((p) => ({ ...p, entrySpread: parseFloat(e.target.value) || 0 }))} />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={handleCreatePosition} disabled={creating} className="px-4 py-1.5 rounded text-xs font-medium" style={{ background: "var(--accent-blue)", color: "#fff", opacity: creating ? 0.6 : 1 }}>
+              {creating ? "创建中..." : "确认创建"}
+            </button>
+            <button onClick={() => setShowNewForm(false)} className="px-4 py-1.5 rounded text-xs" style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}>
+              取消
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto pb-16 md:pb-0 px-5 py-5">
         {activeTab === "open" && (

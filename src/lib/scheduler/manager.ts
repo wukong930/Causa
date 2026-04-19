@@ -19,6 +19,7 @@ const DEFAULT_JOBS: Omit<ScheduledJob, 'running'>[] = [
   { id: 'alerts', name: '预警触发', cron: '0 * * * *', endpoint: '/api/alerts/cron', enabled: true },
   { id: 'evolution', name: '假设演化', cron: '0 8 * * *', endpoint: '/api/cron/evolution', enabled: true },
   { id: 'risk', name: '风险计算', cron: '30 8 * * *', endpoint: '/api/cron/risk', enabled: true },
+  { id: 'auto-eval', name: '信号评判', cron: '0 9 * * *', endpoint: '/api/cron/auto-eval', enabled: true },
   { id: 'cleanup', name: '数据清理', cron: '0 3 * * 0', endpoint: '/api/cron/cleanup', enabled: true },
 ];
 
