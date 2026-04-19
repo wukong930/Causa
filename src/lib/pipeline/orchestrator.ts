@@ -10,7 +10,7 @@ import { buildFullContext } from "@/lib/context/builder";
 import { runEvolutionCycle } from "@/lib/reasoning/pipeline";
 import { generateOneLiner } from "@/lib/reasoning/one-liner";
 import { checkHealth as checkBacktestHealth, runBacktest } from "@/lib/backtest/client";
-import type { BacktestLeg } from "@/lib/backtest/client";
+import type { BacktestLeg, StrategyType } from "@/lib/backtest/client";
 import { serializeRecords } from "@/lib/serialize";
 import type { Alert, PositionGroup } from "@/types/domain";
 
@@ -21,6 +21,22 @@ export interface OrchestrationResult {
   backtestRan: boolean;
   recommendationsCreated: number;
   summary: string;
+}
+
+/**
+ * Select the appropriate backtest strategy based on hypothesis type and alert type.
+ */
+function selectStrategy(hypType: string, alertType?: string): StrategyType {
+  if (hypType === "spread") {
+    if (alertType === "event_driven") return "event_driven";
+    // spread_anomaly, basis_shift, calendar_spread → mean reversion
+    return "mean_reversion";
+  }
+  // directional hypotheses
+  if (alertType === "momentum") return "momentum_breakout";
+  if (alertType === "inventory_shock" || alertType === "regime_shift") return "channel_breakout";
+  if (alertType === "event_driven") return "event_driven";
+  return "momentum_breakout"; // default for directional
 }
 
 /**
@@ -95,9 +111,15 @@ export async function runOrchestration(
               const btLegs: BacktestLeg[] = [{ asset: assets[0], direction: "long", ratio: 1.0 }];
               const prices = { [assets[0]]: r1.map((b: { close: number }) => b.close) };
               const dates = r1.map((b: { date: string }) => b.date);
-              // Use a dummy second series (same asset) for the spread engine
+              // Resolve alert type for strategy selection
+              const alertRow = hyp.createdFromAlertId
+                ? await db.select().from(alertsTable).where(eq(alertsTable.id, hyp.createdFromAlertId)).limit(1)
+                : [];
+              const alertType = (alertRow[0] as any)?.type ?? undefined;
+              const strategy = selectStrategy(hyp.type, alertType);
               const result = await runBacktest({
                 hypothesis_id: hyp.id, legs: btLegs, prices, dates,
+                strategy_type: strategy,
                 entry_threshold: 2.0, exit_threshold: 0.5, window: 60,
               });
               backtestResults[hyp.id] = {
@@ -136,13 +158,20 @@ export async function runOrchestration(
         const prices = { [assets[0]]: a1.map((b: { close: number }) => b.close), [assets[1]]: a2.map((b: { close: number }) => b.close) };
         const dates = a1.map((b: { date: string }) => b.date);
 
+        // Resolve alert type for strategy selection
+        const alertRow = hyp.createdFromAlertId
+          ? await db.select().from(alertsTable).where(eq(alertsTable.id, hyp.createdFromAlertId)).limit(1)
+          : [];
+        const alertType = (alertRow[0] as any)?.type ?? undefined;
+        const strategy = selectStrategy(hyp.type, alertType);
+
         // Step 4a: Parameter optimization
         let bestParams = { entry_threshold: 2.0, exit_threshold: 0.5, window: 60 };
         try {
           const optRes = await fetch(`${BACKTEST_URL}/optimize`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ legs: btLegs, prices, dates }),
+            body: JSON.stringify({ legs: btLegs, prices, dates, strategy_type: strategy }),
             signal: AbortSignal.timeout(30000),
           });
           if (optRes.ok) {
@@ -158,7 +187,7 @@ export async function runOrchestration(
           const wfRes = await fetch(`${BACKTEST_URL}/walk-forward`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ legs: btLegs, prices, dates, params: bestParams, n_splits: 5 }),
+            body: JSON.stringify({ legs: btLegs, prices, dates, params: bestParams, n_splits: 5, strategy_type: strategy }),
             signal: AbortSignal.timeout(30000),
           });
           if (wfRes.ok) {
@@ -171,6 +200,7 @@ export async function runOrchestration(
         // Step 4c: Run final backtest with optimized params
         const result = await runBacktest({
           hypothesis_id: hyp.id, legs: btLegs, prices, dates,
+          strategy_type: strategy,
           entry_threshold: bestParams.entry_threshold,
           exit_threshold: bestParams.exit_threshold,
           window: bestParams.window,

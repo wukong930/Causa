@@ -1,10 +1,15 @@
-"""vectorbt-based backtesting engine."""
+"""vectorbt-based backtesting engine with multi-strategy routing."""
 
 import numpy as np
 import pandas as pd
 import vectorbt as vbt
 from pydantic import BaseModel
 from typing import Optional
+
+from strategies.mean_reversion import MeanReversionParams, generate_signals as mr_signals
+from strategies.momentum import MomentumParams, generate_signals as mom_signals
+from strategies.channel_breakout import ChannelBreakoutParams, generate_signals as cb_signals
+from strategies.event_driven import EventDrivenParams, generate_signals as ed_signals
 
 
 class BacktestLeg(BaseModel):
@@ -18,10 +23,14 @@ class BacktestRequest(BaseModel):
     legs: list[BacktestLeg]
     prices: dict[str, list[float]]  # symbol → daily close prices
     dates: list[str]  # ISO date strings
+    # Legacy params (used by mean_reversion if strategy_params not set)
     entry_threshold: float = 2.0
     exit_threshold: float = 0.0
     stop_loss_threshold: float = -3.0
     window: int = 60
+    # Multi-strategy fields
+    strategy_type: str = "mean_reversion"  # mean_reversion | momentum_breakout | channel_breakout | event_driven
+    strategy_params: dict = {}  # override default params per strategy
 
 
 class EquityPoint(BaseModel):
@@ -92,19 +101,41 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
 
     # Guard: vectorbt requires all prices > 0
     if (spread <= 0).any():
-        # Shift spread to be strictly positive (preserves z-score / signals)
         shift = abs(spread.min()) + 1.0
         spread = spread + shift
-    # Z-score
-    rolling_mean = spread.rolling(req.window).mean()
-    rolling_std = spread.rolling(req.window).std()
-    rolling_std = rolling_std.replace(0, np.nan)
-    zscore = (spread - rolling_mean) / rolling_std
-    zscore = zscore.fillna(0)
 
-    # Entry/exit signals
-    entries = zscore >= req.entry_threshold
-    exits = zscore <= req.exit_threshold
+    # ── Strategy routing: generate entry/exit signals ──
+    if req.strategy_type == "momentum_breakout":
+        params = MomentumParams(
+            lookback=req.strategy_params.get("lookback", 20),
+            entry_percentile=req.strategy_params.get("entry_percentile", 80.0),
+            trailing_atr_mult=req.strategy_params.get("trailing_atr_mult", 2.0),
+            atr_period=req.strategy_params.get("atr_period", 14),
+        )
+        entries, exits = mom_signals(spread, params)
+    elif req.strategy_type == "channel_breakout":
+        params = ChannelBreakoutParams(
+            channel_period=int(req.strategy_params.get("channel_period", 40)),
+            atr_period=int(req.strategy_params.get("atr_period", 14)),
+            atr_stop_mult=req.strategy_params.get("atr_stop_mult", 2.0),
+        )
+        entries, exits = cb_signals(spread, params)
+    elif req.strategy_type == "event_driven":
+        params = EventDrivenParams(
+            hold_days=int(req.strategy_params.get("hold_days", 5)),
+            target_pct=req.strategy_params.get("target_pct", 3.0),
+            stop_pct=req.strategy_params.get("stop_pct", 2.0),
+        )
+        entries, exits = ed_signals(spread, params)
+    else:
+        # Default: mean_reversion (z-score based)
+        mr_params = MeanReversionParams(
+            window=req.strategy_params.get("window", req.window),
+            entry_z=req.strategy_params.get("entry_z", req.entry_threshold),
+            exit_z=req.strategy_params.get("exit_z", req.exit_threshold if req.exit_threshold > 0 else 0.5),
+            stop_loss_z=req.strategy_params.get("stop_loss_z", abs(req.stop_loss_threshold) if req.stop_loss_threshold != 0 else 3.5),
+        )
+        entries, exits = mr_signals(spread, mr_params)
 
     # Run vectorbt portfolio
     pf = vbt.Portfolio.from_signals(
@@ -120,10 +151,12 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
     trades = pf.trades.records_readable if hasattr(pf.trades, "records_readable") else pd.DataFrame()
     trade_count = len(trades) if isinstance(trades, pd.DataFrame) else 0
 
-    # IC: correlation between z-score and next-day return
+    # IC: correlation between signal strength and next-day return
     ret = spread.pct_change().shift(-1)
-    valid = zscore.notna() & ret.notna()
-    ic = float(zscore[valid].corr(ret[valid])) if valid.sum() > 10 else 0.0
+    # Use entries as signal proxy for non-zscore strategies
+    signal = entries.astype(float)
+    valid = signal.notna() & ret.notna()
+    ic = float(signal[valid].corr(ret[valid])) if valid.sum() > 10 else 0.0
 
     sharpe = float(stats.get("Sharpe Ratio", 0) or 0)
     max_dd = float(stats.get("Max Drawdown [%]", 0) or 0) / -100

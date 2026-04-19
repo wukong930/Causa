@@ -14,6 +14,9 @@ class WalkForwardRequest(BaseModel):
     window: int = 60
     n_splits: int = 5
     train_ratio: float = 0.7
+    strategy_type: str = "mean_reversion"
+    strategy_params: dict = {}
+    params: dict = {}  # alias for strategy_params (from orchestrator)
 
 
 class SplitResult(BaseModel):
@@ -47,6 +50,7 @@ def run_walk_forward(req: WalkForwardRequest) -> WalkForwardResult:
         raise ValueError(f"Not enough data for {req.n_splits} splits (need {req.window + 20} per split, have {split_size})")
 
     splits: list[SplitResult] = []
+    sp = req.strategy_params or req.params  # resolve alias
 
     for i in range(req.n_splits):
         start = i * split_size
@@ -75,6 +79,8 @@ def run_walk_forward(req: WalkForwardRequest) -> WalkForwardResult:
                 entry_threshold=req.entry_threshold,
                 exit_threshold=req.exit_threshold,
                 window=req.window,
+                strategy_type=req.strategy_type,
+                strategy_params=sp,
             ))
             train_sharpe = _safe(train_bt.sharpe_ratio)
         except Exception:
@@ -88,6 +94,8 @@ def run_walk_forward(req: WalkForwardRequest) -> WalkForwardResult:
                 entry_threshold=req.entry_threshold,
                 exit_threshold=req.exit_threshold,
                 window=req.window,
+                strategy_type=req.strategy_type,
+                strategy_params=sp,
             ))
             test_sharpe = _safe(test_bt.sharpe_ratio)
             test_wr = _safe(test_bt.win_rate)

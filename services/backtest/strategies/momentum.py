@@ -1,4 +1,4 @@
-"""Momentum strategy — enter on breakout, exit on reversal."""
+"""Momentum strategy — enter on breakout, exit on ATR trailing stop or reversal."""
 
 import numpy as np
 import pandas as pd
@@ -8,20 +8,29 @@ from pydantic import BaseModel
 class MomentumParams(BaseModel):
     lookback: int = 20
     entry_percentile: float = 80.0
-    exit_percentile: float = 50.0
+    trailing_atr_mult: float = 2.0
     atr_period: int = 14
 
 
 def generate_signals(
     prices: pd.Series, params: MomentumParams
 ) -> tuple[pd.Series, pd.Series]:
-    """Generate entry/exit signals for momentum breakout."""
+    """Generate entry/exit signals for momentum breakout with ATR trailing stop."""
     returns = prices.pct_change(params.lookback)
     upper = returns.rolling(params.lookback).quantile(params.entry_percentile / 100)
     lower = returns.rolling(params.lookback).quantile((100 - params.entry_percentile) / 100)
 
+    # Entry: returns break above upper quantile (long) or below lower (short)
     entries = (returns >= upper) | (returns <= lower)
-    mid = returns.rolling(params.lookback).quantile(params.exit_percentile / 100)
-    exits = returns.abs() <= mid.abs()
+
+    # ATR trailing stop
+    high_low = prices.rolling(2).max() - prices.rolling(2).min()
+    atr = high_low.rolling(params.atr_period).mean()
+
+    # Exit: ATR trailing stop or momentum reversal (returns cross zero)
+    trailing_stop = prices.rolling(params.lookback).max() - atr * params.trailing_atr_mult
+    momentum_reversal = (returns.shift(1) > 0) & (returns <= 0) | (returns.shift(1) < 0) & (returns >= 0)
+
+    exits = (prices <= trailing_stop) | momentum_reversal
 
     return entries.fillna(False), exits.fillna(False)

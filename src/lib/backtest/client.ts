@@ -10,6 +10,8 @@ export interface BacktestLeg {
   ratio: number;
 }
 
+export type StrategyType = "mean_reversion" | "momentum_breakout" | "channel_breakout" | "event_driven";
+
 export interface BacktestRequest {
   hypothesis_id: string;
   legs: BacktestLeg[];
@@ -19,6 +21,8 @@ export interface BacktestRequest {
   exit_threshold?: number;
   stop_loss_threshold?: number;
   window?: number;
+  strategy_type?: StrategyType;
+  strategy_params?: Record<string, number>;
 }
 
 export interface BacktestResult {
