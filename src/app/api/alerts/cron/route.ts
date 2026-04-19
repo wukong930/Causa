@@ -13,6 +13,13 @@ import { verifyCronSecret } from '@/lib/auth';
 import { engleGranger, ouHalfLife, hurstExponent as calcHurst } from '@/lib/stats/cointegration';
 import { recordSignal } from '@/lib/trigger/signal-quality';
 import { generateOneLiner } from '@/lib/reasoning/one-liner';
+import { runOrchestration } from '@/lib/pipeline/orchestrator';
+
+async function triggerOrchestrationAsync() {
+  console.log('[cron] Auto-triggering orchestration for new alerts...');
+  const result = await runOrchestration();
+  console.log(`[cron] Orchestration complete: ${result.recommendationsCreated} recommendations created`);
+}
 
 // Cron watchlist: symbol pairs and categories to monitor
 const CRON_WATCHLIST: Array<{ symbol1: string; symbol2?: string; category: AlertCategory }> = [
@@ -91,6 +98,13 @@ export async function POST(request: NextRequest) {
   }
 
   const totalTriggered = results.reduce((sum, r) => sum + r.count, 0);
+
+  // Auto-trigger orchestration if any critical/high alerts were generated
+  if (totalTriggered > 0) {
+    triggerOrchestrationAsync().catch((err) =>
+      console.error('[cron] Auto-orchestration failed:', err)
+    );
+  }
 
   return NextResponse.json({
     success: true,

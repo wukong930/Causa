@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { signalTrack, alerts, marketData } from "@/db/schema";
 import { eq, and, lt, desc, sql } from "drizzle-orm";
 
-const MIN_CONFIDENCE = 0.6;
+const MIN_CONFIDENCE = 0.7;
 const MIN_AGE_HOURS = 24;
 
 export async function autoEvaluateSignals(): Promise<{
