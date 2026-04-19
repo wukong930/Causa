@@ -124,6 +124,7 @@ def fetch_spread_data(
 
 class TermStructurePoint(BaseModel):
     contract: str
+    contract_month: str  # e.g. "2510"
     price: float
     volume: float
     open_interest: float
@@ -135,21 +136,30 @@ def fetch_term_structure(symbol: str) -> list[TermStructurePoint]:
     if sym_upper not in SYMBOL_EXCHANGE:
         raise ValueError(f"Unknown symbol: {symbol}")
 
+    cn_name = _symbol_names().get(sym_upper)
+    if not cn_name:
+        return []
+
     try:
-        # Get all contracts for this symbol via sina
-        df = ak.futures_zh_spot(symbol=sym_upper.lower(), market="CF", adjust="0")
+        df = ak.futures_zh_realtime(symbol=cn_name)
         if df is None or df.empty:
             return []
 
         points: list[TermStructurePoint] = []
         for _, row in df.iterrows():
-            contract = str(row.get("symbol", row.get("合约代码", "")))
-            price = float(row.get("latest_price", row.get("最新价", 0)))
-            vol = float(row.get("volume", row.get("成交量", 0)))
-            oi = float(row.get("hold", row.get("持仓量", 0)))
-            if price > 0:
+            contract = str(row.get("symbol", ""))
+            # Skip continuous contract (e.g. RB0)
+            if contract.endswith("0") and not any(c.isdigit() for c in contract[:-1][-2:]):
+                continue
+            price = float(row.get("trade", 0))
+            vol = float(row.get("volume", 0))
+            oi = float(row.get("position", 0))
+            # Extract contract month from symbol like RB2510 -> 2510
+            month = contract.replace(sym_upper, "")
+            if price > 0 and month:
                 points.append(TermStructurePoint(
-                    contract=contract, price=price, volume=vol, open_interest=oi,
+                    contract=contract, contract_month=month,
+                    price=price, volume=vol, open_interest=oi,
                 ))
         return sorted(points, key=lambda p: p.contract)
     except Exception as e:

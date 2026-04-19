@@ -58,22 +58,13 @@ def fetch_spot_price(symbol: str, limit: int = 60) -> list[IndustryDataPoint]:
     """Fetch spot (cash) prices for basis calculation."""
     sym = symbol.upper()
     try:
-        df = ak.futures_spot_price_daily(date=datetime.now().strftime("%Y%m%d"))
+        today = datetime.now().strftime("%Y%m%d")
+        df = ak.futures_spot_price_daily(start_day=today, end_day=today, vars_list=[sym])
         if df is None or df.empty:
             return []
 
-        # Filter for matching symbol
-        name_map = _spot_symbol_map()
-        spot_name = name_map.get(sym)
-        if not spot_name:
-            return []
-
-        matched = df[df.iloc[:, 0].str.contains(spot_name, na=False)]
-        if matched.empty:
-            return []
-
         points: list[IndustryDataPoint] = []
-        for _, row in matched.iterrows():
+        for _, row in df.iterrows():
             price = float(row.iloc[1]) if len(row) > 1 else 0
             if price > 0:
                 points.append(IndustryDataPoint(

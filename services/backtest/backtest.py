@@ -90,6 +90,11 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
 
     spread = _build_spread_series(req.prices, req.legs, dates)
 
+    # Guard: vectorbt requires all prices > 0
+    if (spread <= 0).any():
+        # Shift spread to be strictly positive (preserves z-score / signals)
+        shift = abs(spread.min()) + 1.0
+        spread = spread + shift
     # Z-score
     rolling_mean = spread.rolling(req.window).mean()
     rolling_std = spread.rolling(req.window).std()
