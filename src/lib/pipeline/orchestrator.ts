@@ -232,32 +232,46 @@ export async function runOrchestration(
         } catch { /* use existing contractMonth from hypothesis */ }
       }
 
-      // Compute entryZone, stopLoss, takeProfit from spread statistics
-      const rawMean = spreadInfo?.expectedSpread ?? 0;
-      const rawStdDev = spreadInfo ? Math.abs(spreadInfo.currentZScore) > 0.01
-        ? Math.abs((spreadInfo.currentZScore) / (spreadInfo.currentZScore)) // placeholder
-        : 1 : 1;
+      // Compute entryZone, stopLoss, takeProfit from alert's spread statistics (absolute prices)
+      let alertSpreadMean = 0;
+      let alertSpreadStdDev = 1;
+      if (spreadInfo && hyp.createdFromAlertId) {
+        try {
+          const alertRow = await db.select().from(alertsTable).where(eq(alertsTable.id, hyp.createdFromAlertId)).limit(1);
+          const si = alertRow[0]?.spreadInfo as any;
+          if (si) {
+            alertSpreadMean = (si.rawSpreadMean ?? si.historicalMean) ?? 0;
+            // Derive stdDev from sigma1Upper - mean, or rawSpreadStdDev, or spreadStdDev
+            const derivedStd = si.sigma1Upper && si.historicalMean
+              ? Math.abs(si.sigma1Upper - si.historicalMean) : 0;
+            alertSpreadStdDev = (si.rawSpreadStdDev ?? si.spreadStdDev ?? derivedStd) || 1;
+          }
+        } catch { /* proceed with defaults */ }
+      }
       // Use btInfo params or hypothesis thresholds
       const entryZ = btInfo?.bestParams?.entry_threshold ?? spreadInfo?.entryThreshold ?? 2.0;
-      const exitZ = btInfo?.bestParams?.exit_threshold ?? spreadInfo?.exitThreshold ?? 0.5;
+      const stopZ = spreadInfo?.stopLossThreshold ?? -3.0;
 
       const legs = hyp.type === "spread"
         ? hyp.legs.map((l) => {
             const baseSymbol = l.asset.replace(/\d+/, "");
             const cm = contractMonthCache[baseSymbol] || l.contractMonth;
+            // Compute absolute price levels for the spread
+            const sign = spreadInfo && spreadInfo.currentZScore > 0 ? 1 : -1;
+            const entryLow = Math.round(alertSpreadMean + entryZ * sign * alertSpreadStdDev * 0.9);
+            const entryHigh = Math.round(alertSpreadMean + entryZ * sign * alertSpreadStdDev * 1.1);
+            const sl = Math.round(alertSpreadMean + stopZ * sign * alertSpreadStdDev);
+            const tp = Math.round(alertSpreadMean);
             return {
               asset: l.asset,
               contractMonth: cm,
               direction: l.direction,
               suggestedSize: l.ratio * 10,
               unit: "手",
-              entryPriceRef: spreadInfo?.currentZScore ?? 0,
-              entryZone: spreadInfo ? [
-                Math.round(rawMean + entryZ * (spreadInfo.currentZScore > 0 ? 1 : -1) * 0.9),
-                Math.round(rawMean + entryZ * (spreadInfo.currentZScore > 0 ? 1 : -1) * 1.1),
-              ] as [number, number] : undefined,
-              stopLoss: spreadInfo ? Math.round(rawMean + (spreadInfo.stopLossThreshold ?? -3) * (spreadInfo.currentZScore > 0 ? 1 : -1)) : undefined,
-              takeProfit: spreadInfo ? Math.round(rawMean) : undefined,
+              entryPriceRef: Math.round(alertSpreadMean + (spreadInfo?.currentZScore ?? 0) * alertSpreadStdDev),
+              entryZone: alertSpreadStdDev > 1 ? [Math.min(entryLow, entryHigh), Math.max(entryLow, entryHigh)] as [number, number] : undefined,
+              stopLoss: alertSpreadStdDev > 1 ? sl : undefined,
+              takeProfit: alertSpreadStdDev > 1 ? tp : undefined,
             };
           })
         : [{

@@ -141,7 +141,15 @@ def fetch_term_structure(symbol: str) -> list[TermStructurePoint]:
         return []
 
     try:
-        df = ak.futures_zh_realtime(symbol=cn_name)
+        # Try Chinese name first, fall back to English symbol
+        df = None
+        for name in [cn_name, sym_upper]:
+            try:
+                df = ak.futures_zh_realtime(symbol=name)
+                if df is not None and not df.empty:
+                    break
+            except Exception:
+                continue
         if df is None or df.empty:
             return []
 
