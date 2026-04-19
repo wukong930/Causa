@@ -68,34 +68,10 @@ const BASE_PRICES: Record<string, number> = {
 };
 
 async function seedSymbolFallback(symbol: string, commodity: string, exchange: string, market: string): Promise<number> {
-  const rows: any[] = [];
-  const now = new Date();
-  let price = BASE_PRICES[symbol] || 3500;
-  for (let i = 89; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-    date.setHours(15, 0, 0, 0);
-    const change = (Math.random() - 0.48) * price * 0.02;
-    const close = price + change;
-    const high = Math.max(price, close) + Math.random() * price * 0.005;
-    const low = Math.min(price, close) - Math.random() * price * 0.005;
-    rows.push({
-      id: `${symbol}_${date.toISOString()}`, market, exchange, commodity, symbol,
-      contractMonth: 'main', timestamp: date,
-      open: Math.round(price), high: Math.round(high), low: Math.round(low),
-      close: Math.round(close), settle: Math.round(close),
-      volume: Math.floor(50000 + Math.random() * 100000),
-      openInterest: Math.floor(200000 + Math.random() * 300000),
-      currency: 'CNY', timezone: 'Asia/Shanghai',
-    });
-    price = close;
-  }
-  const batchSize = 50;
-  for (let i = 0; i < rows.length; i += batchSize) {
-    await db.insert(marketData).values(rows.slice(i, i + batchSize)).onConflictDoNothing();
-  }
-  return rows.length;
+  // DISABLED: Never write simulated data to the database.
+  // If AkShare is unavailable, we wait until it's back rather than polluting with fake prices.
+  console.warn(`[market-ingest] Skipping ${symbol} — AkShare unavailable, no fallback data will be written`);
+  return 0;
 }
 
 /**
@@ -199,16 +175,6 @@ export async function ingestDailyData(): Promise<number> {
  */
 export async function hasEnoughData(): Promise<boolean> {
   const result = await db.select({ value: count() }).from(marketData);
-  if ((result[0]?.value ?? 0) < 200) return false;
-
-  // Check per-symbol freshness
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-  for (const { symbol } of SYMBOLS) {
-    const latest = await db.select({ maxTs: max(marketData.timestamp) })
-      .from(marketData)
-      .where(eq(marketData.symbol, symbol));
-    const ts = latest[0]?.maxTs;
-    if (!ts || new Date(ts) < threeDaysAgo) return false;
-  }
-  return true;
+  // Only trigger seed if database is nearly empty (fresh install)
+  return (result[0]?.value ?? 0) >= 200;
 }
