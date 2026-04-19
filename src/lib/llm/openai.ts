@@ -24,7 +24,7 @@ export function createOpenAIProvider(config: LLMConfig): LLMProvider {
           Authorization: `Bearer ${config.apiKey}`,
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(120_000),
       });
 
       if (!response.ok) {

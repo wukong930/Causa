@@ -1,21 +1,17 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { Recommendation, RecommendationStatus } from "@/types/domain";
-import {
-  getRecommendations,
-  updateRecommendation,
-  createExecutionDraft,
-} from "@/lib/api-client";
-import { useToast } from "@/components/shared/Toast";
+import { getRecommendations } from "@/lib/api-client";
 import {
   RECOMMENDATION_STATUS_LABEL,
   RECOMMENDED_ACTION_LABEL,
-  RECOMMENDED_ACTION_COLOR,
+  getCommodityName,
 } from "@/lib/constants";
-import { formatRelativeTime, formatConfidence, clsx } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/utils";
 import { Drawer } from "@/components/shared/Drawer";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
+import { RefreshBar } from "@/components/shared/RefreshBar";
 
 function FilterPill({
   label,
@@ -44,15 +40,9 @@ function FilterPill({
 function RecommendationCard({
   rec,
   onClick,
-  onConfirm,
-  onDefer,
-  confirming,
 }: {
   rec: Recommendation;
   onClick: () => void;
-  onConfirm: (id: string) => void;
-  onDefer: (id: string) => void;
-  confirming: boolean;
 }) {
   return (
     <button
@@ -63,7 +53,7 @@ function RecommendationCard({
       <div className="flex items-start gap-2 mb-3">
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium font-mono truncate mb-0.5" style={{ color: "var(--foreground)" }}>
-            {rec.legs.map((l) => l.asset).join(" / ")}
+            {rec.legs.map((l) => getCommodityName(l.asset)).join(" / ")}
           </div>
           <div className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
             {RECOMMENDED_ACTION_LABEL[rec.recommendedAction]}
@@ -106,41 +96,29 @@ function RecommendationCard({
           </div>
         </div>
       </div>
-
-      {rec.status === "pending" && (
-        <div className="flex gap-2">
-          <button
-            className="flex-1 text-sm py-2 rounded-lg font-medium"
-            style={{ background: "var(--positive)", color: "#fff", opacity: confirming ? 0.6 : 1 }}
-            onClick={(e) => { e.stopPropagation(); onConfirm(rec.id); }}
-            disabled={confirming}
-          >
-            {confirming ? "创建中..." : "确认执行"}
-          </button>
-          <button
-            className="text-sm px-3 py-2 rounded-lg"
-            style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}
-            onClick={(e) => { e.stopPropagation(); onDefer(rec.id); }}
-            disabled={confirming}
-          >
-            延后
-          </button>
-        </div>
-      )}
     </button>
   );
 }
 
+function generateRecPlainSummary(rec: Recommendation): string {
+  const assets = rec.legs.map((l) => getCommodityName(l.asset));
+  const actions = rec.legs.map((l) => `${l.direction === "long" ? "做多" : "做空"} ${getCommodityName(l.asset)} ${l.suggestedSize}${l.unit}`);
+  if (rec.legs.length >= 2) {
+    return `建议同时${actions.join("、")}，构建套利组合。优先级评分 ${rec.priorityScore} 分${rec.priorityScore >= 80 ? "（强烈建议关注）" : rec.priorityScore >= 60 ? "（值得考虑）" : "（仅供参考）"}，预估需要保证金约 ¥${(rec.marginRequired / 10000).toFixed(1)} 万。`;
+  }
+  return `建议${actions[0]}。优先级评分 ${rec.priorityScore} 分${rec.priorityScore >= 80 ? "（强烈建议关注）" : rec.priorityScore >= 60 ? "（值得考虑）" : "（仅供参考）"}，预估需要保证金约 ¥${(rec.marginRequired / 10000).toFixed(1)} 万。`;
+}
+
+const SCORE_TOOLTIPS = {
+  priority: "综合信号强度、时效性、历史胜率的加权得分。\n≥80 强烈建议关注\n60-79 值得考虑\n<60 仅供参考",
+  portfolioFit: "与现有持仓的相关性、分散度、方向冲突评估。\n≥80 与组合高度互补\n<60 可能增加集中度风险",
+  marginEfficiency: "预期收益与保证金占用的比值。\n≥80 资金利用率高\n<60 资金效率偏低",
+};
+
 function RecommendationDetail({
   rec,
-  onConfirm,
-  onDefer,
-  onIgnore,
 }: {
   rec: Recommendation;
-  onConfirm?: (id: string) => void;
-  onDefer?: (id: string) => void;
-  onIgnore?: (id: string, reason: string) => void;
 }) {
   return (
     <div className="p-5">
@@ -166,11 +144,30 @@ function RecommendationDetail({
         </div>
 
         <div className="font-mono text-sm mb-3" style={{ color: "var(--foreground)" }}>
-          {rec.legs.map((l) => l.asset).join(" / ")}
+          {rec.legs.map((l) => getCommodityName(l.asset)).join(" / ")}
         </div>
 
         <div className="text-sm leading-relaxed" style={{ color: "var(--foreground-muted)" }}>
           {rec.reasoning}
+        </div>
+
+        {/* Plain summary */}
+        <div
+          className="rounded-lg p-4 mt-3"
+          style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.3)" }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-blue)" }}>
+              <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+            </svg>
+            <span className="text-xs font-semibold" style={{ color: "var(--accent-blue)" }}>通俗建议</span>
+          </div>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)" }}>
+            {rec.oneLiner && (
+              <span className="block font-semibold mb-1">{rec.oneLiner}</span>
+            )}
+            {rec.plainSummary || generateRecPlainSummary(rec)}
+          </p>
         </div>
       </div>
 
@@ -196,7 +193,7 @@ function RecommendationDetail({
                 {leg.direction === "long" ? "做多" : "做空"}
               </span>
               <span className="font-mono font-medium text-sm" style={{ color: "var(--foreground)" }}>
-                {leg.asset}
+                {getCommodityName(leg.asset)}
               </span>
               <span className="text-xs" style={{ color: "var(--foreground-muted)" }}>
                 {leg.suggestedSize} {leg.unit}
@@ -217,20 +214,20 @@ function RecommendationDetail({
           综合评分
         </h3>
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg p-3 text-center" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-            <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>优先级</div>
+          <div className="rounded-lg p-3 text-center relative group" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+            <div className="text-xs mb-1 cursor-help" style={{ color: "var(--foreground-subtle)" }} title={SCORE_TOOLTIPS.priority}>优先级 ⓘ</div>
             <div className="text-xl font-semibold font-mono" style={{ color: rec.priorityScore >= 80 ? "var(--positive)" : "var(--foreground)" }}>
               {rec.priorityScore}
             </div>
           </div>
-          <div className="rounded-lg p-3 text-center" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-            <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>组合适配</div>
+          <div className="rounded-lg p-3 text-center relative group" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+            <div className="text-xs mb-1 cursor-help" style={{ color: "var(--foreground-subtle)" }} title={SCORE_TOOLTIPS.portfolioFit}>组合适配 ⓘ</div>
             <div className="text-xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
               {rec.portfolioFitScore}
             </div>
           </div>
-          <div className="rounded-lg p-3 text-center" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
-            <div className="text-xs mb-1" style={{ color: "var(--foreground-subtle)" }}>保证金效率</div>
+          <div className="rounded-lg p-3 text-center relative group" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+            <div className="text-xs mb-1 cursor-help" style={{ color: "var(--foreground-subtle)" }} title={SCORE_TOOLTIPS.marginEfficiency}>保证金效率 ⓘ</div>
             <div className="text-xl font-semibold font-mono" style={{ color: "var(--foreground)" }}>
               {rec.marginEfficiencyScore}
             </div>
@@ -272,126 +269,47 @@ function RecommendationDetail({
         <span>创建于 {formatRelativeTime(rec.createdAt)}</span>
         <span>·</span>
         <span>到期 {formatRelativeTime(rec.expiresAt)}</span>
-        {rec.deferredUntil && (
-          <>
-            <span>·</span>
-            <span>延后至 {formatRelativeTime(rec.deferredUntil)}</span>
-          </>
-        )}
-        {rec.ignoredReason && (
-          <>
-            <span>·</span>
-            <span>忽略原因：{rec.ignoredReason}</span>
-          </>
-        )}
       </div>
-
-      {/* Actions */}
-      {rec.status === "pending" && (
-        <div className="flex gap-2 pt-4 mt-4 border-t" style={{ borderColor: "var(--border)" }}>
-          <button
-            onClick={() => { onConfirm?.(rec.id); }}
-            className="flex-1 text-sm py-2.5 rounded-lg font-medium"
-            style={{ background: "var(--positive)", color: "#fff" }}
-          >
-            确认执行
-          </button>
-          <button
-            onClick={() => { onDefer?.(rec.id); }}
-            className="text-sm px-4 py-2.5 rounded-lg"
-            style={{ background: "var(--surface-overlay)", color: "var(--foreground-muted)", border: "1px solid var(--border)" }}
-          >
-            延后
-          </button>
-          <button
-            onClick={() => {
-              const reason = prompt("请输入忽略原因：");
-              if (reason) onIgnore?.(rec.id, reason);
-            }}
-            className="text-sm px-4 py-2.5 rounded-lg"
-            style={{ background: "transparent", color: "var(--foreground-subtle)", border: "1px solid var(--border)" }}
-          >
-            忽略
-          </button>
-        </div>
-      )}
     </div>
   );
 }
 
 const ALL_STATUSES: RecommendationStatus[] = [
-  "pending",
-  "confirmed",
-  "deferred",
-  "ignored",
-  "backfilled",
+  "active",
   "expired",
+  "superseded",
 ];
 
 export default function RecommendationsPage() {
-  const router = useRouter();
-  const { toast } = useToast();
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<RecommendationStatus[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"current" | "history">("current");
+
+  const fetchRecs = useCallback(async () => {
+    const data = await getRecommendations();
+    setRecommendations(data);
+    setLoading(false);
+  }, []);
+
+  const { refresh, isRefreshing, interval: refreshInterval, setInterval: setRefreshInterval, lastRefreshed } = useAutoRefresh(fetchRecs);
 
   useEffect(() => {
     setLoading(true);
-    getRecommendations().then((data) => {
-      setRecommendations(data);
-      setLoading(false);
-    });
-  }, []);
-
-  async function handleConfirm(id: string) {
-    setConfirmingId(id);
-    try {
-      // Create execution draft
-      const draft = await createExecutionDraft(id);
-      if (draft) {
-        // Update recommendation status
-        await updateRecommendation(id, { status: "confirmed" });
-        setRecommendations((prev) =>
-          prev.map((r) => (r.id === id ? { ...r, status: "confirmed" as RecommendationStatus } : r))
-        );
-        toast("已创建执行草稿", "success");
-        // Navigate to drafts page
-        router.push("/drafts");
-      } else {
-        toast("创建执行草稿失败", "error");
-      }
-    } catch {
-      toast("创建执行草稿失败", "error");
-    } finally {
-      setConfirmingId(null);
-    }
-  }
-
-  function handleDefer(id: string) {
-    setRecommendations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "deferred" as RecommendationStatus } : r))
-    );
-    updateRecommendation(id, { status: "deferred" });
-    toast("已延后推荐", "info");
-  }
-
-  function handleIgnore(id: string, reason: string) {
-    setRecommendations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "ignored" as RecommendationStatus, ignoredReason: reason } : r))
-    );
-    updateRecommendation(id, { status: "ignored", ignoredReason: reason });
-    toast("已忽略推荐", "info");
-  }
+    fetchRecs();
+  }, [fetchRecs]);
 
   const filtered = useMemo(() => {
     return recommendations.filter((r) => {
+      // Tab filter
+      if (activeTab === "current" && r.status !== "active") return false;
+      if (activeTab === "history" && r.status === "active") return false;
       if (statusFilter.length > 0 && !statusFilter.includes(r.status)) return false;
       return true;
     });
-  }, [recommendations, statusFilter]);
+  }, [recommendations, statusFilter, activeTab]);
 
   const selectedRec = selectedId
     ? recommendations.find((r) => r.id === selectedId)
@@ -427,13 +345,20 @@ export default function RecommendationsPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
-              推荐与执行
+              交易建议
             </h1>
             <p className="text-xs mt-0.5" style={{ color: "var(--foreground-muted)" }}>
-              共 {filtered.length} 条推荐
+              共 {filtered.length} 条建议
               {statusFilter.length > 0 && "（已筛选）"}
             </p>
           </div>
+          <RefreshBar
+            isRefreshing={isRefreshing}
+            interval={refreshInterval}
+            lastRefreshed={lastRefreshed}
+            onRefresh={refresh}
+            onIntervalChange={setRefreshInterval}
+          />
           <div className="flex items-center gap-2">
             {ALL_STATUSES.filter((s) => counts[s] > 0).map((s) => (
               <span
@@ -448,6 +373,24 @@ export default function RecommendationsPage() {
               </span>
             ))}
           </div>
+        </div>
+
+        {/* Tab switcher */}
+        <div className="flex gap-1 mb-3 rounded-lg p-0.5" style={{ background: "var(--surface-overlay)" }}>
+          {([["current", "当前建议"], ["history", "历史建议"]] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className="flex-1 text-xs py-1.5 rounded-md transition-colors font-medium"
+              style={{
+                background: activeTab === key ? "var(--surface)" : "transparent",
+                color: activeTab === key ? "var(--foreground)" : "var(--foreground-muted)",
+                boxShadow: activeTab === key ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -504,7 +447,7 @@ export default function RecommendationsPage() {
               <polyline points="20 6 9 17 4 12"/>
             </svg>
             <p className="text-sm" style={{ color: "var(--foreground-subtle)" }}>
-              没有符合条件的推荐
+              没有符合条件的建议
             </p>
           </div>
         ) : (
@@ -514,9 +457,6 @@ export default function RecommendationsPage() {
                 key={rec.id}
                 rec={rec}
                 onClick={() => openRec(rec.id)}
-                onConfirm={handleConfirm}
-                onDefer={handleDefer}
-                confirming={confirmingId === rec.id}
               />
             ))}
           </div>
@@ -530,12 +470,7 @@ export default function RecommendationsPage() {
         width="560px"
       >
         {selectedRec && (
-          <RecommendationDetail
-            rec={selectedRec}
-            onConfirm={handleConfirm}
-            onDefer={handleDefer}
-            onIgnore={handleIgnore}
-          />
+          <RecommendationDetail rec={selectedRec} />
         )}
       </Drawer>
     </div>

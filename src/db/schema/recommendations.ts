@@ -15,6 +15,7 @@ export const recommendations = pgTable('recommendations', {
   marginEfficiencyScore: real('margin_efficiency_score').notNull(),
   marginRequired: real('margin_required').notNull(),
   reasoning: text('reasoning').notNull(),
+  oneLiner: text('one_liner'),
   riskItems: jsonb('risk_items').$type<string[]>().notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

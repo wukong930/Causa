@@ -5,20 +5,15 @@ import type {
   StrategyPoolItem,
   Recommendation,
   PositionGroup,
-  ExecutionFeedback,
   ResearchReport,
   ResearchHypothesis,
-  Suggestion,
   CommodityNode,
   RelationshipEdge,
   MarketDataPoint,
   SpreadStatistics,
-  ExecutionDraft,
-  CandidateRequest,
   AccountSnapshot,
   AlertType,
   AlertCategory,
-  ExecutionLegStatus,
 } from "@/types/domain";
 import type { VaRResult } from "@/lib/risk/var";
 import type { StressTestResult, StressScenario } from "@/lib/risk/stress";
@@ -28,14 +23,12 @@ import type { ApiResult } from "@/types/api";
 import { mockAlerts } from "@/mocks/alerts";
 import { mockStrategies } from "@/mocks/strategies";
 import { mockRecommendations } from "@/mocks/recommendations";
-import { mockExecutionFeedbacks, mockPositionSnapshot } from "@/mocks/positions";
+import { mockPositionSnapshot } from "@/mocks/positions";
 import { mockReports, mockResearchHypotheses as mockHypotheses } from "@/mocks/research";
-import { mockSuggestions } from "@/mocks/suggestions";
 import { mockNodes, mockEdges } from "@/mocks/graph";
-import { mockExecutionDrafts } from "@/mocks/drafts";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
-const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true" || !process.env.DATABASE_URL;
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
 async function fetchApi<T>(
   endpoint: string,
@@ -311,7 +304,7 @@ export async function createRecommendation(
   if (USE_MOCK_DATA) {
     const rec: Recommendation = {
       id: `rec-${Date.now()}`,
-      status: data.status ?? "pending",
+      status: data.status ?? "active",
       recommendedAction: data.recommendedAction ?? "watchlist_only",
       legs: data.legs ?? [],
       priorityScore: data.priorityScore ?? 50,
@@ -377,54 +370,6 @@ export async function updatePosition(
   return (result as { data: PositionGroup; success: true }).data;
 }
 
-// ─── Execution Feedback ──────────────────────────────────────────────────────
-
-export async function getExecutionFeedbacks(): Promise<ExecutionFeedback[]> {
-  if (USE_MOCK_DATA) return [...mockExecutionFeedbacks];
-
-  const result = await fetchApi<ExecutionFeedback[]>("/api/execution-feedback");
-  if (!result.success) return [...mockExecutionFeedbacks];
-  return (result as { data: ExecutionFeedback[]; success: true }).data;
-}
-
-export async function getExecutionFeedback(
-  id: string
-): Promise<ExecutionFeedback | null> {
-  if (USE_MOCK_DATA) return mockExecutionFeedbacks.find((f) => f.id === id) ?? null;
-
-  const result = await fetchApi<ExecutionFeedback>(`/api/execution-feedback/${id}`);
-  if (!result.success) return null;
-  return (result as { data: ExecutionFeedback; success: true }).data;
-}
-
-export async function createExecutionFeedback(
-  data: Partial<ExecutionFeedback>
-): Promise<ExecutionFeedback> {
-  if (USE_MOCK_DATA) {
-    const now = new Date().toISOString();
-    return {
-      id: `fb-${Date.now()}`,
-      legs: data.legs ?? [],
-      totalMarginUsed: data.totalMarginUsed ?? 0,
-      totalCommission: data.totalCommission ?? 0,
-      slippageNote: data.slippageNote,
-      liquidityNote: data.liquidityNote,
-      notes: data.notes,
-      recommendationId: data.recommendationId,
-      strategyId: data.strategyId,
-      createdAt: now,
-      updatedAt: now,
-    };
-  }
-
-  const result = await fetchApi<ExecutionFeedback>("/api/execution-feedback", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-  if (!result.success) throw new Error(result.error.message);
-  return (result as { data: ExecutionFeedback; success: true }).data;
-}
-
 // ─── Research Reports ──────────────────────────────────────────────────────────
 
 export async function getResearchReports(filters?: {
@@ -471,33 +416,6 @@ export async function updateHypothesis(
   });
   if (!result.success) return null;
   return (result as { data: ResearchHypothesis; success: true }).data;
-}
-
-// ─── Suggestions ────────────────────────────────────────────────────────────────
-
-export async function getSuggestions(filters?: {
-  status?: string;
-}): Promise<Suggestion[]> {
-  if (USE_MOCK_DATA) return [...mockSuggestions];
-
-  const params = new URLSearchParams(filters as Record<string, string>);
-  const result = await fetchApi<Suggestion[]>(`/api/suggestions?${params}`);
-  if (!result.success) return [...mockSuggestions];
-  return (result as { data: Suggestion[]; success: true }).data;
-}
-
-export async function updateSuggestion(
-  id: string,
-  data: Partial<Suggestion>
-): Promise<Suggestion | null> {
-  if (USE_MOCK_DATA) return null;
-
-  const result = await fetchApi<Suggestion>(`/api/suggestions/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
-  if (!result.success) return null;
-  return (result as { data: Suggestion; success: true }).data;
 }
 
 // ─── Commodity Graph ───────────────────────────────────────────────────────────
@@ -577,100 +495,6 @@ export async function importMarketData(formData: FormData): Promise<{ imported: 
   return result.data!;
 }
 
-// ─── Candidate Generation ──────────────────────────────────────────────────────
-
-export async function generateCandidates(params: {
-  alertId?: string;
-  strategyId?: string;
-}): Promise<{ candidate: CandidateRequest; recommendation: Recommendation } | null> {
-  if (USE_MOCK_DATA) return null;
-
-  const result = await fetchApi<{ candidate: CandidateRequest; recommendation: Recommendation }>(
-    '/api/candidates/generate',
-    { method: 'POST', body: JSON.stringify(params) }
-  );
-  if (!result.success) return null;
-  return (result as { data: { candidate: CandidateRequest; recommendation: Recommendation }; success: true }).data;
-}
-
-// ─── Execution Drafts ─────────────────────────────────────────────────────────
-
-export async function getExecutionDrafts(filters?: {
-  status?: string;
-}): Promise<ExecutionDraft[]> {
-  if (USE_MOCK_DATA) {
-    let drafts = [...mockExecutionDrafts];
-    if (filters?.status) drafts = drafts.filter((d) => d.status === filters.status);
-    return drafts;
-  }
-
-  const params = new URLSearchParams(filters as Record<string, string>);
-  const result = await fetchApi<ExecutionDraft[]>(`/api/execution-drafts?${params}`);
-  if (!result.success) return [];
-  return (result as { data: ExecutionDraft[]; success: true }).data;
-}
-
-export async function getExecutionDraft(id: string): Promise<ExecutionDraft | null> {
-  if (USE_MOCK_DATA) return mockExecutionDrafts.find((d) => d.id === id) ?? null;
-
-  const result = await fetchApi<ExecutionDraft>(`/api/execution-drafts/${id}`);
-  if (!result.success) return null;
-  return (result as { data: ExecutionDraft; success: true }).data;
-}
-
-export async function createExecutionDraft(recommendationId: string): Promise<ExecutionDraft | null> {
-  if (USE_MOCK_DATA) {
-    const rec = mockRecommendations.find((r) => r.id === recommendationId);
-    if (!rec) return null;
-    const draft: ExecutionDraft = {
-      id: `draft-${Date.now()}`,
-      recommendationId,
-      status: "draft",
-      legs: rec.legs.map((l) => ({
-        asset: l.asset,
-        direction: l.direction,
-        type: "open" as const,
-        requestedSize: l.suggestedSize,
-        requestedPrice: l.entryPriceRef,
-        unit: l.unit,
-        legStatus: "pending" as const,
-      })),
-      totalMarginUsed: rec.marginRequired,
-      totalCommission: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    mockExecutionDrafts.push(draft);
-    return draft;
-  }
-
-  const result = await fetchApi<ExecutionDraft>('/api/execution-drafts', {
-    method: 'POST',
-    body: JSON.stringify({ recommendationId }),
-  });
-  if (!result.success) return null;
-  return (result as { data: ExecutionDraft; success: true }).data;
-}
-
-export async function updateExecutionDraft(
-  id: string,
-  data: Partial<ExecutionDraft>
-): Promise<ExecutionDraft | null> {
-  if (USE_MOCK_DATA) {
-    const idx = mockExecutionDrafts.findIndex((d) => d.id === id);
-    if (idx === -1) return null;
-    mockExecutionDrafts[idx] = { ...mockExecutionDrafts[idx], ...data, updatedAt: new Date().toISOString() };
-    return mockExecutionDrafts[idx];
-  }
-
-  const result = await fetchApi<ExecutionDraft>(`/api/execution-drafts/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  });
-  if (!result.success) return null;
-  return (result as { data: ExecutionDraft; success: true }).data;
-}
-
 // ─── Risk ────────────────────────────────────────────────────────────────────
 
 export async function getRiskVaR(): Promise<VaRResult | null> {
@@ -719,33 +543,6 @@ export async function runCausalValidationClient(req: CausalRequest): Promise<Cau
   });
   if (!result.success) return null;
   return (result as { data: CausalResult; success: true }).data;
-}
-
-// ─── Position Lifecycle ──────────────────────────────────────────────────────
-
-export async function closePosition(id: string, legIndex: number, closeSize: number, reason?: string): Promise<ExecutionDraft | null> {
-  const result = await fetchApi<ExecutionDraft>(`/api/positions/${id}/close`, {
-    method: "POST", body: JSON.stringify({ legIndex, closeSize, reason }),
-  });
-  if (!result.success) return null;
-  return (result as { data: ExecutionDraft; success: true }).data;
-}
-
-export async function rollPosition(id: string, fromContract: string, toContract: string, size: number, reason?: string): Promise<ExecutionDraft | null> {
-  const result = await fetchApi<ExecutionDraft>(`/api/positions/${id}/roll`, {
-    method: "POST", body: JSON.stringify({ fromContract, toContract, size, reason }),
-  });
-  if (!result.success) return null;
-  return (result as { data: ExecutionDraft; success: true }).data;
-}
-
-export async function transitionLeg(draftId: string, legIndex: number, event: string): Promise<{ legIndex: number; previousStatus: string; newStatus: string; event: string } | null> {
-  const result = await fetchApi<{ legIndex: number; previousStatus: string; newStatus: string; event: string }>(
-    `/api/execution-drafts/${draftId}/transition`,
-    { method: "POST", body: JSON.stringify({ legIndex, event }) }
-  );
-  if (!result.success) return null;
-  return (result as { data: { legIndex: number; previousStatus: string; newStatus: string; event: string }; success: true }).data;
 }
 
 // ─── Cron (Admin) ────────────────────────────────────────────────────────────

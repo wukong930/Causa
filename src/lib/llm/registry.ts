@@ -2,12 +2,14 @@ import type { LLMProvider, LLMProviderName, LLMConfig } from "./types";
 import { createOpenAIProvider } from "./openai";
 import { createAnthropicProvider } from "./anthropic";
 import { createDeepSeekProvider } from "./deepseek";
+import { createXAIProvider } from "./xai";
 import { decrypt } from "@/lib/crypto";
 
 const PROVIDER_FACTORIES: Record<LLMProviderName, (config: LLMConfig) => LLMProvider> = {
   openai: createOpenAIProvider,
   anthropic: createAnthropicProvider,
   deepseek: createDeepSeekProvider,
+  xai: createXAIProvider,
 };
 
 /**

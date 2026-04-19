@@ -34,13 +34,50 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('GET /api/positions error:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to fetch positions',
-        },
-      },
+      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch positions' } },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/positions - Create a new position
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { legs, entrySpread, spreadUnit, exitCondition, targetZScore, strategyName } = body;
+
+    if (!legs?.length || entrySpread == null || !spreadUnit || !exitCondition) {
+      return NextResponse.json(
+        { success: false, error: { code: 'VALIDATION_ERROR', message: '缺少必填字段' } },
+        { status: 400 }
+      );
+    }
+
+    const totalMargin = legs.reduce((s: number, l: any) => s + (l.marginUsed || 0), 0);
+    const totalPnl = legs.reduce((s: number, l: any) => s + (l.unrealizedPnl || 0), 0);
+
+    const [created] = await db.insert(positions).values({
+      strategyName: strategyName || null,
+      legs,
+      openedAt: new Date(),
+      entrySpread,
+      currentSpread: entrySpread,
+      spreadUnit,
+      unrealizedPnl: totalPnl,
+      totalMarginUsed: totalMargin,
+      exitCondition,
+      targetZScore: targetZScore ?? 0,
+      currentZScore: 0,
+      halfLifeDays: 0,
+      daysHeld: 0,
+      status: 'open',
+    }).returning();
+
+    return NextResponse.json({ success: true, data: created } as ApiResponse<typeof created>);
+  } catch (error) {
+    console.error('POST /api/positions error:', error);
+    return NextResponse.json(
+      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to create position' } },
       { status: 500 }
     );
   }

@@ -1,5 +1,4 @@
 import { pgTable, uuid, text, timestamp, real, jsonb, varchar, index } from 'drizzle-orm/pg-core';
-import type { Suggestion, SuggestionStatus } from '@/types/domain';
 import { alerts } from './alerts';
 
 export const suggestions = pgTable('suggestions', {

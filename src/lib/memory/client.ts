@@ -32,9 +32,11 @@ export async function getWeaviateClient() {
       authCredentials: new weaviate.ApiKey(process.env.WEAVIATE_API_KEY!),
     }));
   } else {
+    const parsedHost = new URL(url).hostname;
     clientInstance = await connectWithTimeout(() => weaviate.connectToLocal({
-      host: new URL(url).hostname,
+      host: parsedHost,
       port: parseInt(new URL(url).port) || 8080,
+      grpcPort: parseInt(process.env.WEAVIATE_GRPC_PORT || "50051"),
     }));
   }
 

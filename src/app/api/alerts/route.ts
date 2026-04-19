@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { alerts } from '@/db/schema';
-import { eq, and, or, desc } from 'drizzle-orm';
+import { eq, and, or, desc, sql } from 'drizzle-orm';
 import type { ApiResponse, ApiListResponse } from '@/types/api';
 import type { Alert } from '@/types/domain';
 import { serializeRecords, serializeRecord } from '@/lib/serialize';
@@ -65,19 +65,28 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(alerts.category, category));
     }
 
+    const page = parseInt(searchParams.get('page') ?? '1');
+    const pageSize = Math.min(parseInt(searchParams.get('pageSize') ?? '50'), 200);
+
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as any;
     }
 
-    const results = await query.orderBy(desc(alerts.triggeredAt));
+    // Get total count
+    const [{ count: total }] = await db.select({ count: sql<number>`count(*)::int` }).from(alerts).where(conditions.length > 0 ? and(...conditions) : undefined);
+
+    const results = await query
+      .orderBy(desc(alerts.triggeredAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
 
     const response: ApiListResponse<Alert> = {
       success: true,
       data: serializeRecords<Alert>(results),
       meta: {
-        total: results.length,
-        page: 1,
-        pageSize: results.length,
+        total,
+        page,
+        pageSize,
       },
     };
 

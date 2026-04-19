@@ -33,7 +33,7 @@ export function createAnthropicProvider(config: LLMConfig): LLMProvider {
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(120_000),
       });
 
       if (!response.ok) {

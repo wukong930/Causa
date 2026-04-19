@@ -50,9 +50,7 @@ export const CATEGORY_LABEL: Record<AlertCategory, string> = {
 };
 
 export const ALERT_STATUS_LABEL: Record<AlertStatus, string> = {
-  active: "待处理",
-  acknowledged: "已确认",
-  escalated: "已升级",
+  active: "活跃",
   expired: "已过期",
   archived: "已归档",
 };
@@ -118,12 +116,9 @@ export const DIRECTION_LABEL: Record<Direction, string> = {
 // ─── Recommendation labels / colors ──────────────────────────────────────────
 
 export const RECOMMENDATION_STATUS_LABEL: Record<RecommendationStatus, string> = {
-  pending: "待处理",
-  confirmed: "已确认",
-  deferred: "已延后",
-  ignored: "已忽略",
-  backfilled: "已回填",
+  active: "有效",
   expired: "已过期",
+  superseded: "已替代",
 };
 
 export const RECOMMENDED_ACTION_LABEL: Record<RecommendedAction, string> = {
@@ -146,23 +141,42 @@ export const RECOMMENDED_ACTION_COLOR: Record<RecommendedAction, string> = {
   watchlist_only: "text-[var(--foreground-muted)]",
 };
 
+// ─── Commodity name mapping ──────────────────────────────────────────────────
+
+export const COMMODITY_NAME_MAP: Record<string, string> = {
+  RB: "螺纹钢", HC: "热卷", I: "铁矿石", J: "焦炭", JM: "焦煤",
+  CU: "铜", AL: "铝", ZN: "锌", NI: "镍", SN: "锡", PB: "铅",
+  SC: "原油", FU: "燃料油", LU: "低硫燃油", PP: "聚丙烯", TA: "PTA", MEG: "乙二醇", MA: "甲醇", EB: "苯乙烯", PG: "液化气",
+  P: "棕榈油", Y: "豆油", M: "豆粕", OI: "菜油", RM: "菜粕", CF: "棉花", SR: "白糖", AP: "苹果", C: "玉米", CS: "淀粉",
+  AU: "黄金", AG: "白银",
+};
+
+/** Extract commodity prefix from contract symbol and return "中文名 CODE" */
+export function getCommodityName(symbol: string): string {
+  const match = symbol.match(/^([A-Z]+)/i);
+  if (!match) return symbol;
+  const prefix = match[1].toUpperCase();
+  const name = COMMODITY_NAME_MAP[prefix];
+  return name ? `${name} ${symbol}` : symbol;
+}
+
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
 export const NAV_ITEMS = [
   { id: "dashboard",       label: "总览",     href: "/dashboard",       icon: "grid" },
-  { id: "alerts",          label: "预警",     href: "/alerts",          icon: "bell" },
-  { id: "strategies",      label: "策略池",   href: "/strategies",      icon: "layers" },
-  { id: "recommendations", label: "推荐",     href: "/recommendations", icon: "check-square" },
-  { id: "drafts",          label: "执行草稿", href: "/drafts",          icon: "clipboard" },
-  { id: "positions",       label: "持仓",     href: "/positions",       icon: "briefcase" },
+  { id: "alerts",          label: "市场预警", href: "/alerts",          icon: "bell" },
+  { id: "recommendations", label: "交易建议", href: "/recommendations", icon: "check-square" },
+  { id: "strategies",      label: "监控策略", href: "/strategies",      icon: "layers" },
+  { id: "positions",       label: "持仓跟踪", href: "/positions",       icon: "briefcase" },
   { id: "research",        label: "研究",     href: "/research",        icon: "file-text" },
+  { id: "analytics",       label: "分析",     href: "/analytics",       icon: "bar-chart" },
   { id: "settings",        label: "设置",     href: "/settings",        icon: "settings" },
 ] as const;
 
 export const MOBILE_NAV_ITEMS = [
-  { id: "dashboard",       label: "首页",   href: "/dashboard",       icon: "home" },
-  { id: "alerts",          label: "预警",   href: "/alerts",          icon: "bell" },
-  { id: "strategies",      label: "策略池", href: "/strategies",      icon: "layers" },
-  { id: "recommendations", label: "推荐",   href: "/recommendations", icon: "check-square" },
-  { id: "positions",       label: "持仓",   href: "/positions",       icon: "briefcase" },
+  { id: "dashboard",       label: "首页",     href: "/dashboard",       icon: "home" },
+  { id: "alerts",          label: "预警",     href: "/alerts",          icon: "bell" },
+  { id: "recommendations", label: "建议",     href: "/recommendations", icon: "check-square" },
+  { id: "strategies",      label: "策略",     href: "/strategies",      icon: "layers" },
+  { id: "positions",       label: "持仓",     href: "/positions",       icon: "briefcase" },
 ] as const;

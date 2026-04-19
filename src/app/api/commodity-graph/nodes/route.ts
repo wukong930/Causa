@@ -7,7 +7,7 @@ import type { CommodityNode } from '@/types/domain';
 import { serializeRecords } from '@/lib/serialize';
 import { mockNodes } from '@/mocks/graph';
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || !process.env.DATABASE_URL;
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
 
 // GET /api/commodity-graph/nodes
 export async function GET(request: NextRequest) {

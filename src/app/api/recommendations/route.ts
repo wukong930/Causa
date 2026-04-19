@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { recommendations } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import type { ApiResponse, ApiListResponse } from '@/types/api';
 import type { Recommendation } from '@/types/domain';
 import { serializeRecord, serializeRecords } from '@/lib/serialize';
@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
     const action = searchParams.get('action');
+    const page = parseInt(searchParams.get('page') ?? '1');
+    const pageSize = Math.min(parseInt(searchParams.get('pageSize') ?? '50'), 200);
 
     let query = db.select().from(recommendations);
 
@@ -27,15 +29,20 @@ export async function GET(request: NextRequest) {
       query = query.where(and(...conditions)) as any;
     }
 
-    const results = await query.orderBy(desc(recommendations.createdAt));
+    const [{ count: total }] = await db.select({ count: sql<number>`count(*)::int` }).from(recommendations).where(conditions.length > 0 ? and(...conditions) : undefined);
+
+    const results = await query
+      .orderBy(desc(recommendations.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
 
     const response: ApiListResponse<Recommendation> = {
       success: true,
       data: serializeRecords<Recommendation>(results),
       meta: {
-        total: results.length,
-        page: 1,
-        pageSize: results.length,
+        total,
+        page,
+        pageSize,
       },
     };
 

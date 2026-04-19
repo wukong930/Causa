@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/auth";
 import { runOrchestration } from "@/lib/pipeline/orchestrator";
 
+export const maxDuration = 300; // 5 minutes for LLM-heavy pipeline
+
 // POST /api/cron/evolution — trigger evolution cycle
 export async function POST(request: NextRequest) {
   const authError = verifyCronSecret(request);

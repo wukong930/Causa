@@ -9,6 +9,7 @@ export type NavSection =
   | "recommendations"
   | "positions"
   | "research"
+  | "analytics"
   | "settings";
 
 export interface NavItem {

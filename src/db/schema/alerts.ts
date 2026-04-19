@@ -20,6 +20,7 @@ export const alerts = pgTable('alerts', {
   triggerChain: jsonb('trigger_chain').$type<TriggerStep[]>().notNull(),
   riskItems: jsonb('risk_items').$type<string[]>().notNull(),
   manualCheckItems: jsonb('manual_check_items').$type<string[]>().notNull(),
+  oneLiner: text('one_liner'),
   relatedStrategyId: uuid('related_strategy_id').references(() => strategies.id, { onDelete: 'set null' }),
   relatedRecommendationId: uuid('related_recommendation_id'),
   relatedResearchId: uuid('related_research_id').references(() => researchReports.id, { onDelete: 'set null' }),

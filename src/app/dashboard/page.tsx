@@ -10,8 +10,9 @@ import {
   getAccountSnapshot,
   getRiskVaR,
   getStressTest,
+  getResearchReports,
 } from "@/lib/api-client";
-import type { Alert, StrategyPoolItem, Recommendation, PositionGroup, CommodityNode, AccountSnapshot } from "@/types/domain";
+import type { Alert, StrategyPoolItem, Recommendation, PositionGroup, CommodityNode, AccountSnapshot, ResearchReport } from "@/types/domain";
 import type { VaRResult } from "@/lib/risk/var";
 import type { StressTestResult } from "@/lib/risk/stress";
 import {
@@ -157,7 +158,7 @@ function CommodityHeatmap() {
 function AlertCard({ alert }: { alert: Alert }) {
   return (
     <Link
-      href={`/alerts/${alert.id}`}
+      href={`/alerts?id=${alert.id}`}
       className="block rounded-lg border-l-2 p-4 transition-colors hover:brightness-110"
       style={{
         background: "var(--surface)",
@@ -307,6 +308,7 @@ export default function DashboardPage() {
   const [accountSnapshot, setAccountSnapshot] = useState<AccountSnapshot | null>(null);
   const [varResult, setVarResult] = useState<VaRResult | null>(null);
   const [stressResults, setStressResults] = useState<StressTestResult[]>([]);
+  const [latestReport, setLatestReport] = useState<ResearchReport | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -318,7 +320,8 @@ export default function DashboardPage() {
       getAccountSnapshot(),
       getRiskVaR(),
       getStressTest(),
-    ]).then(([a, s, r, p, acct, vr, st]) => {
+      getResearchReports({ type: "daily" }),
+    ]).then(([a, s, r, p, acct, vr, st, reports]) => {
       setAlerts(a);
       setStrategies(s);
       setRecommendations(r);
@@ -326,6 +329,7 @@ export default function DashboardPage() {
       setAccountSnapshot(acct);
       setVarResult(vr);
       setStressResults(st ?? []);
+      if (reports.length > 0) setLatestReport(reports[0]);
       setLoading(false);
     }).catch((err) => {
       console.error("Dashboard load error:", err);
@@ -344,7 +348,7 @@ export default function DashboardPage() {
     .filter((s) => s.status === "approaching_trigger" || s.status === "active")
     .slice(0, 5);
 
-  const pendingRecommendations = recommendations.filter((r) => r.status === "pending");
+  const pendingRecommendations = recommendations.filter((r) => r.status === "active");
 
   const account = accountSnapshot;
   const marginPct = account ? Math.round(account.marginUtilizationRate * 100) : 0;
@@ -651,10 +655,16 @@ export default function DashboardPage() {
             className="rounded-lg p-4 text-sm leading-relaxed"
             style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground-muted)" }}
           >
-            <div className="font-medium mb-1" style={{ color: "var(--foreground)" }}>
-              今日日报（2026-04-14）
-            </div>
-            黑色板块：螺纹-热卷价差偏离显著，关注出口政策窗口；焦炭-焦煤利润压缩至历史低位，减产预期升温。能化：原油夜盘急跌拖累全链，关注 PP/TA/MEG 分化机会。农产品：棕榈油马盘大幅拉涨，国内基差修复机会值得跟踪。
+            {latestReport ? (
+              <>
+                <div className="font-medium mb-1" style={{ color: "var(--foreground)" }}>
+                  {latestReport.title}
+                </div>
+                {latestReport.summary || latestReport.body.slice(0, 200)}
+              </>
+            ) : (
+              <p className="text-center py-2" style={{ color: "var(--foreground-subtle)" }}>暂无今日日报</p>
+            )}
           </div>
         </section>
       </div>

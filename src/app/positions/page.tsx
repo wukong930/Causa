@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { getPositions, getExecutionFeedbacks, getAccountSnapshot, getRiskVaR, getStressTest, getCorrelationMatrix } from "@/lib/api-client";
+import { getPositions, getAccountSnapshot, getRiskVaR, getStressTest, getCorrelationMatrix } from "@/lib/api-client";
 import { formatRelativeTime, formatNumber } from "@/lib/utils";
 import type { VaRResult } from "@/lib/risk/var";
 import type { StressTestResult } from "@/lib/risk/stress";
@@ -17,7 +17,7 @@ import {
   buildCumulativePnL,
   buildDrawdownSeries,
 } from "@/lib/analytics";
-import type { PositionGroup, ExecutionFeedback, AccountSnapshot } from "@/types/domain";
+import type { PositionGroup, AccountSnapshot } from "@/types/domain";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -469,83 +469,13 @@ function PositionDetail({
   );
 }
 
-// ─── Execution Feedback Viewer ─────────────────────────────────────────────────
-
-function ExecutionFeedbackCard({ fb }: { fb: ExecutionFeedback }) {
-  const totalPnl = fb.legs
-    .filter((l) => l.type === "close")
-    .reduce((sum, l) => sum + (l.filledPrice * l.filledSize * 10), 0); // simplified
-
-  return (
-    <div
-      className="rounded-lg p-4"
-      style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-            {fb.strategyId ?? fb.recommendationId ?? fb.id}
-          </span>
-          <div className="text-xs mt-0.5" style={{ color: "var(--foreground-subtle)" }}>
-            {fb.legs.length} 笔成交 · 手续费 ¥{fb.totalCommission}
-          </div>
-        </div>
-        <span className="text-xs" style={{ color: "var(--foreground-subtle)" }}>
-          {formatRelativeTime(fb.createdAt)}
-        </span>
-      </div>
-
-      {/* Leg fills */}
-      <div className="flex flex-col gap-1.5 mb-3">
-        {fb.legs.map((leg, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-2 text-xs"
-            style={{ color: "var(--foreground-muted)" }}
-          >
-            <span
-              className="text-xs font-mono px-1.5 py-0.5 rounded"
-              style={{
-                background: leg.type === "open" ? "var(--positive-muted)" : "var(--negative-muted)",
-                color: leg.type === "open" ? "var(--positive)" : "var(--negative)",
-              }}
-            >
-              {leg.type === "open" ? "开" : "平"}
-            </span>
-            <span className="font-mono" style={{ color: "var(--accent-blue)" }}>{leg.asset}</span>
-            <span style={{ color: leg.direction === "long" ? "var(--positive)" : "var(--negative)" }}>
-              {leg.direction === "long" ? "多" : "空"}
-            </span>
-            <span className="ml-auto font-mono">
-              {leg.filledSize}手 @{leg.filledPrice}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Notes */}
-      {fb.notes && (
-        <p className="text-xs leading-relaxed" style={{ color: "var(--foreground-muted)" }}>
-          {fb.notes}
-        </p>
-      )}
-      {fb.slippageNote && (
-        <p className="text-xs mt-1" style={{ color: "var(--foreground-subtle)" }}>
-          滑点：{fb.slippageNote}
-        </p>
-      )}
-    </div>
-  );
-}
-
 // ─── Positions Page ───────────────────────────────────────────────────────────
 
 export default function PositionsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"open" | "history" | "feedback">("open");
+  const [activeTab, setActiveTab] = useState<"open" | "history">("open");
   const [positions, setPositions] = useState<PositionGroup[]>([]);
-  const [feedbacks, setFeedbacks] = useState<ExecutionFeedback[]>([]);
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<string>(new Date().toISOString());
@@ -557,14 +487,12 @@ export default function PositionsPage() {
     setLoading(true);
     Promise.all([
       getPositions(),
-      getExecutionFeedbacks(),
       getAccountSnapshot(),
       getRiskVaR(),
       getStressTest(),
       getCorrelationMatrix(),
-    ]).then(([pos, fb, acc, vr, st, cm]) => {
+    ]).then(([pos, acc, vr, st, cm]) => {
       setPositions(pos);
-      setFeedbacks(fb);
       setAccount(acc);
       setVarResult(vr);
       setStressResults(st ?? []);
@@ -628,7 +556,8 @@ export default function PositionsPage() {
             </p>
           </div>
 
-          {/* Tab toggle */}
+          <div className="flex items-center gap-3">
+            {/* Tab toggle */}
           <div
             className="flex gap-1 p-1 rounded-lg"
             style={{ background: "var(--surface-overlay)" }}
@@ -636,7 +565,6 @@ export default function PositionsPage() {
             {[
               { key: "open", label: "持仓中", count: openPositions.length },
               { key: "history", label: "历史", count: closedPositions.length },
-              { key: "feedback", label: "执行反馈", count: feedbacks.length },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -659,6 +587,7 @@ export default function PositionsPage() {
                 )}
               </button>
             ))}
+          </div>
           </div>
         </div>
       </div>
@@ -883,45 +812,6 @@ export default function PositionsPage() {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "feedback" && (
-          <div className="flex flex-col gap-4">
-            {loading ? (
-              Array.from({ length: 2 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="rounded-lg p-4 animate-pulse"
-                  style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="h-4 w-24 rounded mb-1" style={{ background: "var(--surface-overlay)" }} />
-                      <div className="h-3 w-32 rounded" style={{ background: "var(--surface-overlay)" }} />
-                    </div>
-                    <div className="h-3 w-16 rounded" style={{ background: "var(--surface-overlay)" }} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="h-3 w-full rounded" style={{ background: "var(--surface-overlay)" }} />
-                    <div className="h-3 w-2/3 rounded" style={{ background: "var(--surface-overlay)" }} />
-                  </div>
-                </div>
-              ))
-            ) : feedbacks.length === 0 ? (
-              <div
-                className="rounded-lg p-5 text-center"
-                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-              >
-                <p className="text-sm" style={{ color: "var(--foreground-muted)" }}>
-                  暂无执行反馈记录
-                </p>
-              </div>
-            ) : (
-              feedbacks.map((fb) => (
-                <ExecutionFeedbackCard key={fb.id} fb={fb} />
-              ))
             )}
           </div>
         )}

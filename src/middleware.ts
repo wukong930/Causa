@@ -14,6 +14,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Health endpoint is public (Docker healthcheck)
+  if (pathname === "/api/health") {
+    return NextResponse.next();
+  }
+
   const expectedSecret = process.env.API_SECRET;
 
   // If API_SECRET is not configured, skip auth (development mode)

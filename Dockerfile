@@ -12,6 +12,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Dummy DATABASE_URL so Next.js can collect page data at build time
+# (src/db/index.ts throws if unset; actual URL is injected at runtime)
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
+ARG NEXT_PUBLIC_USE_MOCK_DATA=false
+ENV NEXT_PUBLIC_USE_MOCK_DATA=$NEXT_PUBLIC_USE_MOCK_DATA
 RUN pnpm build
 
 # ── Stage 3: Production runner ──
@@ -36,7 +41,7 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["sh", "-c", "wget -qO- http://127.0.0.1:3000/api/health || exit 1"]
 
 CMD ["node", "server.js"]

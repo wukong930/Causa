@@ -7,6 +7,8 @@ import type { ApiResponse } from '@/types/api';
 import type { AccountSnapshot } from '@/types/domain';
 import { serializeRecord } from '@/lib/serialize';
 
+const DEFAULT_NET_VALUE = 10_000_000;
+
 // GET /api/account/snapshot - Get latest account snapshot
 export async function GET(request: NextRequest) {
   try {
@@ -34,13 +36,15 @@ export async function GET(request: NextRequest) {
         0
       );
 
+      const netValue = DEFAULT_NET_VALUE;
+
       // Insert computed snapshot
       const [inserted] = await db
         .insert(accountSnapshots)
         .values({
-          netValue: 10_000_000,
-          availableMargin: 10_000_000 - totalMarginUsed,
-          marginUtilizationRate: totalMarginUsed / 10_000_000,
+          netValue,
+          availableMargin: netValue - totalMarginUsed,
+          marginUtilizationRate: totalMarginUsed / netValue,
           totalUnrealizedPnl,
           todayRealizedPnl: 0,
           snapshotAt: new Date(),
@@ -66,6 +70,56 @@ export async function GET(request: NextRequest) {
           message: 'Failed to fetch account snapshot',
         },
       },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/account/snapshot - Update account net value
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { netValue } = body;
+
+    if (typeof netValue !== 'number' || netValue <= 0) {
+      return NextResponse.json(
+        { success: false, error: { code: 'BAD_REQUEST', message: 'netValue must be a positive number' } },
+        { status: 400 }
+      );
+    }
+
+    const positionGroups = await db.select().from(positions);
+    const totalUnrealizedPnl = positionGroups.reduce(
+      (sum, p) => sum + (p.unrealizedPnl as number || 0),
+      0
+    );
+    const totalMarginUsed = positionGroups.reduce(
+      (sum, p) => sum + (p.totalMarginUsed as number || 0),
+      0
+    );
+
+    const [inserted] = await db
+      .insert(accountSnapshots)
+      .values({
+        netValue,
+        availableMargin: netValue - totalMarginUsed,
+        marginUtilizationRate: netValue > 0 ? totalMarginUsed / netValue : 0,
+        totalUnrealizedPnl,
+        todayRealizedPnl: 0,
+        snapshotAt: new Date(),
+      })
+      .returning();
+
+    const response: ApiResponse<AccountSnapshot> = {
+      success: true,
+      data: serializeRecord<AccountSnapshot>(inserted),
+    };
+
+    return NextResponse.json(response, { status: 201 });
+  } catch (error) {
+    console.error('POST /api/account/snapshot error:', error);
+    return NextResponse.json(
+      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to update account snapshot' } },
       { status: 500 }
     );
   }

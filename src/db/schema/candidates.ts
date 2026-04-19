@@ -1,5 +1,4 @@
 import { pgTable, uuid, varchar, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
-import type { CandidateRequestStatus } from '@/types/domain';
 import { alerts } from './alerts';
 import { strategies } from './strategies';
 import { recommendations } from './recommendations';

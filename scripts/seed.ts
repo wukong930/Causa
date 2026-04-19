@@ -63,7 +63,7 @@ async function seedMarketData() {
   }
 
   // Insert in batches
-  const batchSize = 1000;
+  const batchSize = 50;
   for (let i = 0; i < dataPoints.length; i += batchSize) {
     const batch = dataPoints.slice(i, i + batchSize);
     await db.insert(marketData).values(batch);

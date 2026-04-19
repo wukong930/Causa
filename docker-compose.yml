@@ -5,7 +5,7 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: causa
       POSTGRES_USER: ${POSTGRES_USER:-causa}
@@ -14,6 +14,26 @@ services:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-causa}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.28.4
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      CLUSTER_HOSTNAME: node1
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/v1/.well-known/ready"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,20 +65,23 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-causa}:${POSTGRES_PASSWORD:-causa_dev}@postgres:5432/causa
       BACKTEST_SERVICE_URL: http://backtest:8100
+      WEAVIATE_URL: http://weaviate:8080
       API_SECRET: ${API_SECRET:-}
       CRON_SECRET: ${CRON_SECRET:-}
       LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:-}
+      FRED_API_KEY: ${FRED_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
-      backtest:
+      weaviate:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 5s
-      start_period: 15s
+      start_period: 30s
       retries: 3
 
 volumes:
   pgdata:
+  weaviate_data:

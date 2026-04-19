@@ -21,8 +21,6 @@ export type AlertCategory =
   | "overseas";
 export type AlertStatus =
   | "active"
-  | "acknowledged"
-  | "escalated"
   | "expired"
   | "archived";
 export type AlertType =
@@ -71,6 +69,8 @@ export interface Alert {
   triggerChain: TriggerStep[];
   riskItems: string[];
   manualCheckItems: string[];
+  plainSummary?: string;
+  oneLiner?: string;
   // lifecycle linkage
   relatedStrategyId?: string;
   relatedRecommendationId?: string;
@@ -211,12 +211,9 @@ export type RecommendedAction =
   | "watchlist_only";
 
 export type RecommendationStatus =
-  | "pending"
-  | "confirmed"
-  | "deferred"
-  | "ignored"
-  | "backfilled"
-  | "expired";
+  | "active"
+  | "expired"
+  | "superseded";
 
 export interface RecommendationLeg {
   asset: string;
@@ -238,42 +235,14 @@ export interface Recommendation {
   marginEfficiencyScore: number; // 0–100
   marginRequired: number;        // currency
   reasoning: string;             // LangGraph natural language summary
+  plainSummary?: string;         // Plain-language summary for non-experts
+  oneLiner?: string;             // One-sentence LLM-generated summary
   riskItems: string[];
   expiresAt: string;             // ISO 8601
   createdAt: string;
   updatedAt: string;
   deferredUntil?: string;
   ignoredReason?: string;
-  executionFeedbackId?: string;
-}
-
-// ─── ExecutionFeedback ───────────────────────────────────────────────────────
-
-export type FeedbackLegType = "open" | "close" | "reduce" | "add";
-
-export interface ExecutionFeedbackLeg {
-  asset: string;
-  direction: Direction;
-  type: FeedbackLegType;
-  filledSize: number;
-  filledPrice: number;
-  filledAt: string; // ISO 8601
-  unit: string;
-  commission: number;
-}
-
-export interface ExecutionFeedback {
-  id: string;
-  recommendationId?: string;
-  strategyId?: string;
-  legs: ExecutionFeedbackLeg[];
-  totalMarginUsed: number;
-  totalCommission: number;
-  slippageNote?: string;
-  liquidityNote?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 // ─── PositionSnapshot ────────────────────────────────────────────────────────
@@ -324,35 +293,6 @@ export interface PositionSnapshot {
   id: string;
   account: AccountSnapshot;
   positions: PositionGroup[];
-  updatedAt: string;
-}
-
-// ─── Suggestion (legacy) ───────────────────────────────────────────────────────
-
-export type SuggestionStatus = "pending" | "confirmed" | "deferred" | "dismissed";
-
-export interface SuggestionLeg {
-  asset: string;
-  contract: string;
-  direction: "long" | "short";
-  targetSize?: number;
-  unit?: string;
-}
-
-export interface Suggestion {
-  id: string;
-  setupId: string;
-  alertId?: string;
-  expression: string;
-  leg1: SuggestionLeg;
-  leg2?: SuggestionLeg;
-  confidence: number;
-  liquidityScore: number;
-  executionWindow: string;
-  keyRisks: string[];
-  confirmationChecklist: string[];
-  status: SuggestionStatus;
-  createdAt: string;
   updatedAt: string;
 }
 
@@ -452,64 +392,4 @@ export interface SpreadStatistics {
   hurstExponent?: number;
   hedgeRatio?: number;
   cointPValue?: number;
-}
-
-// ─── Execution Draft ─────────────────────────────────────────────────────────
-
-export type ExecutionDraftStatus = "draft" | "submitted" | "executed" | "cancelled";
-
-/** Per-leg execution status: follows the v3.1 state machine */
-export type ExecutionLegStatus =
-  | "pending"   // 等待确认
-  | "confirmed" // 已发送交易所
-  | "legging"   // 部分成交
-  | "active"    // 完全成交
-  | "exiting"   // 正在平仓
-  | "closed"    // 已平仓
-  | "broken";   // 成交失败
-
-export interface ExecutionDraftLeg {
-  asset: string;
-  direction: Direction;
-  type: "open" | "close" | "reduce" | "add";
-  requestedSize: number;
-  requestedPrice?: number;
-  filledSize?: number;
-  filledPrice?: number;
-  unit: string;
-  /** Per-leg execution status (v3.1 state machine) */
-  legStatus: ExecutionLegStatus;
-  /** When the leg was confirmed by the exchange */
-  confirmedAt?: string;
-  /** When the leg became fully active */
-  activeAt?: string;
-}
-
-export interface ExecutionDraft {
-  id: string;
-  recommendationId: string;
-  status: ExecutionDraftStatus;
-  legs: ExecutionDraftLeg[];
-  totalMarginUsed: number;
-  totalCommission: number;
-  slippageNote?: string;
-  liquidityNote?: string;
-  notes?: string;
-  createdAt: string;
-  submittedAt?: string;
-  updatedAt: string;
-}
-
-// ─── Candidate Generation ─────────────────────────────────────────────────────
-
-export type CandidateRequestStatus = "pending" | "generated" | "failed";
-
-export interface CandidateRequest {
-  id: string;
-  alertId?: string;
-  strategyId?: string;
-  requestedAt: string;
-  status: CandidateRequestStatus;
-  generatedRecommendationId?: string;
-  failureReason?: string;
 }

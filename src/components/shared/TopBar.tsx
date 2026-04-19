@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { getAlerts } from "@/lib/api-client";
 
 export function TopBar() {
+  const router = useRouter();
   const [activeCount, setActiveCount] = useState(0);
   const [criticalCount, setCriticalCount] = useState(0);
 
@@ -89,8 +91,10 @@ export function TopBar() {
 
         {/* Notification bell */}
         <button
+          onClick={() => router.push("/alerts")}
           className="relative p-1.5 rounded transition-colors"
           style={{ color: "var(--foreground-muted)" }}
+          title={activeCount > 0 ? `${activeCount} 条活跃预警` : "暂无预警"}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>

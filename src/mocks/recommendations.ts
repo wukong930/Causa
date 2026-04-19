@@ -5,7 +5,7 @@ export const mockRecommendations: Recommendation[] = [
     id: "rec-001",
     strategyId: "strat-002",
     alertId: "alert-002",
-    status: "pending",
+    status: "active",
     recommendedAction: "new_open",
     legs: [
       {
@@ -34,7 +34,7 @@ export const mockRecommendations: Recommendation[] = [
     id: "rec-002",
     strategyId: "strat-001",
     alertId: "alert-006",
-    status: "backfilled",
+    status: "expired",
     recommendedAction: "new_open",
     legs: [
       {
@@ -65,12 +65,11 @@ export const mockRecommendations: Recommendation[] = [
     expiresAt: "2026-03-22T17:00:00Z",
     createdAt: "2026-03-22T09:00:00Z",
     updatedAt: "2026-03-22T10:15:00Z",
-    executionFeedbackId: "fb-001",
   },
   {
     id: "rec-003",
     strategyId: "strat-003",
-    status: "pending",
+    status: "active",
     recommendedAction: "new_open",
     legs: [
       {
@@ -105,7 +104,7 @@ export const mockRecommendations: Recommendation[] = [
   {
     id: "rec-004",
     strategyId: "strat-001",
-    status: "deferred",
+    status: "superseded",
     recommendedAction: "add",
     legs: [
       {
@@ -137,7 +136,7 @@ export const mockRecommendations: Recommendation[] = [
   },
   {
     id: "rec-005",
-    status: "ignored",
+    status: "expired",
     recommendedAction: "watchlist_only",
     legs: [
       {

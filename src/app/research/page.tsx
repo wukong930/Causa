@@ -91,15 +91,83 @@ function HypothesisCard({ hyp, onStatusChange }: { hyp: ResearchHypothesis; onSt
 
 // ─── Report Viewer ────────────────────────────────────────────────────────────
 
+function CollapsibleJSON({ content }: { content: string }) {
+  const [open, setOpen] = useState(false);
+  let formatted = content;
+  try { formatted = JSON.stringify(JSON.parse(content), null, 2); } catch { /* keep raw */ }
+
+  return (
+    <div className="rounded-lg border mb-3" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium"
+        style={{ color: "var(--foreground-muted)" }}
+      >
+        <span style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>▶</span>
+        查看原始数据
+      </button>
+      {open && (
+        <pre className="px-3 pb-3 text-xs overflow-x-auto font-mono leading-relaxed" style={{ color: "var(--foreground-subtle)", maxHeight: 400 }}>
+          {formatted}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function generateReportPlainSummary(body: string): string | null {
+  try {
+    const data = JSON.parse(body);
+    if (data.alertsProcessed != null) {
+      const parts = [];
+      parts.push(`本轮分析处理了 ${data.alertsProcessed} 条预警信号`);
+      if (data.hypothesesGenerated) parts.push(`生成了 ${data.hypothesesGenerated} 个交易假设`);
+      if (data.hypothesesSelected) parts.push(`其中 ${data.hypothesesSelected} 个通过筛选`);
+      if (data.avgScore) parts.push(`平均得分 ${data.avgScore.toFixed(1)} 分`);
+      if (data.selected?.length) {
+        const top = data.selected.slice(0, 3).map((s: { text: string; score: number }) =>
+          `${s.text.slice(0, 50)}（${(s.score * 100).toFixed(0)}分）`
+        );
+        parts.push(`重点关注：${top.join("；")}`);
+      }
+      return parts.join("，") + "。";
+    }
+  } catch { /* not JSON */ }
+  return null;
+}
+
 function ReportViewer({ report }: { report: ResearchReport }) {
   // Simple markdown-ish renderer: bold and paragraphs
   const lines = report.body.split("\n\n");
+  const plainSummary = generateReportPlainSummary(report.body);
 
   return (
     <div>
       <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--foreground-muted)" }}>
         {report.summary}
       </p>
+
+      {/* Plain summary for JSON-heavy reports */}
+      {plainSummary && (
+        <div
+          className="rounded-lg p-4 mb-4"
+          style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.3)" }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent-blue)" }}>
+              <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+            </svg>
+            <span className="text-xs font-semibold" style={{ color: "var(--accent-blue)" }}>通俗解读</span>
+          </div>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)" }}>
+            <span className="block font-semibold mb-1">
+              {report.summary.split(/[。！？]/)[0]}。
+            </span>
+            {plainSummary}
+          </p>
+        </div>
+      )}
+
       <div
         className="rounded-lg p-5 border"
         style={{ background: "var(--surface-raised)", borderColor: "var(--border)" }}
@@ -107,6 +175,11 @@ function ReportViewer({ report }: { report: ResearchReport }) {
         {lines.map((block, i) => {
           const trimmed = block.trim();
           if (!trimmed) return null;
+
+          // Detect JSON blocks and make them collapsible
+          if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+            return <CollapsibleJSON key={i} content={trimmed} />;
+          }
 
           // Bold heading lines like **黑色**：...
           const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
@@ -367,7 +440,7 @@ export default function ResearchPage() {
                     ))}
                   </div>
                   <div className="text-xs mt-3 pt-2 border-t" style={{ borderColor: "var(--border-subtle)", color: "var(--foreground-subtle)" }}>
-                    数据来源：{macroSnapshot.source} · {macroSnapshot.fetchedAt?.slice(0, 10)}
+                    数据来源：{macroSnapshot.source} · {macroSnapshot.fetchedAt?.slice(0, 10)} · 数据为最近发布值，非实时行情
                   </div>
                 </div>
               </div>
