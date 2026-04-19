@@ -4,15 +4,16 @@
  */
 
 import { db } from "@/db";
-import { alerts as alertsTable, recommendations as recsTable, hypotheses as hypTable, researchReports as reportsTable, positions as posTable } from "@/db/schema";
+import { alerts as alertsTable, recommendations as recsTable, hypotheses as hypTable, researchReports as reportsTable, positions as posTable, marketData } from "@/db/schema";
 import { eq, desc, inArray, sql, and, gte } from "drizzle-orm";
 import { buildFullContext } from "@/lib/context/builder";
 import { runEvolutionCycle } from "@/lib/reasoning/pipeline";
 import { generateOneLiner } from "@/lib/reasoning/one-liner";
 import { checkHealth as checkBacktestHealth, runBacktest } from "@/lib/backtest/client";
 import type { BacktestLeg, StrategyType } from "@/lib/backtest/client";
+import { buildCorrelationMatrix } from "@/lib/risk/correlation";
 import { serializeRecords } from "@/lib/serialize";
-import type { Alert, PositionGroup } from "@/types/domain";
+import type { Alert, PositionGroup, MarketDataPoint } from "@/types/domain";
 
 export interface OrchestrationResult {
   alertsProcessed: number;
@@ -359,7 +360,7 @@ export async function runOrchestration(
           p.legs.some((l) => l.asset.replace(/\d+/, "") === (hyp.type === "spread" ? hyp.legs[0]?.asset : hyp.leg.asset)?.replace(/\d+/, ""))
         ).length;
 
-        if (marginUtilization > 0.7 || sameCategoryCount >= 3) {
+        if (marginUtilization > 0.6 || sameCategoryCount >= 3) {
           recommendedAction = "watchlist_only";
           console.log(`[orchestrator] Downgraded ${hyp.id} to watchlist_only: margin ${(marginUtilization * 100).toFixed(0)}%, same-category ${sameCategoryCount}`);
         }
@@ -423,6 +424,72 @@ export async function runOrchestration(
       recsCreated++;
     } catch (err) {
       console.error(`[orchestrator] Failed to create recommendation for ${hyp.id}:`, err);
+    }
+  }
+
+  // 5b. Portfolio correlation filter — downgrade correlated recommendations
+  if (recsCreated > 1) {
+    try {
+      const recentRecs = await db.select().from(recsTable)
+        .where(and(eq(recsTable.status, "active"), gte(recsTable.createdAt, new Date(Date.now() - 60_000))))
+        .orderBy(desc(recsTable.priorityScore));
+
+      if (recentRecs.length > 1) {
+        // Extract primary asset from each recommendation
+        const recAssets = recentRecs.map((r) => {
+          const legs = r.legs as any[];
+          return { id: r.id, asset: legs?.[0]?.asset?.replace(/\d+/, "")?.toUpperCase() ?? "", score: r.priorityScore ?? 0 };
+        }).filter((r) => r.asset);
+
+        const uniqueAssets = [...new Set(recAssets.map((r) => r.asset))];
+
+        if (uniqueAssets.length > 1) {
+          // Fetch 60 days of market data for correlation
+          const mdBySymbol: Record<string, MarketDataPoint[]> = {};
+          for (const sym of uniqueAssets) {
+            const rows = await db.select().from(marketData)
+              .where(eq(marketData.symbol, sym))
+              .orderBy(desc(marketData.timestamp))
+              .limit(65);
+            mdBySymbol[sym] = serializeRecords<MarketDataPoint>(rows);
+          }
+
+          const corrMatrix = buildCorrelationMatrix(mdBySymbol, uniqueAssets, 60);
+
+          // Greedy selection: keep highest-score, downgrade correlated
+          const kept = new Set<string>();
+          const keptAssets: string[] = [];
+
+          for (const rec of recAssets) {
+            const assetIdx = corrMatrix.symbols.indexOf(rec.asset);
+            let tooCorrelated = false;
+
+            for (const keptAsset of keptAssets) {
+              const keptIdx = corrMatrix.symbols.indexOf(keptAsset);
+              if (assetIdx >= 0 && keptIdx >= 0) {
+                const corr = Math.abs(corrMatrix.matrix[assetIdx][keptIdx]);
+                if (corr > 0.7) {
+                  tooCorrelated = true;
+                  break;
+                }
+              }
+            }
+
+            if (tooCorrelated) {
+              // Downgrade to watchlist_only
+              await db.update(recsTable)
+                .set({ recommendedAction: "watchlist_only" } as any)
+                .where(eq(recsTable.id, rec.id));
+              console.log(`[orchestrator] Downgraded ${rec.id} (${rec.asset}): correlated with existing selection`);
+            } else {
+              kept.add(rec.id);
+              keptAssets.push(rec.asset);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[orchestrator] Correlation filter failed:`, err);
     }
   }
 

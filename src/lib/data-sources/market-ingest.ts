@@ -131,14 +131,63 @@ interface AkShareBar {
   close: number; volume: number; open_interest: number; symbol: string;
 }
 
+interface RealtimeQuote {
+  symbol: string; price: number; open: number; high: number;
+  low: number; volume: number; change_pct: number; timestamp: string;
+}
+
 /**
  * Fetch latest data from AkShare for all watched symbols.
- * Runs multiple times per trading day to keep prices fresh.
+ * During trading hours (9:00-15:00 Beijing time), uses realtime snapshot.
+ * After hours, uses daily bar endpoint.
  */
 export async function ingestDailyData(): Promise<number> {
   const now = new Date();
   if (now.getDay() === 0 || now.getDay() === 6) return 0;
 
+  // Check if we're in trading hours (Beijing time = UTC+8)
+  const beijingHour = (now.getUTCHours() + 8) % 24;
+  const isTradingHours = beijingHour >= 9 && beijingHour < 15;
+
+  // During trading hours, try realtime snapshot first
+  if (isTradingHours) {
+    try {
+      const rtRes = await fetch(`${BACKTEST_URL}/realtime`, { signal: AbortSignal.timeout(30000) });
+      if (rtRes.ok) {
+        const quotes: RealtimeQuote[] = await rtRes.json();
+        if (quotes.length > 0) {
+          const today = now.toISOString().split('T')[0];
+          let inserted = 0;
+          for (const q of quotes) {
+            const symInfo = SYMBOLS.find((s) => s.symbol === q.symbol);
+            if (!symInfo) continue;
+            const id = `${q.symbol}_${today}`;
+            const ts = new Date(today);
+            ts.setHours(0, 0, 0, 0);
+            await db.insert(marketData).values({
+              id, market: symInfo.market, exchange: symInfo.exchange,
+              commodity: symInfo.commodity, symbol: q.symbol,
+              contractMonth: 'main', timestamp: ts,
+              open: q.open, high: q.high, low: q.low,
+              close: q.price, settle: q.price,
+              volume: q.volume, openInterest: 0,
+              currency: 'CNY', timezone: 'Asia/Shanghai',
+            } as any).onConflictDoUpdate({
+              target: marketData.id,
+              set: { high: q.high, low: q.low, close: q.price, settle: q.price, volume: q.volume },
+            });
+            inserted++;
+          }
+          console.log(`[market-ingest] Realtime snapshot: updated ${inserted} symbols`);
+          return inserted;
+        }
+      }
+    } catch (err) {
+      console.warn(`[market-ingest] Realtime snapshot failed, falling back to daily:`, err);
+    }
+  }
+
+  // Fallback: daily bar endpoint (after hours or realtime failed)
   let inserted = 0;
   for (const { symbol, commodity, exchange, market } of SYMBOLS) {
     try {

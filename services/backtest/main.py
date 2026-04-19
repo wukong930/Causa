@@ -8,6 +8,7 @@ from backtest import run_backtest, BacktestRequest, BacktestResult
 from causal import run_causal_validation, CausalRequest, CausalResult
 from optimizer import run_optimize, OptimizeRequest, OptimizeResult
 from walk_forward import run_walk_forward, WalkForwardRequest, WalkForwardResult
+from akshare_ingest import fetch_realtime_quotes
 from akshare_ingest import fetch_futures_daily, fetch_all_symbols, fetch_spread_data, fetch_term_structure
 from industry_data import fetch_inventory, fetch_spot_price, fetch_basis
 
@@ -100,6 +101,13 @@ def term_structure(symbol: str):
         return points
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/realtime")
+def realtime():
+    """Get realtime price snapshot for all monitored futures."""
+    quotes = fetch_realtime_quotes()
+    return quotes
 
 
 # --- Industry data endpoints ---

@@ -195,3 +195,53 @@ def _symbol_names() -> dict[str, str]:
         "A": "豆一", "B": "豆二", "JD": "鸡蛋", "LH": "生猪",
         "SP": "纸浆", "PK": "花生",
     }
+
+
+class RealtimeQuote(BaseModel):
+    symbol: str
+    price: float
+    open: float
+    high: float
+    low: float
+    volume: float
+    change_pct: float
+    timestamp: str
+
+
+def fetch_realtime_quotes() -> list[RealtimeQuote]:
+    """Fetch realtime snapshot for all major futures contracts via AkShare."""
+    quotes: list[RealtimeQuote] = []
+    names = _symbol_names()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for symbol, exchange in SYMBOL_EXCHANGE.items():
+        cn_name = names.get(symbol, symbol)
+        try:
+            df = ak.futures_zh_realtime(symbol=cn_name)
+            if df is None or df.empty:
+                continue
+            # Find the main contract (highest volume)
+            if "volume" in df.columns:
+                df = df.sort_values("volume", ascending=False)
+            row = df.iloc[0]
+            price = float(row.get("trade", 0) or row.get("current_price", 0))
+            if price <= 0:
+                continue
+            open_p = float(row.get("open", price))
+            high_p = float(row.get("high", price))
+            low_p = float(row.get("low", price))
+            vol = float(row.get("volume", 0))
+            # Change percent
+            pre_close = float(row.get("settlement", 0) or row.get("pre_settle", 0))
+            chg_pct = ((price - pre_close) / pre_close * 100) if pre_close > 0 else 0.0
+
+            quotes.append(RealtimeQuote(
+                symbol=symbol, price=price, open=open_p,
+                high=high_p, low=low_p, volume=vol,
+                change_pct=round(chg_pct, 3), timestamp=now,
+            ))
+        except Exception as e:
+            print(f"[akshare] Realtime quote error for {symbol}: {e}")
+            continue
+
+    return quotes

@@ -10,6 +10,7 @@ from strategies.mean_reversion import MeanReversionParams, generate_signals as m
 from strategies.momentum import MomentumParams, generate_signals as mom_signals
 from strategies.channel_breakout import ChannelBreakoutParams, generate_signals as cb_signals
 from strategies.event_driven import EventDrivenParams, generate_signals as ed_signals
+from cost_model import get_cost_rate, get_total_cost_per_trade
 
 
 class BacktestLeg(BaseModel):
@@ -67,6 +68,9 @@ class BacktestResult(BaseModel):
     tail_ratio: float = 0.0
     equity_curve: list[EquityPoint] = []
     trades: list[Trade] = []
+    # Cost metrics
+    total_cost: float = 0.0
+    cost_drag_pct: float = 0.0  # how much cost reduced total return
 
 
 def _build_spread_series(
@@ -137,13 +141,18 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
         )
         entries, exits = mr_signals(spread, mr_params)
 
+    # Compute dynamic fee rate from cost model
+    primary_symbol = req.legs[0].asset if req.legs else ""
+    avg_price = float(spread.mean())
+    fee_rate = get_cost_rate(primary_symbol, avg_price)
+
     # Run vectorbt portfolio
     pf = vbt.Portfolio.from_signals(
         spread,
         entries=entries,
         exits=exits,
         init_cash=1_000_000,
-        fees=0.0003,
+        fees=fee_rate,
         freq="1D",
     )
 
@@ -190,6 +199,11 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
     dd_duration = max_drawdown_duration(pf)
     recovery = abs(total_ret / max_dd) if max_dd != 0 else 0.0
 
+    # Cost metrics
+    cost_per_trade = get_total_cost_per_trade(primary_symbol, avg_price)
+    total_cost = cost_per_trade * trade_count
+    cost_drag = (total_cost / 1_000_000) if trade_count > 0 else 0.0  # as fraction of init_cash
+
     return BacktestResult(
         hypothesis_id=req.hypothesis_id,
         sharpe_ratio=round(_s(sharpe), 3),
@@ -208,4 +222,6 @@ def run_backtest(req: BacktestRequest) -> BacktestResult:
         tail_ratio=round(_s(tail), 3),
         equity_curve=equity,
         trades=trade_list,
+        total_cost=round(total_cost, 2),
+        cost_drag_pct=round(cost_drag * 100, 3),
     )
