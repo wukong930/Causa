@@ -110,6 +110,26 @@ export async function POST(request: NextRequest) {
   const authError = verifyCronSecret(request);
   if (authError) return authError;
 
+  // Global data circuit breaker: skip entire run if data is stale (>48h)
+  try {
+    const [latestRow] = await db
+      .select({ ts: marketData.timestamp })
+      .from(marketData)
+      .orderBy(desc(marketData.timestamp))
+      .limit(1);
+    const latestTs = latestRow?.ts?.getTime() ?? 0;
+    const ageHours = (Date.now() - latestTs) / (1000 * 60 * 60);
+    if (ageHours > 48) {
+      console.warn(`[cron] Circuit breaker: market data is ${ageHours.toFixed(0)}h stale, skipping alert run`);
+      return NextResponse.json({
+        success: false,
+        data: { circuitBreaker: true, reason: `Market data stale: ${ageHours.toFixed(0)}h old`, timestamp: new Date().toISOString() },
+      });
+    }
+  } catch (err) {
+    console.error('[cron] Circuit breaker check failed:', err);
+  }
+
   const results: Array<{
     symbol1: string;
     symbol2?: string;

@@ -31,14 +31,14 @@ describe("calculateVaR", () => {
     expect(result.cvar99).toBe(0);
   });
 
-  it("computes positive VaR for a single position with varying prices", () => {
+  it("computes negative VaR (loss semantics) for a single position with varying prices", () => {
     const closes = Array.from({ length: 50 }, (_, i) => 3500 + Math.sin(i * 0.3) * 50);
     const pos = makePosition({
       legs: [{ asset: "RB2506", direction: "long", size: 10, currentPrice: 3500, entryPrice: 3450, unit: "吨", unrealizedPnl: 500, marginUsed: 5000 }],
     });
     const result = calculateVaR([pos], { RB2506: makeMarketData(closes) });
-    expect(result.var95).toBeGreaterThan(0);
-    expect(result.var99).toBeGreaterThanOrEqual(result.var95);
+    expect(result.var95).toBeLessThan(0);
+    expect(result.var99).toBeLessThanOrEqual(result.var95);
   });
 
   it("returns zero VaR when all prices are identical", () => {

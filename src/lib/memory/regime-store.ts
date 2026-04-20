@@ -37,13 +37,18 @@ export async function getCurrentRegime(): Promise<RegimeContextRecord | null> {
   const collection = client.collections.get(COLLECTION_NAMES.regime);
 
   const result = await collection.query.fetchObjects({
-    limit: 1,
-    sort: collection.sort.byProperty("snapshotAt", "desc"),
+    limit: 10,
   });
 
   if (result.objects.length === 0) return null;
 
-  const obj = result.objects[0];
+  // Sort by snapshotAt descending to get the latest record
+  const sorted = result.objects.sort((a, b) => {
+    const tsA = String(a.properties.snapshotAt ?? "");
+    const tsB = String(b.properties.snapshotAt ?? "");
+    return tsB.localeCompare(tsA);
+  });
+  const obj = sorted[0];
   let clusters: Record<string, string> = {};
   try {
     clusters = JSON.parse(String(obj.properties.commodityClusters ?? "{}"));

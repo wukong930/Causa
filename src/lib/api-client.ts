@@ -30,6 +30,10 @@ import { mockNodes, mockEdges } from "@/mocks/graph";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
+if (USE_MOCK_DATA && typeof window !== "undefined") {
+  console.warn("[api-client] ⚠ Mock data mode is active. Set NEXT_PUBLIC_USE_MOCK_DATA=false for production.");
+}
+
 async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit

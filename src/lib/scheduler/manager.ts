@@ -11,9 +11,18 @@ export interface ScheduledJob {
   lastRun?: string;
   lastResult?: 'success' | 'error';
   lastError?: string;
+  consecutiveFailures: number;
 }
 
-const DEFAULT_JOBS: Omit<ScheduledJob, 'running'>[] = [
+export interface SchedulerHealthSummary {
+  totalJobs: number;
+  enabledJobs: number;
+  degradedJobs: string[];  // jobs with >= 3 consecutive failures
+  lastActivity?: string;
+  jobs: Array<{ id: string; name: string; status: string; lastRun?: string; lastError?: string }>;
+}
+
+const DEFAULT_JOBS: Omit<ScheduledJob, 'running' | 'consecutiveFailures'>[] = [
   { id: 'ingest', name: '行情数据', cron: '5 10,11,14,15 * * 1-5', endpoint: '/api/cron/ingest', enabled: true },
   { id: 'context', name: '上下文刷新', cron: '0 */4 * * *', endpoint: '/api/cron/context', enabled: true },
   { id: 'alerts', name: '预警触发', cron: '0 * * * *', endpoint: '/api/alerts/cron', enabled: true },
@@ -34,7 +43,7 @@ class SchedulerManager {
     if (this.initialized) return;
     this.initialized = true;
     for (const def of DEFAULT_JOBS) {
-      this.jobs.set(def.id, { ...def, running: false });
+      this.jobs.set(def.id, { ...def, running: false, consecutiveFailures: 0 });
     }
     this.startAll();
     console.log('[Scheduler] Initialized with', this.jobs.size, 'jobs');
@@ -101,20 +110,51 @@ class SchedulerManager {
       if (res.ok) {
         job.lastResult = 'success';
         job.lastError = undefined;
+        job.consecutiveFailures = 0;
         return { success: true };
       }
       const text = await res.text().catch(() => res.statusText);
       job.lastResult = 'error';
       job.lastError = text;
+      job.consecutiveFailures++;
+      if (job.consecutiveFailures >= 3) {
+        console.error(`[Scheduler] Job "${job.name}" degraded: ${job.consecutiveFailures} consecutive failures`);
+      }
       return { success: false, error: text };
     } catch (e: any) {
       job.lastRun = new Date().toISOString();
       job.lastResult = 'error';
       job.lastError = e.message;
+      job.consecutiveFailures++;
+      if (job.consecutiveFailures >= 3) {
+        console.error(`[Scheduler] Job "${job.name}" degraded: ${job.consecutiveFailures} consecutive failures`);
+      }
       return { success: false, error: e.message };
     } finally {
       job.running = false;
     }
+  }
+  getHealthSummary(): SchedulerHealthSummary {
+    this.init();
+    const jobs = Array.from(this.jobs.values());
+    const degraded = jobs.filter((j) => j.consecutiveFailures >= 3).map((j) => j.id);
+    const lastActivity = jobs
+      .filter((j) => j.lastRun)
+      .sort((a, b) => (b.lastRun ?? '').localeCompare(a.lastRun ?? ''))[0]?.lastRun;
+
+    return {
+      totalJobs: jobs.length,
+      enabledJobs: jobs.filter((j) => j.enabled).length,
+      degradedJobs: degraded,
+      lastActivity,
+      jobs: jobs.map((j) => ({
+        id: j.id,
+        name: j.name,
+        status: !j.enabled ? 'disabled' : j.consecutiveFailures >= 3 ? 'degraded' : j.lastResult === 'error' ? 'warning' : 'ok',
+        lastRun: j.lastRun,
+        lastError: j.consecutiveFailures > 0 ? j.lastError : undefined,
+      })),
+    };
   }
 }
 
