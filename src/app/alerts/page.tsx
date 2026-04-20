@@ -243,7 +243,7 @@ function AlertsPageInner() {
         className="px-5 pt-5 pb-4 border-b shrink-0"
         style={{ borderColor: "var(--border)" }}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
             <h1 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
               预警

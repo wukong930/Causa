@@ -203,7 +203,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-4 sm:p-6 max-w-3xl">
       <h1 className="text-xl font-semibold mb-1" style={{ color: "var(--foreground)" }}>
         设置
       </h1>
@@ -537,7 +537,7 @@ export default function SettingsPage() {
           AI 模型配置
         </h2>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "var(--foreground-muted)" }}>Provider</label>
               <select

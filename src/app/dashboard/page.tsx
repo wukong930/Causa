@@ -388,11 +388,11 @@ export default function DashboardPage() {
   const marginPct = account ? Math.round(account.marginUtilizationRate * 100) : 0;
 
   return (
-    <div className="flex h-full" style={{ minHeight: 0 }}>
+    <div className="flex flex-col lg:flex-row h-full" style={{ minHeight: 0 }}>
       {/* ── Left main column ─────────────────────────────────────── */}
       <div
-        className="flex-1 min-w-0 overflow-y-auto p-5 pb-20 md:pb-5"
-        style={{ borderRight: "1px solid var(--border)" }}
+        className="flex-1 min-w-0 overflow-y-auto p-5 pb-20 md:pb-5 border-b lg:border-b-0 lg:border-r"
+        style={{ borderColor: "var(--border)" }}
       >
         {/* Page header */}
         <div className="flex items-center justify-between mb-5">
@@ -479,7 +479,7 @@ export default function DashboardPage() {
 
           {/* VaR cards */}
           {varResult && (
-            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
               {[
                 { label: "VaR (95%)", value: varResult.var95, color: "var(--alert-high)" },
                 { label: "VaR (99%)", value: varResult.var99, color: "var(--alert-critical)" },
@@ -620,7 +620,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Right sidebar ─────────────────────────────────────────── */}
-      <div className="hidden lg:flex flex-col w-[360px] shrink-0 overflow-y-auto p-5 gap-5">
+      <div className="flex flex-col w-full lg:w-[360px] lg:shrink-0 overflow-y-auto p-5 gap-5">
         {/* Commodity heatmap */}
         <CommodityHeatmap />
 

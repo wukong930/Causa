@@ -53,7 +53,7 @@ export function Drawer({ open, onClose, title, children, width = "560px" }: Draw
       <div
         className="fixed top-0 right-0 z-50 h-full flex flex-col transition-transform"
         style={{
-          width: `min(${width}, 100vw)`,
+          width: `min(${width}, calc(100vw - 16px))`,
           background: "var(--surface)",
           borderLeft: "1px solid var(--border)",
           transform: open ? "translateX(0)" : "translateX(100%)",

@@ -652,7 +652,7 @@ export default function PositionsPage() {
       {showNewForm && (
         <div className="px-5 py-4 border-b" style={{ borderColor: "var(--border)", background: "var(--surface-raised)" }}>
           <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>新建持仓</h3>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
             <div>
               <label className="block text-xs mb-1" style={{ color: "var(--foreground-muted)" }}>品种1</label>
               <select className="w-full px-2 py-1.5 rounded text-xs" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }} value={newPos.leg1} onChange={(e) => setNewPos((p) => ({ ...p, leg1: e.target.value }))}>
@@ -709,7 +709,7 @@ export default function PositionsPage() {
               <div className="mb-6 flex flex-col gap-4">
                 {/* VaR/CVaR cards */}
                 {varResult && (
-                  <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                     {[
                       { label: "VaR (95%)", value: varResult.var95, color: "var(--alert-high)" },
                       { label: "VaR (99%)", value: varResult.var99, color: "var(--alert-critical)" },

@@ -449,7 +449,7 @@ export default function ResearchPage() {
                   宏观指标
                 </h2>
                 <div className="rounded-lg p-4 border" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5">
                     {[
                       { label: "美元指数", value: macroSnapshot.usdIndex },
                       { label: "联邦基金利率", value: macroSnapshot.fedFundsRate, suffix: "%" },

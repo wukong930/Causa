@@ -341,7 +341,7 @@ function RecommendationDetail({
         <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--foreground-subtle)" }}>
           综合评分
         </h3>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <ScoreCard label="优先级" value={rec.priorityScore} tooltipKey="priority" />
           <ScoreCard label="组合适配" value={rec.portfolioFitScore} tooltipKey="portfolioFit" />
           <ScoreCard label="保证金效率" value={rec.marginEfficiencyScore} tooltipKey="marginEfficiency" />
@@ -363,7 +363,7 @@ function RecommendationDetail({
           <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--foreground-subtle)" }}>
             回测与参数
           </h3>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {rec.backtestSummary && (
               <>
                 <div className="rounded-lg px-3 py-2" style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
@@ -512,7 +512,7 @@ export default function RecommendationsPage() {
         className="px-5 pt-5 pb-4 border-b shrink-0"
         style={{ borderColor: "var(--border)" }}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
             <h1 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
               交易建议

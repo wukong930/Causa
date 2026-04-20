@@ -141,7 +141,7 @@ export function AlertDetail({
       {si && (
         <Section title="价差快照">
           <div
-            className="rounded-lg p-4 grid grid-cols-3 gap-4 mb-3"
+            className="rounded-lg p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3"
             style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
           >
             <div>
@@ -176,7 +176,7 @@ export function AlertDetail({
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div
               className="rounded-lg p-3 text-center"
               style={{ background: "var(--surface-raised)", border: "1px solid var(--border)" }}
