@@ -13,6 +13,7 @@ const client = postgres(connectionString, {
   max: 20,
   idle_timeout: 30,
   connect_timeout: 10,
+  prepare: false,
 });
 
 // Create drizzle instance

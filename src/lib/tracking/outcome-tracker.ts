@@ -23,10 +23,16 @@ export interface OutcomeResult {
 
 export async function trackOutcomes(): Promise<OutcomeResult[]> {
   // Fetch active recommendations that have legs with entry/target/stop
-  const recs = serializeRecords<any>(
-    await db.select().from(recsTable)
-      .where(or(eq(recsTable.status, "active"), eq(recsTable.status, "expired")))
-  );
+  let recs: any[];
+  try {
+    recs = serializeRecords<any>(
+      await db.select().from(recsTable)
+        .where(or(eq(recsTable.status, "active"), eq(recsTable.status, "expired")))
+    );
+  } catch {
+    // Table may be empty or query cache stale — treat as no data
+    recs = [];
+  }
 
   const results: OutcomeResult[] = [];
 
