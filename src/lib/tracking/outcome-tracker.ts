@@ -33,9 +33,85 @@ export async function trackOutcomes(): Promise<OutcomeResult[]> {
   for (const rec of recs) {
     try {
       const legs = rec.legs as any[];
-      if (!legs || legs.length < 2) continue;
+      if (!legs || legs.length < 1) continue;
 
       const firstLeg = legs[0];
+      const isSingleLeg = legs.length === 1;
+
+      // Single-leg: track by absolute price vs stopLoss/takeProfit
+      // Multi-leg: track by spread
+      if (isSingleLeg) {
+        if (!firstLeg.stopLoss && !firstLeg.takeProfit) continue;
+        const sym = firstLeg.asset?.replace(/\d+/, "").toUpperCase();
+        if (!sym) continue;
+
+        const createdAt = new Date(rec.createdAt);
+        const bars = await db.select({ close: marketData.close, timestamp: marketData.timestamp })
+          .from(marketData)
+          .where(and(eq(marketData.symbol, sym), gte(marketData.timestamp, createdAt)))
+          .orderBy(desc(marketData.timestamp)).limit(30);
+        if (!bars.length) continue;
+
+        const entryPrice = firstLeg.entryPriceRef ?? firstLeg.entryZone
+          ? ((firstLeg.entryZone as [number, number])[0] + (firstLeg.entryZone as [number, number])[1]) / 2
+          : bars[bars.length - 1].close;
+        const currentPrice = bars[0].close;
+        const targetPrice = firstLeg.takeProfit;
+        const stopPrice = firstLeg.stopLoss;
+        const daysElapsed = Math.floor((Date.now() - createdAt.getTime()) / (24 * 60 * 60 * 1000));
+        const isLong = firstLeg.direction === "long";
+
+        let maxFavorable = 0, maxAdverse = 0;
+        for (const bar of bars) {
+          const move = isLong ? bar.close - entryPrice : entryPrice - bar.close;
+          if (move > maxFavorable) maxFavorable = move;
+          if (-move > maxAdverse) maxAdverse = -move;
+        }
+
+        let outcome: OutcomeResult["outcome"] = "open";
+        if (targetPrice != null && stopPrice != null) {
+          if (isLong) {
+            if (currentPrice >= targetPrice) outcome = "win";
+            else if (currentPrice <= stopPrice) outcome = "loss";
+          } else {
+            if (currentPrice <= targetPrice) outcome = "win";
+            else if (currentPrice >= stopPrice) outcome = "loss";
+          }
+        }
+
+        const maxDays = rec.maxHoldingDays || 30;
+        if (outcome === "open" && daysElapsed >= maxDays) outcome = "expired";
+
+        results.push({
+          recommendationId: rec.id,
+          assets: [sym],
+          daysElapsed,
+          spreadAtEntry: entryPrice,
+          spreadNow: currentPrice,
+          targetSpread: targetPrice ?? 0,
+          stopSpread: stopPrice ?? 0,
+          maxFavorable,
+          maxAdverse,
+          outcome,
+        });
+
+        if (outcome !== "open") {
+          await db.update(recsTable)
+            .set({
+              status: outcome === "win" ? "completed" : "expired",
+              backtestSummary: {
+                ...(rec.backtestSummary || {}),
+                outcome, daysElapsed,
+                priceAtEntry: entryPrice, priceAtClose: currentPrice,
+                maxFavorable, maxAdverse,
+              },
+            } as any)
+            .where(eq(recsTable.id, rec.id));
+        }
+        continue;
+      }
+
+      // ── Multi-leg (spread) tracking ──
       if (!firstLeg.entryZone || !firstLeg.stopLoss || !firstLeg.takeProfit) continue;
 
       const sym1 = legs[0].asset?.replace(/\d+/, "").toUpperCase();

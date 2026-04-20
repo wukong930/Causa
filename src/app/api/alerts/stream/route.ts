@@ -15,13 +15,21 @@ export async function GET(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      let closed = false;
+
+      const safeEnqueue = (chunk: Uint8Array) => {
+        if (closed) return;
+        try { controller.enqueue(chunk); } catch { closed = true; }
+      };
+
       // Send initial connection event
-      controller.enqueue(
+      safeEnqueue(
         encoder.encode(`data: ${JSON.stringify({ type: "connected", timestamp: new Date().toISOString() })}\n\n`)
       );
 
       // Poll for new alerts every 10 seconds
       const poll = async () => {
+        if (closed) return;
         try {
           const newAlerts = await db
             .select()
@@ -32,41 +40,34 @@ export async function GET(request: NextRequest) {
 
           if (newAlerts.length > 0) {
             const serialized = newAlerts.map((a) => serializeRecord<Alert>(a));
-            controller.enqueue(
+            safeEnqueue(
               encoder.encode(
                 `data: ${JSON.stringify({ type: "alerts", alerts: serialized, count: newAlerts.length })}\n\n`
               )
             );
-            // Update since to the latest alert timestamp
             if (newAlerts[0]) {
               since.setTime(newAlerts[0].triggeredAt.getTime());
             }
           }
 
-          // Send heartbeat
-          controller.enqueue(
+          safeEnqueue(
             encoder.encode(`data: ${JSON.stringify({ type: "heartbeat", timestamp: new Date().toISOString() })}\n\n`)
           );
         } catch (err) {
-          console.error("SSE poll error:", err);
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: "error", message: "Poll failed" })}\n\n`)
-          );
+          if (!closed) console.error("SSE poll error:", err);
         }
       };
 
-      // Initial poll
       await poll();
 
-      // Poll every 10 seconds
       const interval = setInterval(() => {
-        poll().catch((err) => console.error("SSE poll unhandled:", err));
+        poll().catch(() => {});
       }, 10000);
 
-      // Clean up when client disconnects
       request.signal.addEventListener("abort", () => {
+        closed = true;
         clearInterval(interval);
-        controller.close();
+        try { controller.close(); } catch { /* already closed */ }
       });
     },
   });
