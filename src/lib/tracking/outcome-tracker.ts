@@ -5,7 +5,7 @@
 
 import { db } from "@/db";
 import { recommendations as recsTable, marketData } from "@/db/schema";
-import { eq, and, gte, desc, inArray } from "drizzle-orm";
+import { eq, and, gte, desc, or } from "drizzle-orm";
 import { serializeRecords } from "@/lib/serialize";
 
 export interface OutcomeResult {
@@ -25,7 +25,7 @@ export async function trackOutcomes(): Promise<OutcomeResult[]> {
   // Fetch active recommendations that have legs with entry/target/stop
   const recs = serializeRecords<any>(
     await db.select().from(recsTable)
-      .where(inArray(recsTable.status, ["active", "expired"] as any))
+      .where(or(eq(recsTable.status, "active"), eq(recsTable.status, "expired")))
   );
 
   const results: OutcomeResult[] = [];
