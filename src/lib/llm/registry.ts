@@ -82,5 +82,14 @@ export async function getActiveLLMProvider(): Promise<LLMProvider> {
     });
   }
 
+  if (process.env.XAI_API_KEY) {
+    return createProvider({
+      provider: "xai",
+      apiKey: process.env.XAI_API_KEY,
+      model: process.env.LLM_MODEL || "grok-3",
+      enabled: true,
+    });
+  }
+
   throw new Error("No LLM provider configured. Set up in Settings or provide API key env vars.");
 }
