@@ -370,9 +370,10 @@ export async function runOrchestration(
       // Margin: estimate from contract value (price × multiplier × size × margin_rate)
       const CONTRACT_MULTIPLIER: Record<string, number> = {
         RB: 10, HC: 10, SS: 5, I: 100, J: 100, JM: 60, SF: 5, SM: 5,
-        CU: 5, AL: 5, ZN: 5, NI: 1, SN: 1, PB: 5, AU: 1000, AG: 15, BC: 5,
+        CU: 5, AL: 5, ZN: 5, NI: 1, SN: 1, PB: 5, AU: 1000, AG: 15, BC: 5, PT: 1000, PD: 500,
         SC: 1000, FU: 10, LU: 10, BU: 10, PP: 5, TA: 5, MEG: 10, MA: 10, EB: 5, PG: 20, SA: 20, UR: 20, V: 5, L: 5,
         P: 10, Y: 10, M: 10, OI: 10, RM: 10, CF: 5, SR: 10, AP: 10, C: 10, CS: 10, A: 10, JD: 10, LH: 16, SP: 10, PK: 5,
+        CL: 1000, OIL: 1000, KC: 37500, RH: 1,
       };
       const MARGIN_RATE = 0.12; // ~12% average margin rate
       const primaryAsset = hyp.type === "spread" ? hyp.legs[0]?.asset : hyp.leg.asset;

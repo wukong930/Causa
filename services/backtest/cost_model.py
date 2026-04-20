@@ -70,6 +70,14 @@ COST_TABLE: dict[str, CostSpec] = {
     "LH": CostSpec(commission=8.0, slippage_ticks=1, tick_size=5, multiplier=16),
     "SP": CostSpec(commission=3.0, slippage_ticks=1, tick_size=2, multiplier=10),
     "PK": CostSpec(commission=4.0, slippage_ticks=1, tick_size=2, multiplier=5),
+    # ── 贵金属 (GFEX) ──
+    "PT": CostSpec(commission=8.0, slippage_ticks=1, tick_size=0.1, multiplier=1000),
+    "PD": CostSpec(commission=8.0, slippage_ticks=1, tick_size=0.2, multiplier=500),
+    # ── 外盘 (占位，不计国内手续费) ──
+    "CL":  CostSpec(commission=0, slippage_ticks=0, tick_size=0.01, multiplier=1000),
+    "OIL": CostSpec(commission=0, slippage_ticks=0, tick_size=0.01, multiplier=1000),
+    "KC":  CostSpec(commission=0, slippage_ticks=0, tick_size=0.05, multiplier=37500),
+    "RH":  CostSpec(commission=0, slippage_ticks=0, tick_size=1.0, multiplier=1),
 }
 
 # Default for unknown symbols

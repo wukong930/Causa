@@ -147,11 +147,13 @@ export const COMMODITY_NAME_MAP: Record<string, string> = {
   // 黑色
   RB: "螺纹钢", HC: "热卷", SS: "不锈钢", I: "铁矿石", J: "焦炭", JM: "焦煤", SF: "硅铁", SM: "锰硅",
   // 有色
-  CU: "铜", AL: "铝", ZN: "锌", NI: "镍", SN: "锡", PB: "铅", AU: "黄金", AG: "白银", BC: "国际铜",
+  CU: "铜", AL: "铝", ZN: "锌", NI: "镍", SN: "锡", PB: "铅", AU: "黄金", AG: "白银", BC: "国际铜", PT: "铂", PD: "钯",
   // 能化
   SC: "原油", FU: "燃料油", LU: "低硫燃油", BU: "沥青", PP: "聚丙烯", TA: "PTA", MEG: "乙二醇", MA: "甲醇", EB: "苯乙烯", PG: "液化气", SA: "纯碱", UR: "尿素", V: "PVC", L: "塑料",
   // 农产品
   P: "棕榈油", Y: "豆油", M: "豆粕", OI: "菜油", RM: "菜粕", CF: "棉花", SR: "白糖", AP: "苹果", C: "玉米", CS: "淀粉", A: "豆一", B: "豆二", JD: "鸡蛋", LH: "生猪", SP: "纸浆", PK: "花生",
+  // 外盘
+  CL: "WTI原油", OIL: "布伦特原油", KC: "咖啡", RH: "铑",
 };
 
 /** Extract commodity prefix from contract symbol and return "中文名 CODE" */

@@ -36,6 +36,16 @@ SYMBOL_EXCHANGE: dict[str, str] = {
     "CF": "CZCE", "SR": "CZCE", "AP": "CZCE", "C": "DCE", "CS": "DCE",
     "A": "DCE", "B": "DCE", "JD": "DCE", "LH": "DCE",
     "SP": "SHFE", "PK": "CZCE",
+    # Precious metals (GFEX)
+    "PT": "GFEX", "PD": "GFEX",
+}
+
+# Foreign futures — use ak.futures_foreign_hist() instead of futures_main_sina
+FOREIGN_SYMBOLS: dict[str, str] = {
+    "CL": "WTI原油",
+    "OIL": "布伦特原油",
+    "KC": "咖啡",
+    "RH": "铑",
 }
 
 
@@ -66,6 +76,31 @@ def fetch_futures_daily(
 ) -> list[MarketBar]:
     """Fetch daily OHLCV for a futures symbol's main contract."""
     sym_upper = symbol.upper()
+
+    # Foreign futures — use futures_foreign_hist
+    if sym_upper in FOREIGN_SYMBOLS:
+        try:
+            df = ak.futures_foreign_hist(symbol=sym_upper)
+            if df is None or df.empty:
+                return []
+            df = df.tail(days).reset_index(drop=True)
+            bars: list[MarketBar] = []
+            for _, row in df.iterrows():
+                bars.append(MarketBar(
+                    date=str(row.get("date", "")),
+                    open=float(row.get("open", 0)),
+                    high=float(row.get("high", 0)),
+                    low=float(row.get("low", 0)),
+                    close=float(row.get("close", 0)),
+                    volume=float(row.get("volume", 0)),
+                    open_interest=float(row.get("position", 0)),
+                    symbol=sym_upper,
+                ))
+            return bars
+        except Exception as e:
+            print(f"[akshare] Error fetching foreign {symbol}: {e}")
+            return []
+
     if sym_upper not in SYMBOL_EXCHANGE:
         raise ValueError(f"Unknown symbol: {symbol}")
 
@@ -102,6 +137,12 @@ def fetch_all_symbols() -> list[SymbolInfo]:
             symbol=sym,
             name=names.get(sym, sym),
             exchange=exch,
+        ))
+    for sym, cn_name in FOREIGN_SYMBOLS.items():
+        results.append(SymbolInfo(
+            symbol=sym,
+            name=cn_name,
+            exchange="OVERSEAS",
         ))
     return sorted(results, key=lambda s: s.exchange + s.symbol)
 
@@ -195,6 +236,7 @@ def _symbol_names() -> dict[str, str]:
         "CF": "棉花", "SR": "白糖", "AP": "鲜苹果", "C": "玉米", "CS": "玉米淀粉",
         "A": "豆一", "B": "豆二", "JD": "鸡蛋", "LH": "生猪",
         "SP": "纸浆", "PK": "花生",
+        "PT": "铂", "PD": "钯",
     }
 
 
@@ -210,7 +252,8 @@ class RealtimeQuote(BaseModel):
 
 
 def fetch_realtime_quotes() -> list[RealtimeQuote]:
-    """Fetch realtime snapshot for all major futures contracts via AkShare."""
+    """Fetch realtime snapshot for all major futures contracts via AkShare.
+    Only domestic symbols — foreign symbols have no realtime API."""
     quotes: list[RealtimeQuote] = []
     names = _symbol_names()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

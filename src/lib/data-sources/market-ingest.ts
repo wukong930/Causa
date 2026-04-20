@@ -56,6 +56,13 @@ const SYMBOLS = [
   // 贵金属
   { symbol: 'AU', commodity: '黄金', exchange: 'SHFE', market: 'SHFE' },
   { symbol: 'AG', commodity: '白银', exchange: 'SHFE', market: 'SHFE' },
+  { symbol: 'PT', commodity: '铂', exchange: 'GFEX', market: 'GFEX' },
+  { symbol: 'PD', commodity: '钯', exchange: 'GFEX', market: 'GFEX' },
+  // 外盘
+  { symbol: 'CL', commodity: 'WTI原油', exchange: 'OVERSEAS', market: 'NYMEX' },
+  { symbol: 'OIL', commodity: '布伦特原油', exchange: 'OVERSEAS', market: 'ICE' },
+  { symbol: 'KC', commodity: '咖啡', exchange: 'OVERSEAS', market: 'ICE' },
+  { symbol: 'RH', commodity: '铑', exchange: 'OVERSEAS', market: 'OTC' },
 ];
 
 // Fallback base prices when AkShare is unavailable
@@ -65,6 +72,8 @@ const BASE_PRICES: Record<string, number> = {
   SC: 560, FU: 3200, LU: 4100, BU: 3800, PP: 7800, TA: 5900, MEG: 4600, MA: 2650, EB: 8500, PG: 4200, SA: 1800, UR: 1900, V: 6200, L: 7800,
   P: 8200, Y: 7900, M: 3200, OI: 9500, RM: 2800, CF: 14500, SR: 6200, AP: 8500, C: 2600, CS: 3100, A: 4800, JD: 4200, LH: 15000, SP: 5800, PK: 9500,
   AU: 580, AG: 7200,
+  PT: 528, PD: 384,
+  CL: 89, OIL: 95, KC: 284, RH: 0,
 };
 
 async function seedSymbolFallback(symbol: string, commodity: string, exchange: string, market: string): Promise<number> {
