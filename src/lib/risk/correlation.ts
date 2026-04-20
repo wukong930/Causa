@@ -31,8 +31,13 @@ export function buildCorrelationMatrix(
     const returns: number[] = [];
     for (let i = 1; i < slice.length; i++) {
       const prev = slice[i - 1].close;
-      if (prev === 0) { returns.push(0); continue; }
-      returns.push((slice[i].close - prev) / prev);
+      const curr = slice[i].close;
+      if (prev === 0 || !Number.isFinite(prev) || !Number.isFinite(curr)) {
+        returns.push(0);
+        continue;
+      }
+      const ret = (curr - prev) / prev;
+      returns.push(Number.isFinite(ret) ? ret : 0);
     }
     returnsBySymbol[sym] = returns;
   }

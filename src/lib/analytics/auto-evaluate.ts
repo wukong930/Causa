@@ -125,8 +125,13 @@ export async function autoEvaluateSignals(): Promise<{
 
     const currentSpread = data1.close - data2.close;
     const mean = spreadInfo.historicalMean ?? 0;
-    const stdDev = (spreadInfo.sigma1Upper - mean) || 1;
-    const currentZ = stdDev > 0 ? (currentSpread - mean) / stdDev : 0;
+    // sigma1Upper = mean + 1σ, so real stdDev = sigma1Upper - mean
+    // But we must guard against zero/negative values
+    const rawStdDev = spreadInfo.sigma1Upper != null && spreadInfo.historicalMean != null
+      ? Math.abs(spreadInfo.sigma1Upper - spreadInfo.historicalMean)
+      : 0;
+    const stdDev = rawStdDev > 0 ? rawStdDev : 1;
+    const currentZ = (currentSpread - mean) / stdDev;
 
     // Hit if z-score reverted ≥20% toward zero; partial_hit if 10-20%; miss if <10%
     const revertRatio = 1 - Math.abs(currentZ) / Math.abs(originalZ);

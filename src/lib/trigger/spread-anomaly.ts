@@ -27,8 +27,11 @@ export class SpreadAnomalyDetector implements TriggerEvaluator {
     const displayMean = rawSpreadMean ?? spreadMean;
     const displayStdDev = rawSpreadStdDev ?? spreadStdDev;
 
+    // Determine volatility regime from z-score history
+    const volRegime: "low" | "normal" | "high" = absZ > 3.5 ? "high" : absZ < 1.5 ? "low" : "normal";
+
     // Adaptive thresholds based on category, regime, and half-life
-    const thresholds = getAdaptiveThresholds(category, undefined, halfLife);
+    const thresholds = getAdaptiveThresholds(category, volRegime, halfLife);
 
     // Check trigger conditions
     const zScoreTriggered = absZ > thresholds.zScoreEntry;

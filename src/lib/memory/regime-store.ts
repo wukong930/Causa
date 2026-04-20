@@ -38,6 +38,7 @@ export async function getCurrentRegime(): Promise<RegimeContextRecord | null> {
 
   const result = await collection.query.fetchObjects({
     limit: 1,
+    sort: collection.sort.byProperty("snapshotAt", "desc"),
   });
 
   if (result.objects.length === 0) return null;

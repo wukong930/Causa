@@ -171,6 +171,13 @@ async function triggerForPair(
     return { triggered: false, count: 0, error: `Insufficient data for ${symbol1} (${data1.length}/${WINDOW_FALLBACK})` };
   }
 
+  // Data freshness check: skip if latest data is older than 3 days (stale ingest)
+  const latestTs = data1[0]?.timestamp?.getTime() ?? 0;
+  const staleCutoff = Date.now() - 3 * 24 * 60 * 60 * 1000;
+  if (latestTs < staleCutoff) {
+    return { triggered: false, count: 0, error: `Stale data for ${symbol1}: latest is ${new Date(latestTs).toISOString().split('T')[0]}` };
+  }
+
   // Query market data for symbol2 if provided
   let data2: typeof data1 = [];
   let spreadStats: SpreadStatistics | undefined;
