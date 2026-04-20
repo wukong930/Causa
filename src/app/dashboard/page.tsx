@@ -388,7 +388,7 @@ export default function DashboardPage() {
   const marginPct = account ? Math.round(account.marginUtilizationRate * 100) : 0;
 
   return (
-    <div className="flex flex-col lg:flex-row h-full" style={{ minHeight: 0 }}>
+    <div className="flex flex-col lg:flex-row lg:h-full" style={{ minHeight: 0 }}>
       {/* ── Left main column ─────────────────────────────────────── */}
       <div
         className="flex-1 min-w-0 overflow-y-auto p-5 pb-20 md:pb-5 border-b lg:border-b-0 lg:border-r"
@@ -620,7 +620,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Right sidebar ─────────────────────────────────────────── */}
-      <div className="flex flex-col w-full lg:w-[360px] lg:shrink-0 overflow-y-auto p-5 gap-5">
+      <div className="flex flex-col w-full lg:w-[360px] lg:shrink-0 lg:overflow-y-auto p-5 gap-5">
         {/* Commodity heatmap */}
         <CommodityHeatmap />
 
