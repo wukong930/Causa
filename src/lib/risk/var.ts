@@ -53,14 +53,12 @@ export function calculateVaR(
   const idx95 = Math.max(0, Math.floor(n * 0.05));
   const idx99 = Math.max(0, Math.floor(n * 0.01));
 
-  const histVar95 = Math.abs(sorted[idx95] ?? 0);
-  const histVar99 = Math.abs(sorted[idx99] ?? 0);
-  const histCvar95 = Math.abs(
-    sorted.slice(0, idx95 + 1).reduce((s, v) => s + v, 0) / (idx95 + 1)
-  );
-  const histCvar99 = Math.abs(
-    sorted.slice(0, Math.max(idx99, 1)).reduce((s, v) => s + v, 0) / Math.max(idx99, 1)
-  );
+  const histVar95 = sorted[idx95] ?? 0;
+  const histVar99 = sorted[idx99] ?? 0;
+  const histCvar95 =
+    sorted.slice(0, idx95 + 1).reduce((s, v) => s + v, 0) / (idx95 + 1);
+  const histCvar99 =
+    sorted.slice(0, Math.max(idx99, 1)).reduce((s, v) => s + v, 0) / Math.max(idx99, 1);
 
   // ── Parametric VaR (EWMA + Cornish-Fisher) ──
   const sigma = ewmaVol(dailyPnls, 0.94);
@@ -77,8 +75,8 @@ export function calculateVaR(
   const z95 = cornishFisher(1.645, skew, exKurt);
   const z99 = cornishFisher(2.326, skew, exKurt);
 
-  const paramVar95 = Math.abs(mean - sigma * z95);
-  const paramVar99 = Math.abs(mean - sigma * z99);
+  const paramVar95 = mean - sigma * z95;
+  const paramVar99 = mean - sigma * z99;
   // Parametric CVaR approximation: σ × φ(z) / (1-α)
   const paramCvar95 = sigma * normalPdf(z95) / 0.05;
   const paramCvar99 = sigma * normalPdf(z99) / 0.01;
@@ -89,10 +87,10 @@ export function calculateVaR(
   const hScale = Math.sqrt(Math.max(1, horizon));
 
   return {
-    var95: Math.round(Math.max(histVar95, paramVar95) * hScale),
-    var99: Math.round(Math.max(histVar99, paramVar99) * hScale),
-    cvar95: Math.round(Math.max(histCvar95, paramCvar95) * hScale),
-    cvar99: Math.round(Math.max(histCvar99, paramCvar99) * hScale),
+    var95: Math.round(Math.min(histVar95, paramVar95) * hScale),
+    var99: Math.round(Math.min(histVar99, paramVar99) * hScale),
+    cvar95: Math.round(Math.min(histCvar95, paramCvar95) * hScale),
+    cvar99: Math.round(Math.min(histCvar99, paramCvar99) * hScale),
     horizon,
     method: "combined",
     calculatedAt: new Date().toISOString(),

@@ -45,18 +45,16 @@ export class RegimeShiftDetector implements TriggerEvaluator {
     // ── Correlation breakdown detection ──
     let corrBreak = { broken: false, shortCorr: 0, longCorr: 0, delta: 0, confidence: 0 };
     if (symbol2 && spreadStats && context.marketData.length >= 20) {
-      // Build second return series from market data if available
-      // For now, use returns directly — correlation break on single asset vol is still informative
-      if (returns.length >= 20) {
-        // Split returns into two halves as proxy for regime change detection
+      if (returns.length >= 60) {
+        // Use short (last 30) vs long (last 60) windows for structural break detection
+        const shortWindow = returns.slice(-30);
+        const longWindow = returns.slice(-60);
+        corrBreak = detectCorrelationBreak(shortWindow, longWindow);
+      } else if (returns.length >= 20) {
         const halfLen = Math.floor(returns.length / 2);
         const firstHalf = returns.slice(0, halfLen);
         const secondHalf = returns.slice(halfLen);
-        // Use first/second half to detect structural break in autocorrelation
-        corrBreak = detectCorrelationBreak(
-          returns.slice(0, Math.min(60, returns.length)),
-          returns.slice(0, Math.min(60, returns.length))
-        );
+        corrBreak = detectCorrelationBreak(firstHalf, secondHalf);
       }
     }
 

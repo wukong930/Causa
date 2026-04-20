@@ -171,15 +171,29 @@ export function extractHistoricalExtremes(
     if (seenDates.has(extreme.date) || scenarios.length >= maxScenarios) continue;
     seenDates.add(extreme.date);
 
+    // Compute empirical tail correlation boost from this extreme day
+    // Compare average |return| on extreme days vs normal days for co-movement amplification
+    const dayReturns: number[] = [];
+    const normalReturns: number[] = [];
+    for (const [, returns] of Object.entries(returnsBySymbol)) {
+      const dayReturn = returns.find((r) => r.date === extreme.date);
+      if (dayReturn) dayReturns.push(Math.abs(dayReturn.ret));
+      const mean = returns.reduce((a, r) => a + Math.abs(r.ret), 0) / returns.length;
+      normalReturns.push(mean);
+    }
+    const avgExtremeRet = dayReturns.length > 0 ? dayReturns.reduce((a, b) => a + b, 0) / dayReturns.length : 0;
+    const avgNormalRet = normalReturns.length > 0 ? normalReturns.reduce((a, b) => a + b, 0) / normalReturns.length : 0;
+    const tailBoost = avgNormalRet > 0 && dayReturns.length >= 5
+      ? Math.min(2.0, Math.max(1.0, avgExtremeRet / avgNormalRet))
+      : 1.3; // fallback
+
     // Collect all symbol returns on this date
     const shocks: Record<string, number> = {};
     for (const [symbol, returns] of Object.entries(returnsBySymbol)) {
       const dayReturn = returns.find((r) => r.date === extreme.date);
       if (dayReturn) {
         const prefix = symbol.replace(/\d+/, "");
-        // Apply tail correlation boost: in extreme events, correlations increase
-        // Clayton copula simplified: amplify co-movements by 1.3×
-        const tailAdjusted = dayReturn.ret * (Math.abs(dayReturn.ret) > 0.03 ? 1.3 : 1.0);
+        const tailAdjusted = dayReturn.ret * (Math.abs(dayReturn.ret) > 0.03 ? tailBoost : 1.0);
         shocks[prefix] = Math.round(tailAdjusted * 1000) / 1000;
       }
     }

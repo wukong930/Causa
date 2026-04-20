@@ -15,7 +15,7 @@ export class InventoryShockDetector implements TriggerEvaluator {
   type = "inventory_shock" as const;
 
   async evaluate(context: TriggerContext): Promise<TriggerResult | null> {
-    const { symbol1, marketData, spreadStats } = context;
+    const { symbol1, marketData, spreadStats, industryData } = context;
 
     if (marketData.length < 10) {
       return null;
@@ -26,6 +26,25 @@ export class InventoryShockDetector implements TriggerEvaluator {
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
+    // ── Real inventory data path ──
+    let inventoryShockDetected = false;
+    let inventoryChangeRatio = 0;
+    let inventoryDescription = "";
+
+    if (industryData?.inventory && industryData.inventory.length >= 5) {
+      const inv = industryData.inventory;
+      const recent = inv.slice(-3);
+      const earlier = inv.slice(-8, -3);
+      if (earlier.length > 0) {
+        const recentAvg = recent.reduce((a, b) => a + b.value, 0) / recent.length;
+        const earlierAvg = earlier.reduce((a, b) => a + b.value, 0) / earlier.length;
+        inventoryChangeRatio = earlierAvg > 0 ? (recentAvg - earlierAvg) / earlierAvg : 0;
+        inventoryShockDetected = Math.abs(inventoryChangeRatio) > 0.15; // 15% change
+        inventoryDescription = `库存从 ${earlierAvg.toFixed(0)} → ${recentAvg.toFixed(0)}，变化 ${(inventoryChangeRatio * 100).toFixed(1)}%`;
+      }
+    }
+
+    // ── Price/volume proxy path (fallback) ──
     // Calculate daily range ratios as proxy for inventory pressure
     const rangeRatios = sorted.map((d) => (d.high - d.low) / d.close);
 
@@ -66,7 +85,7 @@ export class InventoryShockDetector implements TriggerEvaluator {
     // Trigger conditions
     const rangeTriggered = rangeRatio > 1.8;
     const volTriggered = volRatio > 1.6;
-    const inventoryTriggered = rangeTriggered && volTriggered;
+    const inventoryTriggered = inventoryShockDetected || (rangeTriggered && volTriggered);
 
     if (!inventoryTriggered && !rangeTriggered && !volTriggered) {
       return null;
@@ -76,9 +95,11 @@ export class InventoryShockDetector implements TriggerEvaluator {
     const triggerChain = [
       buildTriggerStep(
         1,
-        "日内波幅检测",
-        `${symbol1} 近5日均波幅率 ${(recentAvgRange * 100).toFixed(2)}%，历史均值 ${(historicalAvgRange * 100).toFixed(2)}%，比率 ${rangeRatio.toFixed(2)}x`,
-        rangeTriggered ? 0.85 : 0.4
+        inventoryShockDetected ? "库存数据检测" : "日内波幅检测",
+        inventoryShockDetected
+          ? `${symbol1} ${inventoryDescription}`
+          : `${symbol1} 近5日均波幅率 ${(recentAvgRange * 100).toFixed(2)}%，历史均值 ${(historicalAvgRange * 100).toFixed(2)}%，比率 ${rangeRatio.toFixed(2)}x`,
+        inventoryShockDetected ? 0.9 : rangeTriggered ? 0.85 : 0.4
       ),
       buildTriggerStep(
         2,

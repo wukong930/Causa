@@ -12,6 +12,7 @@ import { serializeRecord } from '@/lib/serialize';
 import { verifyCronSecret } from '@/lib/auth';
 import { engleGranger, ouHalfLife, hurstExponent as calcHurst } from '@/lib/stats/cointegration';
 import { recordSignal } from '@/lib/trigger/signal-quality';
+import { getSignalHitRates } from '@/lib/trigger/signal-quality';
 import { generateOneLiner } from '@/lib/reasoning/one-liner';
 import { runOrchestration } from '@/lib/pipeline/orchestrator';
 
@@ -256,6 +257,20 @@ async function triggerForPair(
     }
   }
 
+const BACKTEST_URL = process.env.BACKTEST_SERVICE_URL || 'http://localhost:8100';
+
+  // Fetch industry data (inventory) for inventory-shock detector
+  let industryData: { inventory?: Array<{ value: number; date: string }>; spotPrice?: number } | undefined;
+  try {
+    const invRes = await fetch(`${BACKTEST_URL}/industry/inventory/${symbol1}?limit=30`, { signal: AbortSignal.timeout(5000) });
+    if (invRes.ok) {
+      const invData = await invRes.json();
+      if (Array.isArray(invData) && invData.length > 0) {
+        industryData = { inventory: invData.map((d: any) => ({ value: d.value, date: d.date })) };
+      }
+    }
+  } catch { /* inventory data is optional */ }
+
   // Build trigger context with position awareness
   const openPositions = await db
     .select()
@@ -322,6 +337,7 @@ async function triggerForPair(
       status: p.status as "open" | "closed" | "partially_closed",
     })),
     accountSnapshot,
+    industryData,
     timestamp: new Date().toISOString(),
   };
 
@@ -348,27 +364,36 @@ async function triggerForPair(
     }
   }
 
+  // Fetch historical hit rates for ensemble weighting
+  const hitRates = await getSignalHitRates(category).catch(() => []);
+
   // Ensemble: aggregate, boost resonance, dampen conflicts
-  const ensemble = ensembleSignals(evalResults);
+  const ensemble = ensembleSignals(evalResults, hitRates);
 
   for (const alert of ensemble.alerts) {
     try {
       const now = new Date();
-      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const dedupWindow = new Date(now.getTime() - 8 * 60 * 60 * 1000);
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-      // Dedup: skip if same type + same assets already active within 24h
+      // Dedup: skip if same type + same assets already active within 8h
+      // Exception: allow if new z-score is significantly stronger (upgrade)
       const assetsKey = alert.result.relatedAssets.slice().sort().join(',');
-      const recentSameType = await db.select({ relatedAssets: alerts.relatedAssets }).from(alerts)
+      const recentSameType = await db.select({ relatedAssets: alerts.relatedAssets, spreadInfo: alerts.spreadInfo }).from(alerts)
         .where(and(
           eq(alerts.type, alert.type),
           eq(alerts.status, 'active'),
-          gte(alerts.triggeredAt, twentyFourHoursAgo),
+          gte(alerts.triggeredAt, dedupWindow),
         ))
         .limit(50);
+      const newZ = Math.abs(alert.result.spreadInfo?.zScore ?? 0);
       const hasDuplicate = recentSameType.some((row) => {
         const rowKey = (row.relatedAssets as string[]).slice().sort().join(',');
-        return rowKey === assetsKey;
+        if (rowKey !== assetsKey) return false;
+        // Allow upgrade: if new z-score is 0.5+ stronger, don't dedup
+        const existingZ = Math.abs((row.spreadInfo as any)?.zScore ?? 0);
+        if (newZ > existingZ + 0.5) return false;
+        return true;
       });
       if (hasDuplicate) {
         console.log(`[cron] Skipped duplicate ${alert.type} alert for ${assetsKey}`);

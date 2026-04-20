@@ -36,6 +36,11 @@ export interface TriggerContext {
   accountSnapshot?: AccountSnapshot;
   /** Risk thresholds; defaults applied when omitted */
   riskParams?: RiskParameters;
+  /** Industry data (inventory, spot prices) from backtest service */
+  industryData?: {
+    inventory?: Array<{ value: number; date: string }>;
+    spotPrice?: number;
+  };
   timestamp: string;
 }
 

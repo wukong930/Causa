@@ -27,7 +27,8 @@ export class BasisShiftDetector implements TriggerEvaluator {
     const displayStdDev = rawSpreadStdDev ?? spreadStdDev;
 
     // Adaptive thresholds
-    const thresholds = getAdaptiveThresholds(category, undefined, halfLife);
+    const volRegime: "low" | "normal" | "high" = absZ > 3.5 ? "high" : absZ < 1.5 ? "low" : "normal";
+    const thresholds = getAdaptiveThresholds(category, volRegime, halfLife);
 
     // Check trigger condition: deviation > adaptive basis threshold
     const basisTriggered = absZ > thresholds.basisDeviation;
@@ -36,8 +37,24 @@ export class BasisShiftDetector implements TriggerEvaluator {
       return null;
     }
 
-    // Check persistence (simplified: assume triggered if we have enough data points)
-    const hasPersistence = marketData.length >= 3;
+    // Check real persistence: count consecutive recent days where z-score exceeds threshold
+    let consecutiveDays = 0;
+    if (symbol2 && marketData.length >= 5 && spreadStats) {
+      const sortedData = [...marketData].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      // We only have symbol1 prices in marketData; approximate persistence by
+      // checking if the current z-score direction has been consistent
+      // Use the spread's z-score magnitude as proxy — if absZ > threshold, count days
+      // where price moved in the same direction
+      for (let i = 0; i < Math.min(5, sortedData.length - 1); i++) {
+        const dayReturn = sortedData[i].close - sortedData[i + 1].close;
+        const sameDirection = currentZScore > 0 ? dayReturn > 0 : dayReturn < 0;
+        if (sameDirection) consecutiveDays++;
+        else break;
+      }
+    }
+    const hasPersistence = consecutiveDays >= 3;
 
     // Check volume change (compare recent vs earlier)
     let volumeIncrease = 0;

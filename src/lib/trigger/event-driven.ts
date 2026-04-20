@@ -36,12 +36,17 @@ export class EventDrivenDetector implements TriggerEvaluator {
     // Calculate price gap percentage
     const gapPercent = Math.abs((latest.close - previous.close) / previous.close) * 100;
 
+    // Dynamic gap threshold based on recent volatility
+    const recentSlice = sorted.slice(-Math.min(20, sorted.length));
+    const avgDailyRange = recentSlice.reduce((sum, d) => sum + (d.high - d.low) / d.close, 0) / recentSlice.length * 100;
+    const gapThreshold = Math.max(3.0, avgDailyRange * 2.5);
+
     // Calculate 10-day average volume
     const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
     const volumeSpikePercent = avgVolume > 0 ? ((latest.volume - avgVolume) / avgVolume) * 100 : 0;
 
     // Trigger conditions
-    const gapTriggered = gapPercent > 3.0;
+    const gapTriggered = gapPercent > gapThreshold;
     const volumeTriggered = volumeSpikePercent > 30.0;
     const combinedTriggered = gapTriggered && volumeTriggered;
 
