@@ -113,7 +113,8 @@ export async function seedHistoricalData(): Promise<number> {
         open: bar.open, high: bar.high, low: bar.low, close: bar.close,
         settle: bar.close,
         volume: bar.volume, openInterest: bar.open_interest,
-        currency: 'CNY', timezone: 'Asia/Shanghai',
+        currency: exchange === 'OVERSEAS' ? 'USD' : 'CNY',
+        timezone: exchange === 'OVERSEAS' ? 'America/New_York' : 'Asia/Shanghai',
       }));
 
       const batchSize = 50;
@@ -188,6 +189,34 @@ export async function ingestDailyData(): Promise<number> {
             inserted++;
           }
           console.log(`[market-ingest] Realtime snapshot: updated ${inserted} symbols`);
+          // Continue to daily bar fallback for symbols not covered by realtime (e.g. overseas)
+          const coveredSymbols = new Set(quotes.map((q) => q.symbol));
+          const uncoveredSymbols = SYMBOLS.filter((s) => !coveredSymbols.has(s.symbol));
+          for (const { symbol, commodity, exchange, market: mkt } of uncoveredSymbols) {
+            try {
+              const res = await fetch(`${BACKTEST_URL}/market-data/${symbol}?days=5`, { signal: AbortSignal.timeout(10000) });
+              if (!res.ok) continue;
+              const bars: AkShareBar[] = await res.json();
+              if (!bars.length) continue;
+              const latest = bars[bars.length - 1];
+              const ts2 = new Date(latest.date);
+              ts2.setHours(0, 0, 0, 0);
+              const id2 = `${symbol}_${latest.date}`;
+              await db.insert(marketData).values({
+                id: id2, market: mkt, exchange, commodity, symbol,
+                contractMonth: 'main', timestamp: ts2,
+                open: latest.open, high: latest.high, low: latest.low,
+                close: latest.close, settle: latest.close,
+                volume: latest.volume, openInterest: latest.open_interest ?? 0,
+                currency: exchange === 'OVERSEAS' ? 'USD' : 'CNY',
+                timezone: exchange === 'OVERSEAS' ? 'America/New_York' : 'Asia/Shanghai',
+              } as any).onConflictDoUpdate({
+                target: marketData.id,
+                set: { high: latest.high, low: latest.low, close: latest.close, settle: latest.close, volume: latest.volume },
+              });
+              inserted++;
+            } catch { /* skip failed symbol */ }
+          }
           return inserted;
         }
       }
@@ -217,7 +246,8 @@ export async function ingestDailyData(): Promise<number> {
         open: latest.open, high: latest.high, low: latest.low,
         close: latest.close, settle: latest.close,
         volume: latest.volume, openInterest: latest.open_interest,
-        currency: 'CNY', timezone: 'Asia/Shanghai',
+        currency: exchange === 'OVERSEAS' ? 'USD' : 'CNY',
+        timezone: exchange === 'OVERSEAS' ? 'America/New_York' : 'Asia/Shanghai',
       } as any).onConflictDoUpdate({
         target: marketData.id,
         set: {
