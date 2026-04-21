@@ -29,6 +29,10 @@ interface IndustryPoint {
   source: string;
 }
 
+function industryId(p: IndustryPoint): string {
+  return `${p.symbol}_${p.data_type}_${p.date}`;
+}
+
 /**
  * Ingest industry data (inventory, spot prices, basis) for all watched symbols.
  */
@@ -54,7 +58,7 @@ export async function ingestIndustryData(): Promise<number> {
         for (const p of points) {
           try {
             await db.insert(industryData).values({
-              symbol: p.symbol, dataType: p.data_type,
+              id: industryId(p), symbol: p.symbol, dataType: p.data_type,
               value: p.value, unit: p.unit, source: p.source,
               timestamp: new Date(p.date),
             } as any);
@@ -73,7 +77,7 @@ export async function ingestIndustryData(): Promise<number> {
         const p: IndustryPoint = await res.json();
         try {
           await db.insert(industryData).values({
-            symbol: p.symbol, dataType: p.data_type,
+            id: industryId(p), symbol: p.symbol, dataType: p.data_type,
             value: p.value, unit: p.unit, source: p.source,
             timestamp: new Date(p.date),
           } as any);
@@ -92,7 +96,7 @@ export async function ingestIndustryData(): Promise<number> {
         for (const p of points) {
           try {
             await db.insert(industryData).values({
-              symbol: p.symbol, dataType: p.data_type,
+              id: industryId(p), symbol: p.symbol, dataType: p.data_type,
               value: p.value, unit: p.unit, source: p.source,
               timestamp: new Date(p.date),
             } as any);
@@ -115,7 +119,7 @@ export async function ingestIndustryData(): Promise<number> {
       for (const p of points) {
         try {
           await db.insert(industryData).values({
-            symbol: p.symbol, dataType: p.data_type,
+            id: industryId(p), symbol: p.symbol, dataType: p.data_type,
             value: p.value, unit: p.unit, source: p.source,
             timestamp: new Date(p.date),
           } as any);
@@ -135,7 +139,7 @@ export async function ingestIndustryData(): Promise<number> {
       for (const p of points) {
         try {
           await db.insert(industryData).values({
-            symbol: p.symbol, dataType: p.data_type,
+            id: industryId(p), symbol: p.symbol, dataType: p.data_type,
             value: p.value, unit: p.unit, source: p.source,
             timestamp: new Date(p.date),
           } as any);
@@ -157,7 +161,7 @@ export async function ingestIndustryData(): Promise<number> {
         for (const p of points) {
           try {
             await db.insert(industryData).values({
-              symbol: p.symbol, dataType: p.data_type,
+              id: industryId(p), symbol: p.symbol, dataType: p.data_type,
               value: p.value, unit: p.unit, source: p.source,
               timestamp: new Date(p.date),
             } as any);
