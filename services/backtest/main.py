@@ -10,7 +10,11 @@ from optimizer import run_optimize, OptimizeRequest, OptimizeResult
 from walk_forward import run_walk_forward, WalkForwardRequest, WalkForwardResult
 from akshare_ingest import fetch_realtime_quotes
 from akshare_ingest import fetch_futures_daily, fetch_all_symbols, fetch_spread_data, fetch_term_structure
-from industry_data import fetch_inventory, fetch_spot_price, fetch_basis
+from industry_data import (
+    fetch_inventory, fetch_spot_price, fetch_basis,
+    fetch_position_rank, fetch_volatility_index, fetch_fund_flow, fetch_weather,
+)
+import os
 
 app = FastAPI(title="Causa Backtest Service", version="1.0.0")
 
@@ -137,3 +141,40 @@ def basis(symbol: str):
     if not result:
         raise HTTPException(status_code=404, detail=f"Cannot calculate basis for {symbol}")
     return result
+
+
+@app.get("/industry/position-rank/{symbol}")
+def position_rank(symbol: str):
+    """Get top trader position rankings (龙虎榜)."""
+    data = fetch_position_rank(symbol)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"No position rank data for {symbol}")
+    return data
+
+
+@app.get("/industry/volatility")
+def volatility():
+    """Get 50ETF volatility index (iVX/QVIX)."""
+    data = fetch_volatility_index()
+    if not data:
+        raise HTTPException(status_code=404, detail="No volatility index data")
+    return data
+
+
+@app.get("/industry/fund-flow")
+def fund_flow():
+    """Get northbound/southbound fund flow (沪深港通)."""
+    data = fetch_fund_flow()
+    if not data:
+        raise HTTPException(status_code=404, detail="No fund flow data")
+    return data
+
+
+@app.get("/industry/weather/{symbol}")
+def weather(symbol: str):
+    """Get weather data for agricultural commodity production regions."""
+    api_key = os.environ.get("OPENWEATHERMAP_API_KEY", "")
+    data = fetch_weather(symbol, api_key)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"No weather data for {symbol}")
+    return data

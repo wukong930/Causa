@@ -3,7 +3,7 @@ import { pgTable, text, timestamp, real, varchar, index } from 'drizzle-orm/pg-c
 export const industryData = pgTable('industry_data', {
   id: text('id').primaryKey(), // composite: {symbol}_{dataType}_{date}
   symbol: text('symbol').notNull(),
-  dataType: varchar('data_type', { length: 20 }).notNull(), // inventory | spot_price | basis
+  dataType: varchar('data_type', { length: 30 }).notNull(), // inventory | spot_price | basis | position_rank_* | volatility_index | fund_flow_* | weather_*
   value: real('value').notNull(),
   unit: varchar('unit', { length: 20 }).notNull(),
   source: varchar('source', { length: 50 }).notNull(),

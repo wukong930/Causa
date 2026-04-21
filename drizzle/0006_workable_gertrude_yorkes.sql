@@ -1,0 +1,1 @@
+ALTER TABLE "industry_data" ALTER COLUMN "data_type" SET DATA TYPE varchar(30);
