@@ -17,9 +17,9 @@ def _safe(v: float) -> float:
 
 STRATEGY_GRIDS: dict[str, dict[str, list]] = {
     "mean_reversion": {
-        "entry_z": [1.5, 2.0, 2.5, 3.0],
-        "exit_z": [0.3, 0.5, 0.8],
-        "window": [40, 60, 90, 120],
+        "entry_z": [1.0, 1.5, 2.0, 2.5],
+        "exit_z": [0.3, 0.5, 0.8, 1.0],
+        "window": [30, 40, 60, 90],
     },
     "momentum_breakout": {
         "lookback": [10, 20, 40],

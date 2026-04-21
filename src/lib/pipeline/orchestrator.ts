@@ -121,7 +121,7 @@ export async function runOrchestration(
               const result = await runBacktest({
                 hypothesis_id: hyp.id, legs: btLegs, prices, dates,
                 strategy_type: strategy,
-                entry_threshold: 2.0, exit_threshold: 0.5, window: 60,
+                entry_threshold: 1.5, exit_threshold: 0.5, window: 40,
               });
               backtestResults[hyp.id] = {
                 sharpe: result.sharpe_ratio, maxDD: result.max_drawdown, winRate: result.win_rate,
@@ -167,7 +167,7 @@ export async function runOrchestration(
         const strategy = selectStrategy(hyp.type, alertType);
 
         // Step 4a: Parameter optimization
-        let bestParams = { entry_threshold: 2.0, exit_threshold: 0.5, window: 60 };
+        let bestParams = { entry_threshold: 1.5, exit_threshold: 0.5, window: 40 };
         try {
           const optRes = await fetch(`${BACKTEST_URL}/optimize`, {
             method: "POST",
@@ -227,7 +227,8 @@ export async function runOrchestration(
 
       // ── Backtest quality gate: reject poor-performing hypotheses ──
       if (btInfo) {
-        const rejected =
+        const noTrades = btInfo.sampleSize === 0 || (btInfo.sharpe === 0 && btInfo.winRate === 0);
+        const rejected = noTrades ||
           btInfo.sharpe < 0.3 || btInfo.maxDD < -0.3 || btInfo.winRate < 0.3;
         if (rejected) {
           console.log(
