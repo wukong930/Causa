@@ -133,9 +133,9 @@ export async function autoEvaluateSignals(): Promise<{
     const stdDev = rawStdDev > 0 ? rawStdDev : 1;
     const currentZ = (currentSpread - mean) / stdDev;
 
-    // Hit if z-score reverted ≥20% toward zero; partial_hit if 10-20%; miss if <10%
+    // Hit if z-score reverted ≥20% toward zero; miss if <20%
     const revertRatio = 1 - Math.abs(currentZ) / Math.abs(originalZ);
-    const outcome = revertRatio >= 0.2 ? "hit" : revertRatio >= 0.1 ? "partial_hit" : "miss";
+    const outcome = revertRatio >= 0.2 ? "hit" : "miss";
 
     await db.update(signalTrack)
       .set({ outcome, resolvedAt: new Date() })
