@@ -132,8 +132,10 @@ def fetch_position_rank(symbol: str, limit: int = 1) -> list[IndustryDataPoint]:
     sym = symbol.upper()
     try:
         today = datetime.now().strftime("%Y%m%d")
-        # Try the unified interface first
-        df = ak.futures_dce_position_rank(date=today, symbol=sym.lower())
+        result = ak.futures_dce_position_rank(date=today, vars_list=[sym])
+        if not result or sym not in result:
+            return []
+        df = result[sym]
         if df is None or df.empty:
             return []
 
