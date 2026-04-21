@@ -25,4 +25,9 @@ def generate_signals(
     entries = (zscore >= params.entry_z) | (zscore <= -params.entry_z)
     exits = (zscore.abs() <= params.exit_z) | (zscore.abs() >= params.stop_loss_z)
 
+    # Prevent exit on same bar as entry
+    entries = entries.fillna(False)
+    exits = exits.fillna(False)
+    exits = exits & ~entries
+
     return entries, exits

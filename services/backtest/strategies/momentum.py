@@ -27,10 +27,14 @@ def generate_signals(
     high_low = prices.rolling(2).max() - prices.rolling(2).min()
     atr = high_low.rolling(params.atr_period).mean()
 
-    # Exit: ATR trailing stop or momentum reversal (returns cross zero)
+    # Exit: ATR trailing stop only (momentum reversal fires too frequently)
     trailing_stop = prices.rolling(params.lookback).max() - atr * params.trailing_atr_mult
-    momentum_reversal = (returns.shift(1) > 0) & (returns <= 0) | (returns.shift(1) < 0) & (returns >= 0)
 
-    exits = (prices <= trailing_stop) | momentum_reversal
+    exits = prices <= trailing_stop
 
-    return entries.fillna(False), exits.fillna(False)
+    # Prevent exit on same bar as entry
+    entries = entries.fillna(False)
+    exits = exits.fillna(False)
+    exits = exits & ~entries
+
+    return entries, exits

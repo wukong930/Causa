@@ -29,16 +29,15 @@ def generate_signals(
     # Entry: price breaks above upper channel (long) or below lower channel (short)
     entries = (prices >= upper.shift(1)) | (prices <= lower.shift(1))
 
-    # Exit: price reverts to mid-channel OR ATR stop triggered
-    # For longs: exit when price drops below (high - atr * mult)
-    # For shorts: exit when price rises above (low + atr * mult)
+    # Exit: ATR trailing stop (not mid-channel revert, which fires too early)
     trailing_stop_long = prices.rolling(n).max() - atr * params.atr_stop_mult
     trailing_stop_short = prices.rolling(n).min() + atr * params.atr_stop_mult
 
-    exits = (
-        (prices <= mid) |  # revert to mid
-        (prices <= trailing_stop_long) |  # long stop
-        (prices >= trailing_stop_short)  # short stop
-    )
+    exits = (prices <= trailing_stop_long) | (prices >= trailing_stop_short)
 
-    return entries.fillna(False), exits.fillna(False)
+    # Prevent exit on same bar as entry
+    entries = entries.fillna(False)
+    exits = exits.fillna(False)
+    exits = exits & ~entries
+
+    return entries, exits
