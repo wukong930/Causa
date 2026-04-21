@@ -118,10 +118,29 @@ export async function runOrchestration(
                 : [];
               const alertType = (alertRow[0] as any)?.type ?? undefined;
               const strategy = selectStrategy(hyp.type, alertType);
+
+              // Run optimizer for directional hypotheses too
+              let strategyParams: Record<string, number> = {};
+              try {
+                const optRes = await fetch(`${BACKTEST_URL}/optimize`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ legs: btLegs, prices, dates, strategy_type: strategy }),
+                  signal: AbortSignal.timeout(30000),
+                });
+                if (optRes.ok) {
+                  const opt = await optRes.json();
+                  if (opt.best_params) strategyParams = opt.best_params;
+                }
+              } catch { /* fall back to defaults */ }
+
               const result = await runBacktest({
                 hypothesis_id: hyp.id, legs: btLegs, prices, dates,
                 strategy_type: strategy,
-                entry_threshold: 1.5, exit_threshold: 0.5, window: 40,
+                entry_threshold: strategyParams.entry_threshold ?? 1.5,
+                exit_threshold: strategyParams.exit_threshold ?? 0.5,
+                window: strategyParams.window ?? 40,
+                strategy_params: strategyParams,
               });
               backtestResults[hyp.id] = {
                 sharpe: result.sharpe_ratio, maxDD: result.max_drawdown, winRate: result.win_rate,
