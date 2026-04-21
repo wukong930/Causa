@@ -110,7 +110,7 @@ function AlertRow({
 // ─── Alerts Page ─────────────────────────────────────────────────────────────
 
 const ALL_SEVERITIES: AlertSeverity[] = ["critical", "high", "medium", "low"];
-const ALL_CATEGORIES: AlertCategory[] = ["ferrous", "nonferrous", "energy", "agriculture", "overseas"];
+const ALL_CATEGORIES: AlertCategory[] = ["ferrous", "nonferrous", "energy", "agriculture", "overseas", "financial"];
 
 export default function AlertsPage() {
   return (

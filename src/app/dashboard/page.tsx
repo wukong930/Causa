@@ -32,7 +32,7 @@ import { useAlertStream } from "@/hooks/use-alert-stream";
 
 // ─── Commodity Heatmap ───────────────────────────────────────────────────────
 
-const CLUSTER_ORDER = ["ferrous", "nonferrous", "energy", "agriculture", "overseas"] as const;
+const CLUSTER_ORDER = ["ferrous", "nonferrous", "energy", "agriculture", "overseas", "financial"] as const;
 const CLUSTER_LABEL: Record<string, string> = {
   ferrous: "黑色",
   nonferrous: "有色",

@@ -99,6 +99,49 @@ const CRON_WATCHLIST: Array<{ symbol1: string; symbol2?: string; category: Alert
   // 贵金属 — 单品种
   { symbol1: 'AU', category: 'nonferrous' },
   { symbol1: 'AG', category: 'nonferrous' },
+  // 广期所 — 套利对
+  { symbol1: 'SI', symbol2: 'SA', category: 'energy' },
+  { symbol1: 'LC', symbol2: 'NI', category: 'nonferrous' },
+  // 广期所 — 单品种
+  { symbol1: 'SI', category: 'energy' },
+  { symbol1: 'LC', category: 'nonferrous' },
+  // 金融期货 — 套利对
+  { symbol1: 'IF', symbol2: 'IH', category: 'financial' },
+  { symbol1: 'IF', symbol2: 'IC', category: 'financial' },
+  { symbol1: 'IC', symbol2: 'IM', category: 'financial' },
+  { symbol1: 'T', symbol2: 'TF', category: 'financial' },
+  { symbol1: 'TF', symbol2: 'TS', category: 'financial' },
+  // 金融期货 — 单品种
+  { symbol1: 'IF', category: 'financial' },
+  { symbol1: 'IC', category: 'financial' },
+  { symbol1: 'IM', category: 'financial' },
+  { symbol1: 'IH', category: 'financial' },
+  { symbol1: 'TS', category: 'financial' },
+  { symbol1: 'TF', category: 'financial' },
+  { symbol1: 'T', category: 'financial' },
+  { symbol1: 'TL', category: 'financial' },
+  // 内外盘价差套利
+  { symbol1: 'AU', symbol2: 'GC', category: 'nonferrous' },
+  { symbol1: 'CU', symbol2: 'HG', category: 'nonferrous' },
+  { symbol1: 'SC', symbol2: 'CL', category: 'energy' },
+  { symbol1: 'CF', symbol2: 'CT', category: 'agriculture' },
+  { symbol1: 'SR', symbol2: 'SB', category: 'agriculture' },
+  { symbol1: 'CU', symbol2: 'LME_CU', category: 'nonferrous' },
+  { symbol1: 'AL', symbol2: 'LME_AL', category: 'nonferrous' },
+  // 外盘 — 单品种
+  { symbol1: 'GC', category: 'overseas' },
+  { symbol1: 'SI_F', category: 'overseas' },
+  { symbol1: 'HG', category: 'overseas' },
+  { symbol1: 'NG', category: 'overseas' },
+  { symbol1: 'S', category: 'overseas' },
+  { symbol1: 'W', category: 'overseas' },
+  { symbol1: 'CT', category: 'overseas' },
+  { symbol1: 'SB', category: 'overseas' },
+  { symbol1: 'CC', category: 'overseas' },
+  { symbol1: 'LME_CU', category: 'overseas' },
+  { symbol1: 'LME_AL', category: 'overseas' },
+  { symbol1: 'LME_ZN', category: 'overseas' },
+  { symbol1: 'LME_NI', category: 'overseas' },
 ];
 
 const WINDOW = 250;

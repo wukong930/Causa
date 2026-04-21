@@ -14,9 +14,10 @@ const CLUSTER_CONFIGS: Record<CommodityCluster, { cx: number; cy: number; label:
   energy:      { cx: 750, cy: 380, label: "能化",    color: "#ef4444" },
   agriculture: { cx: 180, cy: 480, label: "农产品",  color: "#22c55e" },
   overseas:    { cx: 580, cy: 500, label: "海外",    color: "#3b82f6" },
+  financial:   { cx: 450, cy: 350, label: "金融",    color: "#8b5cf6" },
 };
 
-const CLUSTER_ORDER: CommodityCluster[] = ["ferrous", "nonferrous", "energy", "agriculture", "overseas"];
+const CLUSTER_ORDER: CommodityCluster[] = ["ferrous", "nonferrous", "energy", "agriculture", "overseas", "financial"];
 
 const NODE_RADIUS = 22;
 const LABEL_OFFSET = 32;

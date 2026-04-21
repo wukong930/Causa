@@ -38,6 +38,11 @@ SYMBOL_EXCHANGE: dict[str, str] = {
     "SP": "SHFE", "PK": "CZCE",
     # Precious metals (GFEX)
     "PT": "GFEX", "PD": "GFEX",
+    # GFEX new
+    "SI": "GFEX", "LC": "GFEX",
+    # Financial futures (CFFEX)
+    "IF": "CFFEX", "IC": "CFFEX", "IM": "CFFEX", "IH": "CFFEX",
+    "TS": "CFFEX", "TF": "CFFEX", "T": "CFFEX", "TL": "CFFEX",
 }
 
 # Foreign futures — use ak.futures_foreign_hist() instead of futures_main_sina
@@ -46,6 +51,19 @@ FOREIGN_SYMBOLS: dict[str, str] = {
     "OIL": "布伦特原油",
     "KC": "咖啡",
     "RH": "铑",
+    "GC": "COMEX黄金",
+    "SI_F": "COMEX白银",
+    "HG": "COMEX铜",
+    "NG": "天然气",
+    "S": "CBOT大豆",
+    "W": "CBOT小麦",
+    "CT": "ICE棉花",
+    "SB": "ICE白糖",
+    "CC": "ICE可可",
+    "LME_CU": "LME铜",
+    "LME_AL": "LME铝",
+    "LME_ZN": "LME锌",
+    "LME_NI": "LME镍",
 }
 
 

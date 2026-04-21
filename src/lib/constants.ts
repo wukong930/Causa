@@ -47,6 +47,7 @@ export const CATEGORY_LABEL: Record<AlertCategory, string> = {
   energy: "能化",
   agriculture: "农产品",
   overseas: "海外",
+  financial: "金融",
 };
 
 export const ALERT_STATUS_LABEL: Record<AlertStatus, string> = {
@@ -154,6 +155,14 @@ export const COMMODITY_NAME_MAP: Record<string, string> = {
   P: "棕榈油", Y: "豆油", M: "豆粕", OI: "菜油", RM: "菜粕", CF: "棉花", SR: "白糖", AP: "苹果", C: "玉米", CS: "淀粉", A: "豆一", B: "豆二", JD: "鸡蛋", LH: "生猪", SP: "纸浆", PK: "花生",
   // 外盘
   CL: "WTI原油", OIL: "布伦特原油", KC: "咖啡", RH: "铑",
+  GC: "COMEX黄金", SI_F: "COMEX白银", HG: "COMEX铜", NG: "天然气",
+  S: "CBOT大豆", W: "CBOT小麦", CT: "ICE棉花", SB: "ICE白糖", CC: "ICE可可",
+  LME_CU: "LME铜", LME_AL: "LME铝", LME_ZN: "LME锌", LME_NI: "LME镍",
+  // 金融期货
+  IF: "沪深300", IC: "中证500", IM: "中证1000", IH: "上证50",
+  TS: "2年国债", TF: "5年国债", T: "10年国债", TL: "30年国债",
+  // 广期所新品种
+  SI: "工业硅", LC: "碳酸锂",
 };
 
 /** Extract commodity prefix from contract symbol and return "中文名 CODE" */

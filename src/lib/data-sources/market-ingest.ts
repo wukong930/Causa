@@ -58,11 +58,36 @@ const SYMBOLS = [
   { symbol: 'AG', commodity: '白银', exchange: 'SHFE', market: 'SHFE' },
   { symbol: 'PT', commodity: '铂', exchange: 'GFEX', market: 'GFEX' },
   { symbol: 'PD', commodity: '钯', exchange: 'GFEX', market: 'GFEX' },
+  // 广期所新品种
+  { symbol: 'SI', commodity: '工业硅', exchange: 'GFEX', market: 'GFEX' },
+  { symbol: 'LC', commodity: '碳酸锂', exchange: 'GFEX', market: 'GFEX' },
+  // 金融期货
+  { symbol: 'IF', commodity: '沪深300', exchange: 'CFFEX', market: 'CFFEX' },
+  { symbol: 'IC', commodity: '中证500', exchange: 'CFFEX', market: 'CFFEX' },
+  { symbol: 'IM', commodity: '中证1000', exchange: 'CFFEX', market: 'CFFEX' },
+  { symbol: 'IH', commodity: '上证50', exchange: 'CFFEX', market: 'CFFEX' },
+  { symbol: 'TS', commodity: '2年国债', exchange: 'CFFEX', market: 'CFFEX' },
+  { symbol: 'TF', commodity: '5年国债', exchange: 'CFFEX', market: 'CFFEX' },
+  { symbol: 'T', commodity: '10年国债', exchange: 'CFFEX', market: 'CFFEX' },
+  { symbol: 'TL', commodity: '30年国债', exchange: 'CFFEX', market: 'CFFEX' },
   // 外盘
   { symbol: 'CL', commodity: 'WTI原油', exchange: 'OVERSEAS', market: 'NYMEX' },
   { symbol: 'OIL', commodity: '布伦特原油', exchange: 'OVERSEAS', market: 'ICE' },
   { symbol: 'KC', commodity: '咖啡', exchange: 'OVERSEAS', market: 'ICE' },
   { symbol: 'RH', commodity: '铑', exchange: 'OVERSEAS', market: 'OTC' },
+  { symbol: 'GC', commodity: 'COMEX黄金', exchange: 'OVERSEAS', market: 'COMEX' },
+  { symbol: 'SI_F', commodity: 'COMEX白银', exchange: 'OVERSEAS', market: 'COMEX' },
+  { symbol: 'HG', commodity: 'COMEX铜', exchange: 'OVERSEAS', market: 'COMEX' },
+  { symbol: 'NG', commodity: '天然气', exchange: 'OVERSEAS', market: 'NYMEX' },
+  { symbol: 'S', commodity: 'CBOT大豆', exchange: 'OVERSEAS', market: 'CBOT' },
+  { symbol: 'W', commodity: 'CBOT小麦', exchange: 'OVERSEAS', market: 'CBOT' },
+  { symbol: 'CT', commodity: 'ICE棉花', exchange: 'OVERSEAS', market: 'ICE' },
+  { symbol: 'SB', commodity: 'ICE白糖', exchange: 'OVERSEAS', market: 'ICE' },
+  { symbol: 'CC', commodity: 'ICE可可', exchange: 'OVERSEAS', market: 'ICE' },
+  { symbol: 'LME_CU', commodity: 'LME铜', exchange: 'OVERSEAS', market: 'LME' },
+  { symbol: 'LME_AL', commodity: 'LME铝', exchange: 'OVERSEAS', market: 'LME' },
+  { symbol: 'LME_ZN', commodity: 'LME锌', exchange: 'OVERSEAS', market: 'LME' },
+  { symbol: 'LME_NI', commodity: 'LME镍', exchange: 'OVERSEAS', market: 'LME' },
 ];
 
 // Fallback base prices when AkShare is unavailable
@@ -73,7 +98,11 @@ const BASE_PRICES: Record<string, number> = {
   P: 8200, Y: 7900, M: 3200, OI: 9500, RM: 2800, CF: 14500, SR: 6200, AP: 8500, C: 2600, CS: 3100, A: 4800, JD: 4200, LH: 15000, SP: 5800, PK: 9500,
   AU: 580, AG: 7200,
   PT: 528, PD: 384,
+  SI: 11500, LC: 78000,
+  IF: 3800, IC: 5500, IM: 5800, IH: 2700, TS: 101, TF: 103, T: 104, TL: 108,
   CL: 89, OIL: 95, KC: 284, RH: 0,
+  GC: 2350, SI_F: 28, HG: 4.2, NG: 2.8, S: 1200, W: 650, CT: 82, SB: 22, CC: 8500,
+  LME_CU: 9200, LME_AL: 2400, LME_ZN: 2700, LME_NI: 16000,
 };
 
 async function seedSymbolFallback(symbol: string, commodity: string, exchange: string, market: string): Promise<number> {

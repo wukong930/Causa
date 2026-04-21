@@ -18,7 +18,8 @@ export type AlertCategory =
   | "nonferrous"
   | "energy"
   | "agriculture"
-  | "overseas";
+  | "overseas"
+  | "financial";
 export type AlertStatus =
   | "active"
   | "expired"
@@ -344,7 +345,8 @@ export type CommodityCluster =
   | "nonferrous"
   | "energy"
   | "agriculture"
-  | "overseas";
+  | "overseas"
+  | "financial";
 export type NodeStatus = "normal" | "warning" | "alert" | "unknown";
 export type RelationshipType =
   | "upstream_downstream"
