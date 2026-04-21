@@ -248,7 +248,7 @@ export async function runOrchestration(
       if (btInfo) {
         const noTrades = btInfo.sampleSize === 0 || (btInfo.sharpe === 0 && btInfo.winRate === 0);
         const rejected = noTrades ||
-          btInfo.sharpe < 0.3 || btInfo.maxDD < -0.3 || btInfo.winRate < 0.3;
+          btInfo.sharpe < 0.2 || btInfo.maxDD < -0.5 || btInfo.winRate < 0.25;
         if (rejected) {
           console.log(
             `[orchestrator] Rejected ${hyp.id}: Sharpe ${btInfo.sharpe.toFixed(2)}, DD ${(btInfo.maxDD * 100).toFixed(1)}%, WR ${(btInfo.winRate * 100).toFixed(0)}%`
