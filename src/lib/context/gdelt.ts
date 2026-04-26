@@ -10,6 +10,12 @@ export interface GDELTEvent {
 
 const GDELT_API = "https://api.gdeltproject.org/api/v2/doc/doc";
 
+// Circuit breaker: disable GDELT for 1 hour after 3 consecutive failures
+let consecutiveFailures = 0;
+let disabledUntil = 0;
+const MAX_FAILURES = 3;
+const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
 const COMMODITY_KEYWORDS = [
   "iron ore", "steel", "copper", "aluminum", "crude oil", "natural gas",
   "coal", "nickel", "zinc", "gold", "silver", "soybean", "corn", "wheat",
@@ -26,6 +32,11 @@ export async function fetchGDELTEvents(
   query?: string,
   maxRecords: number = 20
 ): Promise<GDELTEvent[]> {
+  // Circuit breaker check
+  if (consecutiveFailures >= MAX_FAILURES && Date.now() < disabledUntil) {
+    return [];
+  }
+
   const searchQuery = query || COMMODITY_KEYWORDS.slice(0, 10).join(" OR ");
 
   const params = new URLSearchParams({
@@ -67,6 +78,9 @@ export async function fetchGDELTEvents(
 
       const articles = data.articles ?? [];
 
+      // Reset circuit breaker on success
+      consecutiveFailures = 0;
+
       return articles.map((a: Record<string, unknown>) => ({
         url: String(a.url ?? ""),
         title: String(a.title ?? ""),
@@ -77,7 +91,11 @@ export async function fetchGDELTEvents(
         locations: [],
       }));
     } catch (err) {
-      console.error("GDELT fetch failed:", err);
+      consecutiveFailures++;
+      if (consecutiveFailures >= MAX_FAILURES) {
+        disabledUntil = Date.now() + COOLDOWN_MS;
+        console.warn(`[GDELT] Circuit breaker open — disabled for 1 hour after ${consecutiveFailures} failures`);
+      }
       return [];
     }
   }

@@ -162,8 +162,9 @@ def fetch_volatility_index() -> list[IndustryDataPoint]:
         if df is None or df.empty:
             return []
         latest = df.iloc[-1]
-        date_val = str(latest.get("日期", latest.get("date", datetime.now().strftime("%Y-%m-%d"))))
-        value = float(latest.get("qvix", latest.get("收盘", 0)))
+        # AkShare returns English columns: date, open, high, low, close
+        date_val = str(latest.get("date", latest.get("日期", datetime.now().strftime("%Y-%m-%d"))))
+        value = float(latest.get("close", latest.get("qvix", latest.get("收盘", 0))))
         if value > 0:
             return [IndustryDataPoint(
                 symbol="IVX", data_type="volatility_index", value=value,
@@ -181,12 +182,21 @@ def fetch_fund_flow() -> list[IndustryDataPoint]:
         df = ak.stock_hsgt_fund_flow_summary_em()
         if df is None or df.empty:
             return []
-        latest = df.iloc[-1]
-        date_val = str(latest.get("日期", latest.get("date", datetime.now().strftime("%Y-%m-%d"))))
+
+        # AkShare returns multi-row data with columns:
+        # 交易日, 类型, 板块, 资金方向, 交易状态, 成交净买额, 资金净流入, ...
+        # Filter latest date, group by 资金方向 (北向/南向), sum 成交净买额
+        latest_date = df["交易日"].max()
+        today_df = df[df["交易日"] == latest_date]
+        date_val = str(latest_date)
         points: list[IndustryDataPoint] = []
 
-        north = float(latest.get("北向资金", latest.get("沪股通净流入", 0)))
-        south = float(latest.get("南向资金", latest.get("港股通净流入", 0)))
+        north_rows = today_df[today_df["资金方向"] == "北向"]
+        south_rows = today_df[today_df["资金方向"] == "南向"]
+
+        north = float(north_rows["成交净买额"].sum()) if not north_rows.empty else 0
+        south = float(south_rows["成交净买额"].sum()) if not south_rows.empty else 0
+
         if north != 0:
             points.append(IndustryDataPoint(
                 symbol="HSGT", data_type="fund_flow_north", value=north,

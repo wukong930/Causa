@@ -2,16 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/auth";
 import { db } from "@/db";
 import { alerts, recommendations, signalTrack } from "@/db/schema";
-import { and, lt, inArray, sql } from "drizzle-orm";
+import { and, lt, eq, inArray, sql, isNotNull } from "drizzle-orm";
 
 const RETENTION_DAYS = 90;
 
-// POST /api/cron/cleanup — delete historical data older than 90 days
+// POST /api/cron/cleanup — expire stale records + delete old historical data
 export async function POST(request: NextRequest) {
   const authError = verifyCronSecret(request);
   if (authError) return authError;
 
   try {
+    const now = new Date();
+
+    // Step 1: Mark expired alerts (expires_at < now AND still active)
+    const expiredAlerts = await db.update(alerts)
+      .set({ status: "expired", updatedAt: now })
+      .where(and(
+        eq(alerts.status, "active"),
+        isNotNull(alerts.expiresAt),
+        lt(alerts.expiresAt, now),
+      ))
+      .returning({ id: alerts.id });
+
+    // Step 2: Mark expired recommendations (expires_at < now AND still active)
+    const expiredRecs = await db.update(recommendations)
+      .set({ status: "expired", updatedAt: now })
+      .where(and(
+        eq(recommendations.status, "active"),
+        lt(recommendations.expiresAt, now),
+      ))
+      .returning({ id: recommendations.id });
+
+    // Step 3: Delete old historical data (90 days retention)
     const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
     const deletedAlerts = await db.delete(alerts)
@@ -30,19 +52,20 @@ export async function POST(request: NextRequest) {
 
     const deletedSignals = await db.delete(signalTrack)
       .where(and(
-        inArray(signalTrack.outcome, ["hit", "miss"]),
+        inArray(signalTrack.outcome, ["hit", "miss", "skipped"]),
         lt(signalTrack.createdAt, cutoff),
       ))
       .returning({ id: signalTrack.id });
 
     const result = {
-      alerts: deletedAlerts.length,
-      recommendations: deletedRecs.length,
-      signals: deletedSignals.length,
-      cutoffDate: cutoff.toISOString(),
+      expiredAlerts: expiredAlerts.length,
+      expiredRecs: expiredRecs.length,
+      deletedAlerts: deletedAlerts.length,
+      deletedRecs: deletedRecs.length,
+      deletedSignals: deletedSignals.length,
     };
 
-    console.log(`[cleanup] Deleted: ${result.alerts} alerts, ${result.recommendations} recs, ${result.signals} signals (before ${cutoff.toISOString().slice(0, 10)})`);
+    console.log(`[cleanup] Expired: ${result.expiredAlerts} alerts, ${result.expiredRecs} recs. Deleted: ${result.deletedAlerts} alerts, ${result.deletedRecs} recs, ${result.deletedSignals} signals`);
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {

@@ -30,7 +30,7 @@ const DEFAULT_JOBS: Omit<ScheduledJob, 'running' | 'consecutiveFailures'>[] = [
   { id: 'risk', name: '风险计算', cron: '30 8 * * *', endpoint: '/api/cron/risk', enabled: true },
   { id: 'auto-eval', name: '信号评判', cron: '0 9 * * *', endpoint: '/api/cron/auto-eval', enabled: true },
   { id: 'track-outcomes', name: '绩效追踪', cron: '30 16 * * 1-5', endpoint: '/api/cron/track-outcomes', enabled: true },
-  { id: 'cleanup', name: '数据清理', cron: '0 3 * * 0', endpoint: '/api/cron/cleanup', enabled: true },
+  { id: 'cleanup', name: '数据清理', cron: '0 3 * * *', endpoint: '/api/cron/cleanup', enabled: true },
 ];
 
 class SchedulerManager {
