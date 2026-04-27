@@ -72,13 +72,13 @@ export class EventDrivenDetector implements TriggerEvaluator {
         3,
         "事件信号评估",
         `${gapTriggered ? "价格跳空" : ""}${gapTriggered && volumeTriggered ? " + " : ""}${volumeTriggered ? "成交量放大" : ""}，疑似外部事件驱动`,
-        combinedTriggered ? 0.9 : gapTriggered ? 0.7 : 0.5
+        combinedTriggered ? 0.9 : gapTriggered ? 0.8 : 0.6
       ),
       buildTriggerStep(
         4,
         "预警生成",
         `${combinedTriggered ? "双重信号确认" : gapTriggered ? "价格跳空触发" : "成交量放大触发"}，建议人工确认事件原因`,
-        combinedTriggered ? 0.85 : 0.65
+        combinedTriggered ? 0.85 : 0.75
       ),
     ];
 

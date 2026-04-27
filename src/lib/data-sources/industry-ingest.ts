@@ -86,10 +86,10 @@ export async function ingestIndustryData(): Promise<number> {
       }
     } catch { /* graceful degradation */ }
 
-    // Position rank (龙虎榜)
+    // Position rank v2 (multi-exchange: SHFE/CZCE/GFEX/DCE)
     try {
-      const res = await fetch(`${BACKTEST_URL}/industry/position-rank/${symbol}`, {
-        signal: AbortSignal.timeout(10000),
+      const res = await fetch(`${BACKTEST_URL}/industry/position-rank-v2/${symbol}`, {
+        signal: AbortSignal.timeout(15000),
       });
       if (res.ok) {
         const points: IndustryPoint[] = await res.json();
@@ -171,6 +171,80 @@ export async function ingestIndustryData(): Promise<number> {
       }
     } catch { /* graceful degradation */ }
   }
+
+  // ── Phase 2 global data sources ──
+
+  // FX rate (USD/CNY)
+  try {
+    const res = await fetch(`${BACKTEST_URL}/industry/fx-rate`, { signal: AbortSignal.timeout(10000) });
+    if (res.ok) {
+      const points: IndustryPoint[] = await res.json();
+      for (const p of points) {
+        try {
+          await db.insert(industryData).values({
+            id: industryId(p), symbol: p.symbol, dataType: p.data_type,
+            value: p.value, unit: p.unit, source: p.source,
+            timestamp: new Date(p.date),
+          } as any);
+          inserted++;
+        } catch { /* duplicate */ }
+      }
+    }
+  } catch { /* graceful degradation */ }
+
+  // BDI (Baltic Dry Index)
+  try {
+    const res = await fetch(`${BACKTEST_URL}/industry/shipping-bdi`, { signal: AbortSignal.timeout(10000) });
+    if (res.ok) {
+      const points: IndustryPoint[] = await res.json();
+      for (const p of points) {
+        try {
+          await db.insert(industryData).values({
+            id: industryId(p), symbol: p.symbol, dataType: p.data_type,
+            value: p.value, unit: p.unit, source: p.source,
+            timestamp: new Date(p.date),
+          } as any);
+          inserted++;
+        } catch { /* duplicate */ }
+      }
+    }
+  } catch { /* graceful degradation */ }
+
+  // China manufacturing PMI
+  try {
+    const res = await fetch(`${BACKTEST_URL}/industry/macro-pmi`, { signal: AbortSignal.timeout(10000) });
+    if (res.ok) {
+      const points: IndustryPoint[] = await res.json();
+      for (const p of points) {
+        try {
+          await db.insert(industryData).values({
+            id: industryId(p), symbol: p.symbol, dataType: p.data_type,
+            value: p.value, unit: p.unit, source: p.source,
+            timestamp: new Date(p.date),
+          } as any);
+          inserted++;
+        } catch { /* duplicate */ }
+      }
+    }
+  } catch { /* graceful degradation */ }
+
+  // CFTC Commitments of Traders
+  try {
+    const res = await fetch(`${BACKTEST_URL}/industry/cftc`, { signal: AbortSignal.timeout(15000) });
+    if (res.ok) {
+      const points: IndustryPoint[] = await res.json();
+      for (const p of points) {
+        try {
+          await db.insert(industryData).values({
+            id: industryId(p), symbol: p.symbol, dataType: p.data_type,
+            value: p.value, unit: p.unit, source: p.source,
+            timestamp: new Date(p.date),
+          } as any);
+          inserted++;
+        } catch { /* duplicate */ }
+      }
+    }
+  } catch { /* graceful degradation */ }
 
   console.log(`[industry-ingest] Ingested ${inserted} industry data points`);
   return inserted;

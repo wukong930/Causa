@@ -33,8 +33,12 @@ export async function fetchGDELTEvents(
   maxRecords: number = 20
 ): Promise<GDELTEvent[]> {
   // Circuit breaker check
-  if (consecutiveFailures >= MAX_FAILURES && Date.now() < disabledUntil) {
-    return [];
+  if (consecutiveFailures >= MAX_FAILURES) {
+    if (Date.now() < disabledUntil) {
+      return [];
+    }
+    // Cooldown expired — reset counter before retrying
+    consecutiveFailures = 0;
   }
 
   const searchQuery = query || COMMODITY_KEYWORDS.slice(0, 10).join(" OR ");

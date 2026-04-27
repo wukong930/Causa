@@ -257,3 +257,151 @@ def fetch_weather(symbol: str, api_key: str = "") -> list[IndustryDataPoint]:
     except Exception as e:
         print(f"[industry] Weather fetch failed for {symbol} ({name}): {e}")
         return []
+
+
+# ─── Phase 2 data sources ───────────────────────────────────────────────────
+
+
+def fetch_fx_rate() -> list[IndustryDataPoint]:
+    """Fetch USD/CNY spot exchange rate."""
+    try:
+        df = ak.fx_spot_quote()
+        if df is None or df.empty:
+            return []
+        row = df[df["货币对"] == "USD/CNY"]
+        if row.empty:
+            return []
+        mid = (float(row.iloc[0]["买报价"]) + float(row.iloc[0]["卖报价"])) / 2
+        return [IndustryDataPoint(
+            symbol="USDCNY", data_type="fx_usdcny", value=mid,
+            unit="CNY", date=datetime.now().strftime("%Y-%m-%d"), source="fx_spot",
+        )]
+    except Exception as e:
+        print(f"[industry] FX rate fetch failed: {e}")
+        return []
+
+
+def fetch_shipping_bdi() -> list[IndustryDataPoint]:
+    """Fetch Baltic Dry Index (BDI)."""
+    try:
+        df = ak.macro_shipping_bdi()
+        if df is None or df.empty:
+            return []
+        latest = df.iloc[-1]
+        return [IndustryDataPoint(
+            symbol="BDI", data_type="shipping_bdi", value=float(latest["最新值"]),
+            unit="点", date=str(latest["日期"]), source="baltic_exchange",
+        )]
+    except Exception as e:
+        print(f"[industry] BDI fetch failed: {e}")
+        return []
+
+
+def fetch_macro_pmi() -> list[IndustryDataPoint]:
+    """Fetch China manufacturing PMI."""
+    try:
+        df = ak.macro_china_pmi_yearly()
+        if df is None or df.empty:
+            return []
+        # Filter for manufacturing PMI only
+        pmi = df[df["商品"] == "中国官方制造业PMI"]
+        if pmi.empty:
+            return []
+        latest = pmi.iloc[-1]
+        return [IndustryDataPoint(
+            symbol="PMI", data_type="macro_pmi", value=float(latest["今值"]),
+            unit="点", date=str(latest["日期"]), source="stats_gov",
+        )]
+    except Exception as e:
+        print(f"[industry] PMI fetch failed: {e}")
+        return []
+
+
+# CFTC commodity → our symbol mapping
+_CFTC_MAP = {
+    "纽约原油": "CL", "原糖": "SB", "大豆": "S", "豆油": "Y",
+    "豆粕": "M", "白银": "AG", "铂金": "PT", "钯金": "PD",
+    "纽约天然气": "NG", "黄金": "AU", "棉花": "CF", "玉米": "C",
+}
+
+
+def fetch_cftc_holding() -> list[IndustryDataPoint]:
+    """Fetch CFTC Commitments of Traders — net positions for key commodities."""
+    try:
+        df = ak.macro_usa_cftc_c_holding()
+        if df is None or df.empty:
+            return []
+        latest = df.iloc[-1]
+        date_val = str(latest["日期"])
+        points: list[IndustryDataPoint] = []
+        for cn_name, sym in _CFTC_MAP.items():
+            net_col = f"{cn_name}-净仓位"
+            if net_col in latest.index:
+                val = float(latest[net_col])
+                points.append(IndustryDataPoint(
+                    symbol=sym, data_type="cftc_net", value=val,
+                    unit="手", date=date_val, source="cftc",
+                ))
+        return points
+    except Exception as e:
+        print(f"[industry] CFTC fetch failed: {e}")
+        return []
+
+
+# Exchange → rank function mapping
+_EXCHANGE_SYMBOLS = {
+    "SHFE": ["CU", "AL", "ZN", "NI", "SN", "PB", "AU", "AG", "RB", "HC", "SS", "BU", "FU", "SP", "SC", "BC", "LU"],
+    "CZCE": ["TA", "MA", "CF", "SR", "OI", "RM", "SA", "UR", "AP", "PK", "SF", "SM"],
+    "GFEX": ["SI", "LC"],
+}
+
+
+def fetch_position_rank_multi(symbol: str, limit: int = 1) -> list[IndustryDataPoint]:
+    """Fetch position rank from the correct exchange (SHFE/CZCE/GFEX), falling back to DCE."""
+    sym = symbol.upper()
+    today = datetime.now().strftime("%Y%m%d")
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    try:
+        df_dict = None
+        # Determine exchange
+        if sym in _EXCHANGE_SYMBOLS.get("SHFE", []):
+            df_dict = ak.get_shfe_rank_table(date=today)
+        elif sym in _EXCHANGE_SYMBOLS.get("CZCE", []):
+            df_dict = ak.get_rank_table_czce(date=today)
+        elif sym in _EXCHANGE_SYMBOLS.get("GFEX", []):
+            df_dict = ak.futures_gfex_position_rank(date=today)
+        else:
+            # DCE fallback
+            result = ak.futures_dce_position_rank(date=today, vars_list=[sym])
+            if result and sym in result:
+                df_dict = {sym: result[sym]}
+
+        if not df_dict:
+            return []
+
+        # Find the main contract for this symbol (highest volume)
+        target_keys = [k for k in df_dict.keys() if k.upper().startswith(sym.lower()) or k.upper().startswith(sym)]
+        if not target_keys:
+            return []
+
+        # Merge all contracts for this symbol
+        frames = [df_dict[k] for k in target_keys if df_dict[k] is not None and not df_dict[k].empty]
+        if not frames:
+            return []
+
+        import pandas as pd
+        merged = pd.concat(frames, ignore_index=True)
+
+        long_total = float(merged["long_open_interest"].sum()) if "long_open_interest" in merged.columns else 0
+        short_total = float(merged["short_open_interest"].sum()) if "short_open_interest" in merged.columns else 0
+        net = long_total - short_total
+
+        return [
+            IndustryDataPoint(symbol=sym, data_type="position_rank_long", value=long_total, unit="手", date=today_str, source="exchange_rank"),
+            IndustryDataPoint(symbol=sym, data_type="position_rank_short", value=short_total, unit="手", date=today_str, source="exchange_rank"),
+            IndustryDataPoint(symbol=sym, data_type="position_rank_net", value=net, unit="手", date=today_str, source="exchange_rank"),
+        ]
+    except Exception as e:
+        print(f"[industry] Position rank (multi) fetch failed for {symbol}: {e}")
+        return []

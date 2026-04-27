@@ -12,7 +12,9 @@ from akshare_ingest import fetch_realtime_quotes
 from akshare_ingest import fetch_futures_daily, fetch_all_symbols, fetch_spread_data, fetch_term_structure
 from industry_data import (
     fetch_inventory, fetch_spot_price, fetch_basis,
-    fetch_position_rank, fetch_volatility_index, fetch_fund_flow, fetch_weather,
+    fetch_position_rank, fetch_position_rank_multi,
+    fetch_volatility_index, fetch_fund_flow, fetch_weather,
+    fetch_fx_rate, fetch_shipping_bdi, fetch_macro_pmi, fetch_cftc_holding,
 )
 import os
 
@@ -177,4 +179,49 @@ def weather(symbol: str):
     data = fetch_weather(symbol, api_key)
     if not data:
         raise HTTPException(status_code=404, detail=f"No weather data for {symbol}")
+    return data
+
+
+@app.get("/industry/fx-rate")
+def fx_rate():
+    """Get USD/CNY spot exchange rate."""
+    data = fetch_fx_rate()
+    if not data:
+        raise HTTPException(status_code=404, detail="No FX rate data")
+    return data
+
+
+@app.get("/industry/shipping-bdi")
+def shipping_bdi():
+    """Get Baltic Dry Index."""
+    data = fetch_shipping_bdi()
+    if not data:
+        raise HTTPException(status_code=404, detail="No BDI data")
+    return data
+
+
+@app.get("/industry/macro-pmi")
+def macro_pmi():
+    """Get China manufacturing PMI."""
+    data = fetch_macro_pmi()
+    if not data:
+        raise HTTPException(status_code=404, detail="No PMI data")
+    return data
+
+
+@app.get("/industry/cftc")
+def cftc():
+    """Get CFTC Commitments of Traders net positions."""
+    data = fetch_cftc_holding()
+    if not data:
+        raise HTTPException(status_code=404, detail="No CFTC data")
+    return data
+
+
+@app.get("/industry/position-rank-v2/{symbol}")
+def position_rank_v2(symbol: str):
+    """Get position rank from correct exchange (SHFE/CZCE/GFEX/DCE)."""
+    data = fetch_position_rank_multi(symbol)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"No position rank for {symbol}")
     return data

@@ -437,7 +437,9 @@ const BACKTEST_URL = process.env.BACKTEST_SERVICE_URL || 'http://localhost:8100'
     try {
       const now = new Date();
       const dedupWindow = new Date(now.getTime() - 8 * 60 * 60 * 1000);
-      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      // Expiry by severity: high=72h, medium=48h, low=24h
+      const expiryHours = alert.result.severity === 'high' ? 72 : alert.result.severity === 'medium' ? 48 : 24;
+      const expiresAt = new Date(now.getTime() + expiryHours * 60 * 60 * 1000);
 
       // Dedup: skip if same type + same assets already active within 8h
       // Exception: allow if new z-score is significantly stronger (upgrade)

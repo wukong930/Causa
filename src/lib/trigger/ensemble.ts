@@ -100,11 +100,11 @@ export function ensembleSignals(
         type: alert.type,
         reason: `置信度 ${(alert.result.confidence * 100).toFixed(0)}% 远低于最强信号 ${(maxConfidence * 100).toFixed(0)}%`,
       });
-    // Single-signal minimum confidence: 0.65
-    } else if (finalAlerts.length === 1 && alert.result.confidence < 0.65) {
+    // Single-signal minimum confidence: 0.65 (0.55 for event_driven)
+    } else if (finalAlerts.length === 1 && alert.result.confidence < (alert.type === "event_driven" ? 0.55 : 0.65)) {
       suppressed.push({
         type: alert.type,
-        reason: `单信号置信度 ${(alert.result.confidence * 100).toFixed(0)}% 低于阈值 65%`,
+        reason: `单信号置信度 ${(alert.result.confidence * 100).toFixed(0)}% 低于阈值 ${alert.type === "event_driven" ? 55 : 65}%`,
       });
     // regime_shift cannot trigger alone — must resonate with other signal types
     } else if (alert.type === "regime_shift" && types.size === 1) {
