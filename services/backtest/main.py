@@ -16,6 +16,7 @@ from industry_data import (
     fetch_volatility_index, fetch_fund_flow, fetch_weather,
     fetch_fx_rate, fetch_shipping_bdi, fetch_macro_pmi, fetch_cftc_holding,
 )
+from tushare_ingest import fetch_daily_tushare, fetch_daily_as_market_bar
 import os
 
 app = FastAPI(title="Causa Backtest Service", version="1.0.0")
@@ -71,6 +72,15 @@ def causal(req: CausalRequest):
 def symbols():
     """List all supported futures symbols."""
     return fetch_all_symbols()
+
+
+@app.get("/market-data/tushare/{symbol}")
+def market_data_tushare(symbol: str, days: int = Query(default=5, le=30)):
+    """Get daily OHLCV + OI/settle from Tushare (richer than AkShare)."""
+    bars = fetch_daily_tushare(symbol, days)
+    if not bars:
+        raise HTTPException(status_code=404, detail=f"No Tushare data for {symbol}")
+    return bars
 
 
 @app.get("/market-data/{symbol}")

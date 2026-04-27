@@ -254,16 +254,45 @@ export async function ingestDailyData(): Promise<number> {
     }
   }
 
+interface TushareBar {
+  date: string; open: number; high: number; low: number;
+  close: number; volume: number; open_interest: number; symbol: string;
+  settle: number; oi_chg: number; amount: number;
+}
+
   // Fallback: daily bar endpoint (after hours or realtime failed)
+  // For domestic symbols, try Tushare first (richer data: settle, oi_chg, amount)
   let inserted = 0;
   for (const { symbol, commodity, exchange, market } of SYMBOLS) {
     try {
-      const res = await fetch(`${BACKTEST_URL}/market-data/${symbol}?days=5`, { signal: AbortSignal.timeout(10000) });
-      if (!res.ok) continue;
-      const bars: AkShareBar[] = await res.json();
-      if (!bars.length) continue;
+      const isDomestic = exchange !== 'OVERSEAS';
+      let latest: AkShareBar | TushareBar | null = null;
+      let settle = 0;
 
-      const latest = bars[bars.length - 1];
+      // Try Tushare first for domestic symbols
+      if (isDomestic) {
+        try {
+          const tsRes = await fetch(`${BACKTEST_URL}/market-data/tushare/${symbol}?days=5`, { signal: AbortSignal.timeout(15000) });
+          if (tsRes.ok) {
+            const tsBars: TushareBar[] = await tsRes.json();
+            if (tsBars.length > 0) {
+              latest = tsBars[tsBars.length - 1];
+              settle = (latest as TushareBar).settle || latest.close;
+            }
+          }
+        } catch { /* Tushare failed, will fallback to AkShare */ }
+      }
+
+      // Fallback to AkShare
+      if (!latest) {
+        const res = await fetch(`${BACKTEST_URL}/market-data/${symbol}?days=5`, { signal: AbortSignal.timeout(10000) });
+        if (!res.ok) continue;
+        const bars: AkShareBar[] = await res.json();
+        if (!bars.length) continue;
+        latest = bars[bars.length - 1];
+        settle = latest.close;
+      }
+
       const ts = new Date(latest.date);
       ts.setHours(0, 0, 0, 0);
       const id = `${symbol}_${latest.date}`;
@@ -273,7 +302,7 @@ export async function ingestDailyData(): Promise<number> {
         contractMonth: 'main',
         timestamp: ts,
         open: latest.open, high: latest.high, low: latest.low,
-        close: latest.close, settle: latest.close,
+        close: latest.close, settle,
         volume: latest.volume, openInterest: latest.open_interest,
         currency: exchange === 'OVERSEAS' ? 'USD' : 'CNY',
         timezone: exchange === 'OVERSEAS' ? 'America/New_York' : 'Asia/Shanghai',
@@ -283,7 +312,7 @@ export async function ingestDailyData(): Promise<number> {
           high: latest.high,
           low: latest.low,
           close: latest.close,
-          settle: latest.close,
+          settle,
           volume: latest.volume,
           openInterest: latest.open_interest,
         },

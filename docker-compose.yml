@@ -43,6 +43,8 @@ services:
     restart: unless-stopped
     ports:
       - "8100:8100"
+    environment:
+      TUSHARE_TOKEN: ${TUSHARE_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
