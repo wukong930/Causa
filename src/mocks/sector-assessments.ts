@@ -93,6 +93,49 @@ export const mockSectorAssessments: SectorAssessment[] = [
     },
     computedAt: new Date().toISOString(),
   },
+  {
+    sectorId: "energy", symbol: "RU",
+    conviction: {
+      overallDirection: 1, score: 0.55,
+      supportingFactors: [
+        f("seasonal", 1, 0.6, 1, "monthly", "RU: 停割季供应偏紧 — 轮胎旺季备货9-11月"),
+        f("cost", 1, 0.5, 0.8, "daily", "天然橡胶进口成本: 盘面接近成本线 (成本14200, 盘面14500, 2.1%)"),
+      ],
+      opposingFactors: [
+        f("inventory", -1, 0.3, 0.6, "weekly", "RU库存: 偏高 (季节性偏差+8.5%, 累库)"),
+      ],
+      dataGaps: [],
+    },
+    costFloor: 14200, inventoryDeviation: 0.085, seasonalFactor: 0.6,
+    computedAt: new Date().toISOString(),
+  },
+  {
+    sectorId: "energy", symbol: "NR",
+    conviction: {
+      overallDirection: 1, score: 0.48,
+      supportingFactors: [
+        f("seasonal", 1, 0.6, 1, "monthly", "NR: 东南亚停割季供应收缩"),
+      ],
+      opposingFactors: [],
+      dataGaps: ["NR库存: 无库存数据"],
+    },
+    seasonalFactor: 0.6,
+    computedAt: new Date().toISOString(),
+  },
+  {
+    sectorId: "energy", symbol: "BR",
+    conviction: {
+      overallDirection: -1, score: 0.42,
+      supportingFactors: [
+        f("cost", -1, 0.4, 0.8, "daily", "合成橡胶成本: 盘面高于成本线12.5%"),
+        f("substitute", -1, 0.3, 1, "daily", "天然↔合成橡胶: 价差2800 (阈值2000, 140%) 替代压力"),
+      ],
+      opposingFactors: [],
+      dataGaps: ["BR库存: 无库存数据"],
+    },
+    costFloor: 11800,
+    computedAt: new Date().toISOString(),
+  },
   // ── Agriculture ──
   {
     sectorId: "agriculture", symbol: "P",

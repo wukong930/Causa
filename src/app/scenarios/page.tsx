@@ -7,7 +7,7 @@ import { COMMODITY_NAME_MAP } from "@/lib/constants";
 import type { ScenarioResult, SymbolImpact, ScenarioAssumption } from "@/lib/sector/scenario";
 import type { PropagationAlert } from "@/lib/sector/propagation";
 
-const POPULAR_SYMBOLS = ["I", "RB", "SC", "TA", "PP", "P", "M", "CF", "J", "HC", "CU", "AL"];
+const POPULAR_SYMBOLS = ["I", "RB", "SC", "TA", "PP", "RU", "NR", "BR", "P", "M", "CF", "J", "HC", "CU", "AL"];
 
 function DirectionLabel({ direction, label }: { direction: number; label: string }) {
   const color = direction === 1 ? "var(--positive)" : direction === -1 ? "var(--alert-high)" : "var(--foreground-muted)";

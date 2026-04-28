@@ -16,6 +16,9 @@ export const mockNodes: CommodityNode[] = [
   { id: "PP", name: "聚丙烯", symbol: "PP", cluster: "energy", exchange: "DCE", status: "warning", activeAlertCount: 1, regime: "中性", priceChange24h: -1.2 },
   { id: "TA", name: "PTA", symbol: "TA", cluster: "energy", exchange: "ZCE", status: "warning", activeAlertCount: 1, regime: "中性", priceChange24h: -1.8 },
   { id: "MEG", name: "乙二醇", symbol: "MEG", cluster: "energy", exchange: "DCE", status: "normal", activeAlertCount: 0, regime: "中性", priceChange24h: -0.9 },
+  { id: "RU", name: "天然橡胶", symbol: "RU", cluster: "energy", exchange: "SHFE", status: "warning", activeAlertCount: 1, regime: "震荡", priceChange24h: -1.5 },
+  { id: "NR", name: "20号胶", symbol: "NR", cluster: "energy", exchange: "INE", status: "normal", activeAlertCount: 0, regime: "震荡", priceChange24h: -1.3 },
+  { id: "BR", name: "合成橡胶", symbol: "BR", cluster: "energy", exchange: "SHFE", status: "normal", activeAlertCount: 0, regime: "中性", priceChange24h: -0.8 },
   // Agriculture
   { id: "P", name: "棕榈油", symbol: "P", cluster: "agriculture", exchange: "DCE", status: "warning", activeAlertCount: 1, regime: "上涨", priceChange24h: 1.8 },
   { id: "Y", name: "豆油", symbol: "Y", cluster: "agriculture", exchange: "DCE", status: "normal", activeAlertCount: 0, regime: "中性", priceChange24h: 0.4 },
@@ -42,4 +45,8 @@ export const mockEdges: RelationshipEdge[] = [
   { id: "e-M-RM", source: "M", target: "M", type: "substitute", strength: 0.75, label: "豆粕↔菜粕替代", activeAlertCount: 0, influenceWeight: 0.6, lagDays: 1, propagationDirection: 1 },
   // ── Cross-sector ──
   { id: "e-CU-AL", source: "CU", target: "AL", type: "domestic_overseas", strength: 0.6, label: "有色联动", activeAlertCount: 0, influenceWeight: 0.3, lagDays: 1, propagationDirection: 1 },
+  // ── Rubber chain ──
+  { id: "e-NR-RU", source: "NR", target: "RU", type: "upstream_downstream", strength: 0.92, label: "20号胶→天然橡胶", activeAlertCount: 0, influenceWeight: 0.8, lagDays: 1, propagationDirection: 1 },
+  { id: "e-RU-BR", source: "RU", target: "BR", type: "substitute", strength: 0.75, label: "天然↔合成橡胶替代", activeAlertCount: 0, influenceWeight: 0.5, lagDays: 2, propagationDirection: 1 },
+  { id: "e-SC-BR", source: "SC", target: "BR", type: "cost_driven", strength: 0.65, label: "原油→合成橡胶成本", activeAlertCount: 0, influenceWeight: 0.4, lagDays: 3, propagationDirection: 1 },
 ];
