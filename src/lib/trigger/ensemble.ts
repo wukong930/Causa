@@ -8,7 +8,7 @@
  *   (regime change may invalidate mean-reversion assumption)
  * - Weighted aggregation: spread_anomaly has highest weight
  */
-import type { AlertType, AlertCategory } from "@/types/domain";
+import type { AlertType, AlertCategory, ConvictionScore } from "@/types/domain";
 import type { TriggerResult } from "./base";
 import { getSignalHitRates, type SignalHitRate } from "./signal-quality";
 
@@ -43,7 +43,8 @@ const SIGNAL_WEIGHTS: Record<string, number> = {
  */
 export function ensembleSignals(
   results: EvaluatorResult[],
-  hitRates?: SignalHitRate[]
+  hitRates?: SignalHitRate[],
+  sectorConviction?: ConvictionScore,
 ): EnsembleOutput {
   const triggered = results.filter((r) => r.result.triggered);
   const suppressed: EnsembleOutput["suppressed"] = [];
@@ -85,6 +86,29 @@ export function ensembleSignals(
       confidence: Math.min(0.95, r.result.confidence * resonanceBoost),
     },
   }));
+
+  // ── Sector conviction modulation ──
+  // When sector intelligence has a strong view, boost aligned signals and dampen opposing ones
+  if (sectorConviction && sectorConviction.score > 0.3) {
+    for (const alert of finalAlerts) {
+      // Infer signal direction from z-score or default to bullish
+      const signalDirection = alert.result.spreadInfo?.zScore
+        ? (alert.result.spreadInfo.zScore > 0 ? -1 : 1)
+        : 1;
+
+      const aligned = signalDirection === sectorConviction.overallDirection;
+      const factor = aligned ? 1.15 : 0.7;
+      alert.result.confidence = Math.min(0.95, alert.result.confidence * factor);
+
+      if (!aligned) {
+        alert.result.riskItems.push(
+          `板块模型(确信度${(sectorConviction.score * 100).toFixed(0)}%)与信号方向矛盾: ${
+            sectorConviction.opposingFactors.map((f) => f.description).join("; ")
+          }`
+        );
+      }
+    }
+  }
 
   // ── Suppress low-confidence signals when stronger ones exist ──
   const output: EvaluatorResult[] = [];

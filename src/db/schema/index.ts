@@ -14,3 +14,4 @@ export * from './llm-config';
 export * from './context';
 export * from './signal-track';
 export * from './industry-data';
+export * from './sector-assessments';

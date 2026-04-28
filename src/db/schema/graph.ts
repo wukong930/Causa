@@ -24,6 +24,12 @@ export const relationshipEdges = pgTable('relationship_edges', {
   strength: real('strength').notNull(),
   label: text('label'),
   activeAlertCount: integer('active_alert_count').notNull().default(0),
+  /** How much of source signal passes through to target (0-1) */
+  influenceWeight: real('influence_weight'),
+  /** Expected propagation lag in days */
+  lagDays: integer('lag_days'),
+  /** +1 = same direction, -1 = inverse (e.g. substitute pressure) */
+  propagationDirection: integer('propagation_direction'),
 }, (table) => ({
   sourceIdx: index('relationship_edges_source_idx').on(table.source),
   targetIdx: index('relationship_edges_target_idx').on(table.target),

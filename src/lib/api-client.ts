@@ -607,3 +607,31 @@ export async function getMacroIndicators(): Promise<MacroSnapshot | null> {
   if (!result.success) return null;
   return (result as { data: MacroSnapshot; success: true }).data;
 }
+
+// ─── Sector Intelligence ────────────────────────────────────────────────────
+
+import type { MarketOverview, SectorDetail } from "@/lib/sector/hierarchy";
+
+export async function getSectorOverview(): Promise<MarketOverview | null> {
+  const result = await fetchApi<MarketOverview>("/api/sectors/overview");
+  if (!result.success) return null;
+  return (result as { data: MarketOverview; success: true }).data;
+}
+
+export async function getSectorAssessment(sectorId: string): Promise<SectorDetail | null> {
+  const result = await fetchApi<SectorDetail>(`/api/sectors/${sectorId}/assessment`);
+  if (!result.success) return null;
+  return (result as { data: SectorDetail; success: true }).data;
+}
+
+import type { ScenarioAssumption, ScenarioResult } from "@/lib/sector/scenario";
+
+export async function runScenarioAnalysis(assumptions: ScenarioAssumption[]): Promise<ScenarioResult | null> {
+  const result = await fetchApi<ScenarioResult>("/api/sectors/scenario", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ assumptions }),
+  });
+  if (!result.success) return null;
+  return (result as { data: ScenarioResult; success: true }).data;
+}

@@ -7,10 +7,12 @@ import { EventDrivenDetector } from "./event-driven";
 import { InventoryShockDetector } from "./inventory-shock";
 import { RegimeShiftDetector } from "./regime-shift";
 
+type TriggerAlertType = Exclude<AlertType, "propagation">;
+
 /**
  * Registry of all trigger evaluators
  */
-export const TRIGGER_EVALUATORS: Record<AlertType, TriggerEvaluator> = {
+export const TRIGGER_EVALUATORS: Record<TriggerAlertType, TriggerEvaluator> = {
   spread_anomaly: new SpreadAnomalyDetector(),
   basis_shift: new BasisShiftDetector(),
   momentum: new MomentumDetector(),
@@ -20,10 +22,10 @@ export const TRIGGER_EVALUATORS: Record<AlertType, TriggerEvaluator> = {
 };
 
 /**
- * Get evaluator by alert type
+ * Get evaluator by alert type (returns undefined for propagation)
  */
-export function getEvaluator(type: AlertType): TriggerEvaluator {
-  return TRIGGER_EVALUATORS[type];
+export function getEvaluator(type: AlertType): TriggerEvaluator | undefined {
+  return (TRIGGER_EVALUATORS as Partial<Record<AlertType, TriggerEvaluator>>)[type];
 }
 
 /**
@@ -37,5 +39,7 @@ export function getAllEvaluators(): TriggerEvaluator[] {
  * Get evaluators for specific types
  */
 export function getEvaluators(types: AlertType[]): TriggerEvaluator[] {
-  return types.map((type) => TRIGGER_EVALUATORS[type]);
+  return types
+    .map((type) => (TRIGGER_EVALUATORS as Partial<Record<AlertType, TriggerEvaluator>>)[type])
+    .filter((e): e is TriggerEvaluator => e != null);
 }

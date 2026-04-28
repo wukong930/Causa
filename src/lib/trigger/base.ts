@@ -8,6 +8,7 @@ import type {
   TriggerStep,
   PositionGroup,
   AccountSnapshot,
+  SectorAssessment,
 } from "@/types/domain";
 
 export type { SpreadStatistics } from "@/types/domain";
@@ -41,6 +42,8 @@ export interface TriggerContext {
     inventory?: Array<{ value: number; date: string }>;
     spotPrice?: number;
   };
+  /** Sector intelligence assessment for conviction modulation */
+  sectorContext?: SectorAssessment;
   timestamp: string;
 }
 

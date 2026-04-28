@@ -63,6 +63,7 @@ export const ALERT_TYPE_LABEL: Record<AlertType, string> = {
   event_driven: "事件驱动",
   inventory_shock: "库存冲击",
   regime_shift: "结构转变",
+  propagation: "传导信号",
 };
 
 // ─── Strategy Pool labels / colors ───────────────────────────────────────────
@@ -179,8 +180,10 @@ export function getCommodityName(symbol: string): string {
 export const NAV_ITEMS = [
   { id: "dashboard",       label: "总览",     href: "/dashboard",       icon: "grid" },
   { id: "alerts",          label: "市场预警", href: "/alerts",          icon: "bell" },
+  { id: "sectors",         label: "板块",     href: "/sectors",         icon: "layers" },
+  { id: "scenarios",       label: "推演",     href: "/scenarios",       icon: "git-branch" },
   { id: "recommendations", label: "交易建议", href: "/recommendations", icon: "check-square" },
-  { id: "strategies",      label: "监控策略", href: "/strategies",      icon: "layers" },
+  { id: "strategies",      label: "监控策略", href: "/strategies",      icon: "target" },
   { id: "positions",       label: "持仓跟踪", href: "/positions",       icon: "briefcase" },
   { id: "research",        label: "研究",     href: "/research",        icon: "file-text" },
   { id: "analytics",       label: "分析",     href: "/analytics",       icon: "bar-chart" },

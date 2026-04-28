@@ -30,7 +30,8 @@ export type AlertType =
   | "momentum"
   | "event_driven"
   | "inventory_shock"
-  | "regime_shift";
+  | "regime_shift"
+  | "propagation";
 
 export interface SpreadInfo {
   leg1: string;
@@ -375,6 +376,12 @@ export interface RelationshipEdge {
   strength: number; // 0–1
   label?: string;
   activeAlertCount: number;
+  /** Propagation: how much of source signal passes through (0-1) */
+  influenceWeight?: number;
+  /** Propagation: expected lag in days */
+  lagDays?: number;
+  /** Propagation: +1 same direction, -1 inverse (e.g. substitute) */
+  propagationDirection?: 1 | -1;
 }
 
 // ─── Market Data Ingestion ────────────────────────────────────────────────────
@@ -412,4 +419,37 @@ export interface SpreadStatistics {
   cointPValue?: number;
   rawSpreadMean?: number;   // raw price spread mean (leg1 - leg2)
   rawSpreadStdDev?: number; // raw price spread std dev
+}
+
+// ─── Sector Intelligence Layer ──────────────────────────────────────────────
+
+export type Timeframe = "monthly" | "weekly" | "daily";
+export type FactorDirection = 1 | 0 | -1;
+
+export interface FactorResult {
+  name: string;
+  direction: FactorDirection;
+  strength: number;        // 0-1
+  dataQuality: number;     // 0-1, 0 when data unavailable
+  timeframe: Timeframe;
+  description: string;
+}
+
+export interface ConvictionScore {
+  overallDirection: FactorDirection;
+  score: number;           // 0-1
+  supportingFactors: FactorResult[];
+  opposingFactors: FactorResult[];
+  dataGaps: string[];
+}
+
+export interface SectorAssessment {
+  sectorId: AlertCategory;
+  symbol: string;
+  conviction: ConvictionScore;
+  costFloor?: number;
+  productionMargin?: number;
+  inventoryDeviation?: number;
+  seasonalFactor?: number;
+  computedAt: string;
 }
